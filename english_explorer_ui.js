@@ -100,7 +100,7 @@ EE.chooseTopic=function(){
   levelSel.onchange=()=>{EE.player.level=levelSel.value;EE.saveProfile();EE.chooseTopic();};
   w.append(levelSel,document.createElement("hr"));
   [["Grammar","grammar_"+EE.player.level],["Vocabulary","vocabulary_"+EE.player.level],
-   ["Spelling","spelling"],["Punctuation","punctuation"],["Cloze","cloze"],["Sentence","sentence"],["Mixed","mixed"]]
+   ["Spelling","spelling"],["Punctuation","punctuation"],["Preposition","preposition"],["Sentence","sentence"],["Mixed","mixed"]]
   .forEach(t=>{const b=EE.makeEl("button","ee-btn",t[0]);b.onclick=()=>EE.startQuiz(t[1],t[0]);w.appendChild(b);});
   const back=EE.makeEl("button","ee-btn","⬅ Back");back.onclick=EE.showMainMenu;w.appendChild(back);
   document.body.appendChild(w);
