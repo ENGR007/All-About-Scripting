@@ -106,44 +106,89 @@ EE.chooseTopic=function(){
   document.body.appendChild(w);
 };
 
-// ---------- Quiz ----------
-EE.startQuiz=function(poolName,label){
-  const pool=(questionBankPart1[poolName]||questionBankPart2[poolName]||[]);
-  const qset=pool.sort(()=>0.5-Math.random()).slice(0,10);
-  let i=0,score=0,wrong=[];
+// ---------- Quiz (with manual next/prev and cleaner button colors) ----------
+EE.startQuiz = function (poolName, label) {
+  const pool = (questionBankPart1[poolName] || questionBankPart2[poolName] || []);
+  const qset = pool.sort(() => 0.5 - Math.random()).slice(0, 10);
+  let i = 0, score = 0, answers = new Array(qset.length).fill(null);
+
   EE.clearScreen();
-  const box=EE.makeEl("div");
-  Object.assign(box.style,{maxWidth:"700px",margin:"30px auto",padding:"20px",
-    background:EE.theme.cardBg,borderRadius:"16px",boxShadow:"0 0 15px rgba(0,0,0,0.05)",
-    minHeight:"50vh",display:"flex",flexDirection:"column",justifyContent:"center"});
+  const box = EE.makeEl("div", "ee-quiz");
+  Object.assign(box.style, {
+    maxWidth: "700px", margin: "30px auto", padding: "20px",
+    background: EE.theme.cardBg, borderRadius: "16px",
+    boxShadow: "0 0 15px rgba(0,0,0,0.05)",
+    minHeight: "50vh", display: "flex", flexDirection: "column", justifyContent: "center"
+  });
   document.body.appendChild(box);
-  const qEl=EE.makeEl("h3","ee-q"),opts=EE.makeEl("div"),prog=EE.makeEl("p");
-  const speak=EE.makeEl("button","ee-btnsmall","🔊 Read Aloud");
-  speak.onclick=()=>EE.toggleSpeech(speak,qEl.textContent);
-  box.append(qEl,speak,opts,prog);
 
-  function showQ(){
-    const q=qset[i];
-    qEl.textContent=`Q${i+1}. ${q.q}`;
-    opts.innerHTML="";
-    q.opts.forEach(o=>{const b=EE.makeEl("button","ee-optbtn",o);b.onclick=()=>check(o);opts.appendChild(b);});
-    prog.textContent=`${i+1}/${qset.length}`;
+  const qEl = EE.makeEl("h3", "ee-q");
+  const opts = EE.makeEl("div");
+  const nav = EE.makeEl("div"); // navigation buttons
+  const prog = EE.makeEl("p");
+  const speak = EE.makeEl("button", "ee-btnsmall", "🔊 Read Aloud");
+  speak.onclick = () => EE.toggleSpeech(speak, qEl.textContent);
+  box.append(qEl, speak, opts, nav, prog);
+
+  const btnPrev = EE.makeEl("button", "ee-btn", "⬅ Prev");
+  const btnNext = EE.makeEl("button", "ee-btn", "Next ➜");
+  nav.append(btnPrev, btnNext);
+  Object.assign(nav.style, { display: "flex", justifyContent: "space-between" });
+
+  function render() {
+    const q = qset[i];
+    qEl.textContent = `Q${i + 1}. ${q.q}`;
+    opts.innerHTML = "";
+    q.opts.forEach(o => {
+      const b = EE.makeEl("button", "ee-optbtn", o);
+      b.style.background = (answers[i] === o) ? EE.theme.hoverBtn : EE.theme.cardBg;
+      b.style.color = (answers[i] === o) ? "#000" : "#000";
+      b.onclick = () => select(o, b);
+      opts.appendChild(b);
+    });
+    prog.textContent = `${i + 1}/${qset.length}`;
+    btnPrev.disabled = (i === 0);
+    btnNext.textContent = (i === qset.length - 1) ? "Finish" : "Next ➜";
   }
-  function check(c){const q=qset[i];if(c===q.ans)score++;else wrong.push({...q,your:c});i++;i<qset.length?showQ():finish();}
-  function finish(){
-    EE.player.totalAttempts++;
-    const pct=Math.round(score/qset.length*100);
-    if(pct>EE.player.bestScore)EE.player.bestScore=pct;
-    EE.adjustLevel(pct);EE.saveProfile();
-    box.innerHTML=`<h2 style="color:${EE.theme.mainBtn}">${EE.motivate(pct)}</h2>
-      <p>You scored <b>${score}</b> / ${qset.length} → ${pct}%</p><p>Level now: <b>${EE.player.level}</b></p>`;
-    const rev=EE.makeEl("button","ee-btn","📋 Show Answers");rev.onclick=()=>EE.showReview(qset,wrong);
-    const back=EE.makeEl("button","ee-btn","⬅ Back to Menu");back.onclick=EE.showMainMenu;
-    box.append(rev,back);
+
+  function select(choice, btn) {
+    answers[i] = choice;
+    // reset all buttons to white
+    Array.from(opts.children).forEach(b => { b.style.background = EE.theme.cardBg; });
+    // highlight selected
+    btn.style.background = EE.theme.hoverBtn;
+    btn.style.color = "#000";
   }
-  showQ();
+
+  btnPrev.onclick = () => { if (i > 0) { i--; render(); } };
+  btnNext.onclick = () => {
+    if (i < qset.length - 1) i++;
+    else finish();
+    render();
+  };
+
+  function finish() {
+    score = 0;
+    const wrong = [];
+    qset.forEach((q, idx) => {
+      if (answers[idx] === q.ans) score++;
+      else wrong.push({ ...q, your: answers[idx] || "(no answer)" });
+    });
+    const pct = Math.round(score / qset.length * 100);
+    if (pct > EE.player.bestScore) EE.player.bestScore = pct;
+    EE.adjustLevel(pct); EE.saveProfile();
+    box.innerHTML = `<h2 style="color:${EE.theme.mainBtn}">${EE.motivate(pct)}</h2>
+      <p>You scored <b>${score}</b> / ${qset.length} → ${pct}%</p>
+      <p>Level now: <b>${EE.player.level}</b></p>`;
+    const review = EE.makeEl("button", "ee-btn", "📋 Show Answers");
+    review.onclick = () => EE.showReview(qset, wrong);
+    const back = EE.makeEl("button", "ee-btn", "⬅ Back to Menu");
+    back.onclick = EE.showMainMenu;
+    box.append(review, back);
+  }
+
+  render();
 };
-
 // ---------- Review ----------
 EE.showReview=function(qset,wrong){
   EE.clearScreen();
