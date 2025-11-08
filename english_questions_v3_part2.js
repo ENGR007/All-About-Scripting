@@ -2,7 +2,7 @@
 ---------------------------------------------------------
  English Explorer – v3 Dataset
  Part 2 (Block 1 of 3)
- Sections:  Spelling  |  Punctuation  |  Cloze
+ Sections:  Spelling  |  Punctuation  |  Preposition
 ---------------------------------------------------------
 */
 const questionBankPart2 = {
@@ -53,7 +53,7 @@ const questionBankPart2 = {
     { q:"Choose the correct punctuation for excitement:", opts:["Wow.","Wow!","Wow"], ans:"Wow!" }
   ],
 
-  cloze: [
+  preposition: [
     { q:"The boy put the toys _____ the box.", opts:["in","on","at"], ans:"in" },
     { q:"We walked _____ the park yesterday.", opts:["through","to","on"], ans:"through" },
     { q:"She looked _____ her missing pen.", opts:["for","at","to"], ans:"for" },
@@ -523,7 +523,7 @@ examLabels.forEach(label=>{
   const core = []
     .concat(shuffle(questionBankPart2.spelling).slice(0,3))
     .concat(shuffle(questionBankPart2.punctuation).slice(0,3))
-    .concat(shuffle(questionBankPart2.cloze).slice(0,4))
+    .concat(shuffle(questionBankPart2.preposition).slice(0,4))
     .concat(shuffle(questionBankPart2.sentence).slice(0,3))
     .concat(shuffle(questionBankPart2.mixed).slice(0,12));
   questionBankPart2.exams[label] = shuffle(core.concat(rc)).slice(0,30);
