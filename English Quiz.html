@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>English Explorer Quiz</title>
+<style>
+  body {
+    font-family: "Comic Sans MS", sans-serif;
+    background: #f7f9fc;
+    color: #333;
+    margin: 0;
+    padding: 0;
+  }
+  .container {
+    width: 90%;
+    max-width: 800px;
+    margin: 30px auto;
+    background: #fff;
+    padding: 25px;
+    border-radius: 12px;
+    box-shadow: 0 0 10px rgba(0,0,0,0.1);
+  }
+  h1 { text-align: center; color: #0077cc; }
+  select, button, input[type="text"] {
+    padding: 6px; margin: 5px 0;
+    border-radius: 6px; border: 1px solid #ccc;
+  }
+  button {
+    background: #0077cc; color: white;
+    border: none; padding: 10px 18px;
+    border-radius: 6px; cursor: pointer;
+  }
+  button:hover { background: #005fa3; }
+  .question { margin: 15px 0; }
+  .result { text-align: center; font-weight: bold; margin-top: 20px; font-size: 18px; }
+  .hidden { display: none; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>🌈 English Explorer Quiz 🌈</h1>
+
+  <div id="setup">
+    <p>Select Topic:</p>
+    <select id="topicSelect">
+      <option value="">--Choose a Topic--</option>
+      <option value="grammar">Grammar</option>
+      <option value="vocabulary">Vocabulary</option>
+      <option value="spelling">Spelling</option>
+      <option value="punctuation">Punctuation</option>
+      <option value="comprehension">Comprehension</option>
+      <option value="sentence">Sentence Construction</option>
+      <option value="pronouns">Pronouns & Articles</option>
+      <option value="adjectives">Adjectives & Adverbs</option>
+      <option value="writing">Writing Skills</option>
+      <option value="mixed">Mixed Review</option>
+    </select>
+
+    <p>Select Level:</p>
+    <select id="levelSelect">
+      <option value="">--Choose Level--</option>
+      <option value="easy">Easy</option>
+      <option value="average">Average</option>
+      <option value="difficult">Difficult</option>
+    </select>
+
+    <button onclick="startQuiz()">Start Quiz</button>
+  </div>
+
+  <form id="quizForm" class="hidden"></form>
+  <div class="result" id="result"></div>
+</div>
+
+<script>
+const questions = {
+  grammar: {
+    easy: [
+      { q: "She _____ to school every day.", opts:["go","goes","going"], ans:"goes" },
+      { q: "I _____ a pencil.", opts:["have","has","having"], ans:"have" }
+    ],
+    average: [
+      { q: "They _____ playing football now.", opts:["is","are","was"], ans:"are" },
+      { q: "He didn’t _____ his homework.", opts:["do","does","did"], ans:"do" }
+    ],
+    difficult: [
+      { q: "If I _____ time, I would help you.", opts:["have","had","has"], ans:"had" },
+      { q: "She speaks as if she _____ everything.", opts:["know","knew","knows"], ans:"knew" }
+    ]
+  },
+  vocabulary: {
+    easy: [
+      { q:"Opposite of ‘big’?", opts:["small","huge","tall"], ans:"small" },
+      { q:"Which word means ‘happy’?", opts:["sad","joyful","angry"], ans:"joyful" }
+    ],
+    average: [
+      { q:"Choose the synonym of ‘fast’.", opts:["quick","slow","lazy"], ans:"quick" },
+      { q:"Which means ‘beautiful’? ", opts:["ugly","pretty","dirty"], ans:"pretty" }
+    ],
+    difficult: [
+      { q:"Select the antonym of ‘generous’.", opts:["kind","selfish","humble"], ans:"selfish" },
+      { q:"Which word is similar to ‘intelligent’? ", opts:["clever","silly","dull"], ans:"clever" }
+    ]
+  },
+  spelling: {
+    easy: [
+      { q:"Correct spelling:", opts:["beutiful","beautiful","beautifull"], ans:"beautiful" },
+      { q:"Correct spelling:", opts:["tomorrow","tommorow","tomorow"], ans:"tomorrow" }
+    ],
+    average: [
+      { q:"Correct spelling:", opts:["environment","enviroment","environmant"], ans:"environment" },
+      { q:"Correct spelling:", opts:["separate","seperate","separrate"], ans:"separate" }
+    ],
+    difficult: [
+      { q:"Correct spelling:", opts:["accommodation","accomodation","acommodation"], ans:"accommodation" },
+      { q:"Correct spelling:", opts:["occurrence","occurence","occurance"], ans:"occurrence" }
+    ]
+  },
+  punctuation: {
+    easy: [
+      { q:"Which needs a capital letter? ‘the sun is bright.’", opts:["the","sun","bright"], ans:"the" },
+      { q:"Add the correct end mark: ‘What is your name__’", opts:[".","!","?"], ans:"?" }
+    ],
+    average: [
+      { q:"Choose correctly punctuated: ", opts:["My bag, is red.","My bag is red.","My, bag is red."], ans:"My bag is red." },
+      { q:"Which is correct: ", opts:["Yes, I agree.","Yes I agree."], ans:"Yes, I agree." }
+    ],
+    difficult: [
+      { q:"Which is correctly punctuated? ", opts:["However I will go.","However, I will go."], ans:"However, I will go." },
+      { q:"Select correct: ", opts:["It's raining, isn't it?","Its raining, isnt it?"], ans:"It's raining, isn't it?" }
+    ]
+  },
+  comprehension: {
+    easy: [
+      { q:"‘Tom has a cat. It is black.’ What color is the cat?", opts:["white","black","brown"], ans:"black" }
+    ],
+    average: [
+      { q:"‘Mary likes apples and bananas.’ What does Mary like?", opts:["apples and bananas","apples","grapes"], ans:"apples and bananas" }
+    ],
+    difficult: [
+      { q:"‘Sam went to the market because he needed vegetables.’ Why did Sam go?", opts:["to play","to buy vegetables","to sleep"], ans:"to buy vegetables" }
+    ]
+  },
+  sentence: {
+    easy: [
+      { q:"Rearrange: ‘is / sky / blue / the’", opts:["The blue sky is.","The sky is blue.","Sky is blue the."], ans:"The sky is blue." }
+    ],
+    average: [
+      { q:"Rearrange: ‘playing / the / are / children’", opts:["The children are playing.","Children are the playing."], ans:"The children are playing." }
+    ],
+    difficult: [
+      { q:"Rearrange: ‘book / reading / the / was / she’", opts:["She was reading the book.","She reading was book the."], ans:"She was reading the book." }
+    ]
+  },
+  pronouns: {
+    easy: [
+      { q:"_____ is my mother.", opts:["She","Her","He"], ans:"She" }
+    ],
+    average: [
+      { q:"I gave the book to _____.", opts:["he","him","his"], ans:"him" }
+    ],
+    difficult: [
+      { q:"Everyone should bring _____ own lunch.", opts:["their","his or her","they"], ans:"his or her" }
+    ]
+  },
+  adjectives: {
+    easy: [
+      { q:"The flower smells _____.", opts:["sweet","sweetly","sweetness"], ans:"sweet" }
+    ],
+    average: [
+      { q:"Choose adjective: ‘The tall building’", opts:["tall","building","the"], ans:"tall" }
+    ],
+    difficult: [
+      { q:"The exam was _____ than I expected.", opts:["harder","more hard","hardest"], ans:"harder" }
+    ]
+  },
+  writing: {
+    easy: [
+      { q:"Choose better sentence:", opts:["Me am happy.","I am happy."], ans:"I am happy." }
+    ],
+    average: [
+      { q:"Choose correct:", opts:["He has went to school.","He has gone to school."], ans:"He has gone to school." }
+    ],
+    difficult: [
+      { q:"Select better expression:", opts:["I look forward to see you.","I look forward to seeing you."], ans:"I look forward to seeing you." }
+    ]
+  },
+  mixed: {
+    easy: [
+      { q:"Opposite of cold?", opts:["hot","warm","freezing"], ans:"hot" }
+    ],
+    average: [
+      { q:"She _____ breakfast every morning.", opts:["eat","eats","eating"], ans:"eats" }
+    ],
+    difficult: [
+      { q:"Which is correct?", opts:["Neither of them are here.","Neither of them is here."], ans:"Neither of them is here." }
+    ]
+  }
+};
+
+// ---- Quiz Engine ----
+function startQuiz() {
+  const topic = document.getElementById('topicSelect').value;
+  const level = document.getElementById('levelSelect').value;
+  const form = document.getElementById('quizForm');
+  const setup = document.getElementById('setup');
+  const result = document.getElementById('result');
+  result.innerHTML = '';
+
+  if (!topic || !level) {
+    alert("Please select both topic and level!");
+    return;
+  }
+
+  setup.classList.add('hidden');
+  form.classList.remove('hidden');
+  form.innerHTML = '';
+
+  const qset = questions[topic][level];
+  qset.forEach((q, i) => {
+    const div = document.createElement('div');
+    div.className = 'question';
+    div.innerHTML = `<p>${i+1}. ${q.q}</p>` +
+      q.opts.map(opt => 
+        `<label><input type="radio" name="q${i}" value="${opt}"> ${opt}</label><br>`
+      ).join('');
+    form.appendChild(div);
+  });
+
+  const btn = document.createElement('button');
+  btn.type = "button";
+  btn.textContent = "Submit Answers";
+  btn.onclick = () => checkAnswers(qset);
+  form.appendChild(btn);
+}
+
+function checkAnswers(qset) {
+  const form = document.getElementById('quizForm');
+  let score = 0;
+  qset.forEach((q, i) => {
+    const selected = form.querySelector(`input[name="q${i}"]:checked`);
+    if (selected && selected.value === q.ans) score++;
+  });
+  document.getElementById('result').innerHTML = 
+    `✅ You scored ${score}/${qset.length}! ` +
+    (score === qset.length ? "Perfect!" :
+     score >= qset.length*0.7 ? "Great job!" :
+     score >= qset.length*0.4 ? "Good try!" : "Keep practicing!");
+}
+</script>
+</body>
+</html>
