@@ -1,11 +1,11 @@
 /*
 ---------------------------------------------------------
- English Explorer v3.3 – Full Working UI / Engine
- (Math Tinik Theme + Voice Toggle + Exam/Reading Fix)
+ English Explorer v3.4 – Final Unified UI / Engine
+ (Math Tinik Theme + Voice Toggle + Manual Nav All Modes)
 ---------------------------------------------------------
 */
 const EE = {
-  version:"3.3",
+  version:"3.4",
   player:{name:"",level:"easy",bestScore:0,totalAttempts:0,lastTopic:"grammar_easy"},
   theme:{
     bgGradient:"linear-gradient(180deg,#a8d8ea 0%,#c7f9cc 60%,#fef9d9 100%)",
@@ -106,89 +106,66 @@ EE.chooseTopic=function(){
   document.body.appendChild(w);
 };
 
-// ---------- Quiz (with manual next/prev and cleaner button colors) ----------
-EE.startQuiz = function (poolName, label) {
-  const pool = (questionBankPart1[poolName] || questionBankPart2[poolName] || []);
-  const qset = pool.sort(() => 0.5 - Math.random()).slice(0, 10);
-  let i = 0, score = 0, answers = new Array(qset.length).fill(null);
-
-  EE.clearScreen();
-  const box = EE.makeEl("div", "ee-quiz");
-  Object.assign(box.style, {
-    maxWidth: "700px", margin: "30px auto", padding: "20px",
-    background: EE.theme.cardBg, borderRadius: "16px",
-    boxShadow: "0 0 15px rgba(0,0,0,0.05)",
-    minHeight: "50vh", display: "flex", flexDirection: "column", justifyContent: "center"
-  });
-  document.body.appendChild(box);
-
-  const qEl = EE.makeEl("h3", "ee-q");
-  const opts = EE.makeEl("div");
-  const nav = EE.makeEl("div"); // navigation buttons
-  const prog = EE.makeEl("p");
-  const speak = EE.makeEl("button", "ee-btnsmall", "🔊 Read Aloud");
-  speak.onclick = () => EE.toggleSpeech(speak, qEl.textContent);
-  box.append(qEl, speak, opts, nav, prog);
-
-  const btnPrev = EE.makeEl("button", "ee-btn", "⬅ Prev");
-  const btnNext = EE.makeEl("button", "ee-btn", "Next ➜");
-  nav.append(btnPrev, btnNext);
-  Object.assign(nav.style, { display: "flex", justifyContent: "space-between" });
-
-  function render() {
-    const q = qset[i];
-    qEl.textContent = `Q${i + 1}. ${q.q}`;
-    opts.innerHTML = "";
-    q.opts.forEach(o => {
-      const b = EE.makeEl("button", "ee-optbtn", o);
-      b.style.background = (answers[i] === o) ? EE.theme.hoverBtn : EE.theme.cardBg;
-      b.style.color = (answers[i] === o) ? "#000" : "#000";
-      b.onclick = () => select(o, b);
+// ---------- Core quiz renderer shared ----------
+EE.renderQuiz=function(container,qset,callback){
+  let i=0,answers=new Array(qset.length).fill(null);
+  const qEl=EE.makeEl("h3","ee-q"),opts=EE.makeEl("div"),nav=EE.makeEl("div"),prog=EE.makeEl("p");
+  const speak=EE.makeEl("button","ee-btnsmall","🔊 Read Aloud");
+  speak.onclick=()=>EE.toggleSpeech(speak,qEl.textContent);
+  container.append(qEl,speak,opts,nav,prog);
+  const btnPrev=EE.makeEl("button","ee-btn","⬅ Prev"),btnNext=EE.makeEl("button","ee-btn","Next ➜");
+  nav.append(btnPrev,btnNext);
+  Object.assign(nav.style,{display:"flex",justifyContent:"space-between"});
+  function render(){
+    const q=qset[i];
+    qEl.textContent=`Q${i+1}. ${q.q}`;
+    opts.innerHTML="";
+    q.opts.forEach(o=>{
+      const b=EE.makeEl("button","ee-optbtn",o);
+      b.style.background=(answers[i]===o)?EE.theme.hoverBtn:EE.theme.cardBg;
+      b.onclick=()=>select(o,b);
       opts.appendChild(b);
     });
-    prog.textContent = `${i + 1}/${qset.length}`;
-    btnPrev.disabled = (i === 0);
-    btnNext.textContent = (i === qset.length - 1) ? "Finish" : "Next ➜";
+    prog.textContent=`${i+1}/${qset.length}`;
+    btnPrev.disabled=(i===0);
+    btnNext.textContent=(i===qset.length-1)?"Finish":"Next ➜";
   }
-
-  function select(choice, btn) {
-    answers[i] = choice;
-    // reset all buttons to white
-    Array.from(opts.children).forEach(b => { b.style.background = EE.theme.cardBg; });
-    // highlight selected
-    btn.style.background = EE.theme.hoverBtn;
-    btn.style.color = "#000";
+  function select(ans,btn){
+    answers[i]=ans;
+    Array.from(opts.children).forEach(b=>b.style.background=EE.theme.cardBg);
+    btn.style.background=EE.theme.hoverBtn;
   }
-
-  btnPrev.onclick = () => { if (i > 0) { i--; render(); } };
-  btnNext.onclick = () => {
-    if (i < qset.length - 1) i++;
-    else finish();
-    render();
-  };
-
-  function finish() {
-    score = 0;
-    const wrong = [];
-    qset.forEach((q, idx) => {
-      if (answers[idx] === q.ans) score++;
-      else wrong.push({ ...q, your: answers[idx] || "(no answer)" });
-    });
-    const pct = Math.round(score / qset.length * 100);
-    if (pct > EE.player.bestScore) EE.player.bestScore = pct;
-    EE.adjustLevel(pct); EE.saveProfile();
-    box.innerHTML = `<h2 style="color:${EE.theme.mainBtn}">${EE.motivate(pct)}</h2>
-      <p>You scored <b>${score}</b> / ${qset.length} → ${pct}%</p>
-      <p>Level now: <b>${EE.player.level}</b></p>`;
-    const review = EE.makeEl("button", "ee-btn", "📋 Show Answers");
-    review.onclick = () => EE.showReview(qset, wrong);
-    const back = EE.makeEl("button", "ee-btn", "⬅ Back to Menu");
-    back.onclick = EE.showMainMenu;
-    box.append(review, back);
+  btnPrev.onclick=()=>{if(i>0)i--;render();};
+  btnNext.onclick=()=>{if(i<qset.length-1)i++;else finish();render();};
+  function finish(){
+    let score=0,wrong=[];
+    qset.forEach((q,idx)=>{if(answers[idx]===q.ans)score++;else wrong.push({...q,your:answers[idx]||"(no answer)"});});
+    callback(score,qset,wrong);
   }
-
   render();
 };
+
+// ---------- Practice ----------
+EE.startQuiz=function(poolName,label){
+  const pool=(questionBankPart1[poolName]||questionBankPart2[poolName]||[]);
+  const qset=pool.sort(()=>0.5-Math.random()).slice(0,10);
+  EE.clearScreen();
+  const box=EE.makeEl("div","ee-quiz");
+  Object.assign(box.style,{maxWidth:"700px",margin:"30px auto",padding:"20px",background:EE.theme.cardBg,
+    borderRadius:"16px",boxShadow:"0 0 15px rgba(0,0,0,0.05)",minHeight:"50vh"});
+  document.body.appendChild(box);
+  EE.renderQuiz(box,qset,(score,qset,wrong)=>{
+    const pct=Math.round(score/qset.length*100);
+    EE.player.totalAttempts++;if(pct>EE.player.bestScore)EE.player.bestScore=pct;
+    EE.adjustLevel(pct);EE.saveProfile();
+    box.innerHTML=`<h2 style="color:${EE.theme.mainBtn}">${EE.motivate(pct)}</h2>
+      <p>You scored <b>${score}</b> / ${qset.length} → ${pct}%</p><p>Level now: <b>${EE.player.level}</b></p>`;
+    const rev=EE.makeEl("button","ee-btn","📋 Show Answers");rev.onclick=()=>EE.showReview(qset,wrong);
+    const back=EE.makeEl("button","ee-btn","⬅ Back to Menu");back.onclick=EE.showMainMenu;
+    box.append(rev,back);
+  });
+};
+
 // ---------- Review ----------
 EE.showReview=function(qset,wrong){
   EE.clearScreen();
@@ -197,16 +174,14 @@ EE.showReview=function(qset,wrong){
     background:EE.theme.cardBg,borderRadius:"16px",boxShadow:"0 0 15px rgba(0,0,0,0.05)"});
   const t=EE.makeEl("table");
   t.style.width="100%";
-  t.innerHTML=`<tr style="background:${EE.theme.mainBtn};color:#fff">
-  <th>Question</th><th>Your Answer</th><th>Correct Answer</th><th>Result</th></tr>`;
+  t.innerHTML=`<tr style="background:${EE.theme.mainBtn};color:#fff"><th>Question</th><th>Your Answer</th><th>Correct</th><th>Result</th></tr>`;
   qset.forEach(q=>{
     const w=wrong.find(x=>x.q===q.q);const ok=!w;
     const tr=document.createElement("tr");
     tr.innerHTML=`<td>${q.q}</td><td>${w?w.your:q.ans}</td><td>${q.ans}</td>
     <td style="color:${ok?'green':'red'}">${ok?'✅':'❌'}</td>`;t.appendChild(tr);
   });
-  const b=EE.makeEl("button","ee-btn","⬅ Back");b.onclick=EE.showMainMenu;
-  d.append(t,b);document.body.appendChild(d);
+  const b=EE.makeEl("button","ee-btn","⬅ Back");b.onclick=EE.showMainMenu;d.append(t,b);document.body.appendChild(d);
 };
 
 // ---------- Reading ----------
@@ -219,58 +194,47 @@ EE.startReading=function(){
   const s=stories[Math.floor(Math.random()*stories.length)];
   w.innerHTML=`<h2 style="color:${EE.theme.mainBtn}">${s.title}</h2>
   <p style="white-space:pre-line;text-align:justify">${s.passage}</p>`;
-  const speak=EE.makeEl("button","ee-btnsmall","🔊 Read Aloud");
-  speak.onclick=()=>EE.toggleSpeech(speak,s.passage);
-  const go=EE.makeEl("button","ee-btn","Start Questions ➜");
-  go.onclick=()=>EE.runStoryQuestions(s);
+  const speak=EE.makeEl("button","ee-btnsmall","🔊 Read Aloud");speak.onclick=()=>EE.toggleSpeech(speak,s.passage);
+  const go=EE.makeEl("button","ee-btn","Start Questions ➜");go.onclick=()=>EE.runStoryQuestions(s);
   w.append(speak,go);document.body.appendChild(w);
 };
 
-// ---------- Story Questions ----------
+// ---------- Story Questions (manual navigation) ----------
 EE.runStoryQuestions=function(s){
   EE.clearScreen();
-  const qset=s.questions;let i=0,score=0;
   const c=EE.makeEl("div","ee-readquiz");
   Object.assign(c.style,{maxWidth:"700px",margin:"20px auto",padding:"20px",
-    background:EE.theme.cardBg,borderRadius:"16px",boxShadow:"0 0 15px rgba(0,0,0,0.05)",
-    minHeight:"50vh",display:"flex",flexDirection:"column",justifyContent:"center"});
-  const qEl=EE.makeEl("h3"),opts=EE.makeEl("div");c.append(qEl,opts);
-  function showQ(){const q=qset[i];qEl.textContent=`Q${i+1}. ${q.q}`;opts.innerHTML="";
-    q.opts.forEach(o=>{const b=EE.makeEl("button","ee-optbtn",o);b.onclick=()=>check(o);opts.appendChild(b);});}
-  function check(a){if(a===qset[i].ans)score++;i++;i<qset.length?showQ():done();}
-  function done(){const p=Math.round(score/qset.length*100);
-    c.innerHTML=`<h2 style="color:${EE.theme.mainBtn}">${EE.motivate(p)}</h2>
-      <p>You scored ${score}/${qset.length} → ${p}%</p>`;
+    background:EE.theme.cardBg,borderRadius:"16px",boxShadow:"0 0 15px rgba(0,0,0,0.05)",minHeight:"50vh"});
+  document.body.appendChild(c);
+  EE.renderQuiz(c,s.questions,(score,qset,wrong)=>{
+    const pct=Math.round(score/qset.length*100);
+    c.innerHTML=`<h2 style="color:${EE.theme.mainBtn}">${EE.motivate(pct)}</h2>
+      <p>You scored ${score}/${qset.length} → ${pct}%</p>`;
     const b=EE.makeEl("button","ee-btn","⬅ Back");b.onclick=EE.showMainMenu;c.appendChild(b);
-    EE.adjustLevel(p);EE.saveProfile();}
-  showQ();document.body.appendChild(c);
+    EE.adjustLevel(pct);EE.saveProfile();
+  });
 };
 
-// ---------- Exam Mode ----------
+// ---------- Exam Mode (manual navigation) ----------
 EE.startExam=function(){
   const labels=Object.keys(questionBankPart2.exams);
   const label=labels[Math.floor(Math.random()*labels.length)];
   EE.startQuizExam(questionBankPart2.exams[label],label);
 };
 EE.startQuizExam=function(pool,label){
-  let i=0,score=0;
   EE.clearScreen();
   const c=EE.makeEl("div","ee-exam");
   Object.assign(c.style,{maxWidth:"700px",margin:"20px auto",padding:"20px",
-    background:EE.theme.cardBg,borderRadius:"16px",boxShadow:"0 0 15px rgba(0,0,0,0.05)",
-    minHeight:"50vh",display:"flex",flexDirection:"column",justifyContent:"center"});
-  const t=EE.makeEl("h2","",`Exam: ${label}`),qEl=EE.makeEl("h3"),opts=EE.makeEl("div"),p=EE.makeEl("p");
-  c.append(t,qEl,opts,p);
-  function showQ(){const q=pool[i];qEl.textContent=`Q${i+1}. ${q.q}`;opts.innerHTML="";
-    q.opts.forEach(o=>{const b=EE.makeEl("button","ee-optbtn",o);b.onclick=()=>check(o);opts.appendChild(b);});
-    p.textContent=`${i+1}/${pool.length}`;}
-  function check(a){if(a===pool[i].ans)score++;i++;i<pool.length?showQ():finish();}
-  function finish(){const pct=Math.round(score/pool.length*100);
+    background:EE.theme.cardBg,borderRadius:"16px",boxShadow:"0 0 15px rgba(0,0,0,0.05)",minHeight:"50vh"});
+  const t=EE.makeEl("h2","",`Exam: ${label}`);c.appendChild(t);
+  document.body.appendChild(c);
+  EE.renderQuiz(c,pool,(score,qset,wrong)=>{
+    const pct=Math.round(score/qset.length*100);
     c.innerHTML=`<h2 style="color:${EE.theme.mainBtn}">${EE.motivate(pct)}</h2>
-      <p>Score: ${score}/${pool.length} → ${pct}%</p>`;
+      <p>Score: ${score}/${qset.length} → ${pct}%</p>`;
     const b=EE.makeEl("button","ee-btn","⬅ Back to Menu");b.onclick=EE.showMainMenu;c.appendChild(b);
-    EE.adjustLevel(pct);EE.saveProfile();}
-  showQ();document.body.appendChild(c);
+    EE.adjustLevel(pct);EE.saveProfile();
+  });
 };
 
 // ---------- CSS ----------
