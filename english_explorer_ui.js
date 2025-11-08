@@ -1,7 +1,7 @@
 /*
 ---------------------------------------------------------
- English Explorer v3 – UI / Engine (Math Tinik Theme)
- Version 3.2
+ English Explorer v3.2 – UI / Engine (Math Tinik Theme)
+ + Read Aloud Toggle Update
 ---------------------------------------------------------
 */
 
@@ -48,6 +48,29 @@ EE.clearScreen = function () {
   document.body.style.color = EE.theme.text;
   document.body.style.backgroundAttachment = "fixed";
   document.body.style.backgroundSize = "cover";
+};
+
+// ---------- Speech Toggle ----------
+EE.toggleSpeech = function (btn, text) {
+  const synth = window.speechSynthesis;
+  if (btn.dataset.playing === "true") {
+    synth.cancel();
+    btn.dataset.playing = "false";
+    btn.style.background = EE.theme.mainBtn;
+    btn.textContent = "🔊 Read Aloud";
+    return;
+  }
+  const u = new SpeechSynthesisUtterance(text);
+  u.onend = () => {
+    btn.dataset.playing = "false";
+    btn.style.background = EE.theme.mainBtn;
+    btn.textContent = "🔊 Read Aloud";
+  };
+  btn.dataset.playing = "true";
+  btn.style.background = EE.theme.hoverBtn;
+  btn.textContent = "⏸ Stop Reading";
+  synth.cancel();
+  synth.speak(u);
 };
 
 // ---------- Welcome ----------
@@ -193,8 +216,7 @@ EE.startQuiz = function (poolName, label) {
   const opts = EE.makeEl("div");
   const progress = EE.makeEl("p");
   const speak = EE.makeEl("button", "ee-btnsmall", "🔊 Read Aloud");
-  speak.onclick = () =>
-    window.speechSynthesis.speak(new SpeechSynthesisUtterance(qEl.textContent));
+  speak.onclick = () => EE.toggleSpeech(speak, qEl.textContent);
   box.append(qEl, speak, opts, progress);
 
   function showQ() {
@@ -262,7 +284,7 @@ EE.showReview = function (qset, wrong) {
   document.body.appendChild(div);
 };
 
-// ---------- Reading & Exam (same as before) ----------
+// ---------- Reading ----------
 EE.startReading = function () {
   EE.clearScreen();
   const wrap = EE.makeEl("div", "ee-read");
@@ -276,97 +298,11 @@ EE.startReading = function () {
   wrap.innerHTML = `<h2 style="color:${EE.theme.mainBtn}">${story.title}</h2>
     <p style="white-space:pre-line;text-align:justify">${story.passage}</p>`;
   const speak = EE.makeEl("button", "ee-btnsmall", "🔊 Read Aloud");
-  speak.onclick = () =>
-    window.speechSynthesis.speak(new SpeechSynthesisUtterance(story.passage));
+  speak.onclick = () => EE.toggleSpeech(speak, story.passage);
   const startQ = EE.makeEl("button", "ee-btn", "Start Questions ➜");
   startQ.onclick = () => EE.runStoryQuestions(story);
   wrap.append(speak, startQ);
   document.body.appendChild(wrap);
-};
-
-EE.runStoryQuestions = function (story) {
-  EE.clearScreen();
-  const qset = story.questions;
-  let i = 0, score = 0;
-  const cont = EE.makeEl("div", "ee-readquiz");
-  Object.assign(cont.style, {
-    maxWidth: "700px", margin: "20px auto", padding: "20px",
-    background: EE.theme.cardBg, borderRadius: "16px",
-    boxShadow: "0 0 15px rgba(0,0,0,0.05)"
-  });
-  const qEl = EE.makeEl("h3"), opts = EE.makeEl("div");
-  cont.append(qEl, opts);
-  function showQ() {
-    const q = qset[i];
-    qEl.textContent = `Q${i + 1}. ${q.q}`;
-    opts.innerHTML = "";
-    q.opts.forEach(o => {
-      const b = EE.makeEl("button", "ee-optbtn", o);
-      b.onclick = () => check(o);
-      opts.appendChild(b);
-    });
-  }
-  function check(choice) {
-    if (choice === qset[i].ans) score++;
-    i++;
-    i < qset.length ? showQ() : done();
-  }
-  function done() {
-    const pct = Math.round(score / qset.length * 100);
-    cont.innerHTML = `<h2 style="color:${EE.theme.mainBtn}">${EE.motivate(pct)}</h2>
-      <p>You scored ${score}/${qset.length} → ${pct}%</p>`;
-    const back = EE.makeEl("button", "ee-btn", "⬅ Back");
-    back.onclick = EE.showMainMenu;
-    cont.appendChild(back);
-    EE.adjustLevel(pct); EE.saveProfile();
-  }
-  showQ(); document.body.appendChild(cont);
-};
-
-EE.startExam = function () {
-  const labels = Object.keys(questionBankPart2.exams);
-  const label = labels[Math.floor(Math.random() * labels.length)];
-  EE.startQuizExam(questionBankPart2.exams[label], label);
-};
-
-EE.startQuizExam = function (pool, label) {
-  let i = 0, score = 0;
-  EE.clearScreen();
-  const cont = EE.makeEl("div", "ee-exam");
-  Object.assign(cont.style, {
-    maxWidth: "700px", margin: "20px auto", padding: "20px",
-    background: EE.theme.cardBg, borderRadius: "16px",
-    boxShadow: "0 0 15px rgba(0,0,0,0.05)"
-  });
-  const title = EE.makeEl("h2", "", `Exam: ${label}`);
-  const qEl = EE.makeEl("h3"), opts = EE.makeEl("div"), prog = EE.makeEl("p");
-  cont.append(title, qEl, opts, prog);
-  function showQ() {
-    const q = pool[i];
-    qEl.textContent = `Q${i + 1}. ${q.q}`;
-    opts.innerHTML = "";
-    q.opts.forEach(o => {
-      const b = EE.makeEl("button", "ee-optbtn", o);
-      b.onclick = () => check(o);
-      opts.appendChild(b);
-    });
-    prog.textContent = `${i + 1}/${pool.length}`;
-  }
-  function check(choice) {
-    if (choice === pool[i].ans) score++;
-    i++;
-    i < pool.length ? showQ() : finish();
-  }
-  function finish() {
-    const pct = Math.round(score / pool.length * 100);
-    cont.innerHTML = `<h2 style="color:${EE.theme.mainBtn}">${EE.motivate(pct)}</h2>
-      <p>Score: ${score}/${pool.length} → ${pct}%</p>`;
-    const back = EE.makeEl("button", "ee-btn", "⬅ Back to Menu");
-    back.onclick = EE.showMainMenu;
-    cont.appendChild(back);
-    EE.adjustLevel(pct); EE.saveProfile();
-  }
-  showQ(); document.body.appendChild(cont);
 };
 
 // ---------- CSS ----------
@@ -396,13 +332,13 @@ body {
   width: 95%;
   margin: 12px auto;
   background: ${EE.theme.cardBg};
-  color: #000;                 /* changed to black */
+  color: #000;
   border: 2px solid ${EE.theme.mainBtn};
-  font-size: 20px;             /* bigger readable text */
+  font-size: 20px;
   padding: 16px 10px;
 }
 .ee-btnsmall {
-  background: ${EE.theme.accent2};
+  background: ${EE.theme.mainBtn};
   font-size: 16px;
   color: #fff;
 }
@@ -414,11 +350,11 @@ select.ee-level {
   border-radius: 10px;
 }
 h3.ee-q, h3 {
-  font-size: 22px;             /* larger question text */
+  font-size: 22px;
   line-height: 1.4em;
 }
 .ee-quiz, .ee-readquiz, .ee-exam {
-  min-height: 50vh;            /* about half the screen */
+  min-height: 50vh;
   display: flex;
   flex-direction: column;
   justify-content: center;
