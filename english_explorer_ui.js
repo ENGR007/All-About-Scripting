@@ -372,47 +372,66 @@ EE.startQuizExam = function (pool, label) {
 // ---------- CSS ----------
 const style = document.createElement("style");
 style.textContent = `
-.ee-btn,.ee-optbtn,.ee-btnsmall{
-  background:${EE.theme.mainBtn};
-  color:#fff;border:none;border-radius:12px;
-  padding:12px 22px;margin:8px;font-size:16px;
-  cursor:pointer;transition:all .15s;
-  box-shadow:0 2px 4px rgba(0,0,0,0.2);
+body {
+  overflow-y: auto;
 }
-.ee-btn:hover,.ee-optbtn:hover,.ee-btnsmall:hover{
-  background:${EE.theme.hoverBtn};transform:scale(1.05);
+.ee-btn, .ee-optbtn, .ee-btnsmall {
+  background: ${EE.theme.mainBtn};
+  color: #fff;
+  border: none;
+  border-radius: 14px;
+  padding: 14px 28px;
+  margin: 10px;
+  font-size: 18px;
+  cursor: pointer;
+  transition: all .15s;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.2);
 }
-.ee-optbtn{display:block;width:90%;margin:8px auto;
-  background:${EE.theme.cardBg};color:#
-  .ee-optbtn {
-  display:block;
-  width:90%;
-  margin:8px auto;
-  background:${EE.theme.cardBg};
-  color:#222;
-  border:2px solid ${EE.theme.mainBtn};
+.ee-btn:hover, .ee-optbtn:hover, .ee-btnsmall:hover {
+  background: ${EE.theme.hoverBtn};
+  transform: scale(1.05);
+}
+.ee-optbtn {
+  display: block;
+  width: 95%;
+  margin: 12px auto;
+  background: ${EE.theme.cardBg};
+  color: #000;                 /* changed to black */
+  border: 2px solid ${EE.theme.mainBtn};
+  font-size: 20px;             /* bigger readable text */
+  padding: 16px 10px;
 }
 .ee-btnsmall {
-  background:${EE.theme.accent2};
-  font-size:14px;
-  color:#fff;
+  background: ${EE.theme.accent2};
+  font-size: 16px;
+  color: #fff;
 }
 select.ee-level {
-  font-size:16px;
-  padding:8px 12px;
-  margin:10px;
-  border:2px solid ${EE.theme.mainBtn};
-  border-radius:8px;
+  font-size: 18px;
+  padding: 10px 14px;
+  margin: 10px;
+  border: 2px solid ${EE.theme.mainBtn};
+  border-radius: 10px;
+}
+h3.ee-q, h3 {
+  font-size: 22px;             /* larger question text */
+  line-height: 1.4em;
+}
+.ee-quiz, .ee-readquiz, .ee-exam {
+  min-height: 50vh;            /* about half the screen */
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 table {
-  border-collapse:collapse;
-  width:100%;
-  font-size:15px;
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 17px;
 }
-th,td {
-  padding:6px 8px;
-  border-bottom:1px solid #ddd;
-  text-align:left;
+th, td {
+  padding: 8px 10px;
+  border-bottom: 1px solid #ddd;
+  text-align: left;
 }
 `;
 document.head.appendChild(style);
