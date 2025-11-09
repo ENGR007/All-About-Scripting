@@ -1,11 +1,12 @@
 /*
 ---------------------------------------------------------
- English Explorer v3.4 – Final Unified UI / Engine
+ English Explorer v3.5 – Final UI / Engine
  (Math Tinik Theme + Voice Toggle + Manual Nav All Modes)
+ + Score history (button + table)
 ---------------------------------------------------------
 */
 const EE = {
-  version:"3.4",
+  version:"3.5",
   player:{name:"",level:"easy",bestScore:0,totalAttempts:0,lastTopic:"grammar_easy"},
   theme:{
     bgGradient:"linear-gradient(180deg,#a8d8ea 0%,#c7f9cc 60%,#fef9d9 100%)",
@@ -20,6 +21,15 @@ const EE = {
 // ---------- Storage ----------
 EE.saveProfile=()=>localStorage.setItem("EE_profile",JSON.stringify(EE.player));
 EE.loadProfile=()=>{const d=localStorage.getItem("EE_profile");if(d)try{EE.player=JSON.parse(d);}catch(e){}};
+
+// separate store for score history
+EE._loadScores=()=>{try{return JSON.parse(localStorage.getItem("EE_scores")||"[]");}catch(e){return[];}};
+EE._saveScores=(rows)=>localStorage.setItem("EE_scores",JSON.stringify(rows));
+EE.logScore=(topic,level,score,total)=>{
+  const rows=EE._loadScores();
+  rows.push({ts:new Date().toISOString(),topic,level,score:`${score}/${total}`});
+  EE._saveScores(rows);
+};
 
 // ---------- Helpers ----------
 EE.makeEl=(t,c,h)=>{const e=document.createElement(t);if(c)e.className=c;if(h!==undefined)e.innerHTML=h;return e;};
@@ -71,8 +81,13 @@ EE.showMainMenu=function(){
     background:EE.theme.cardBg,padding:"25px",borderRadius:"16px",boxShadow:"0 0 20px rgba(0,0,0,0.08)"});
   w.innerHTML=`<h2 style="color:${EE.theme.mainBtn}">Hi ${EE.player.name}! 👋</h2>
     <p>Best Score: ${EE.player.bestScore}%<br>Level: <b>${EE.player.level}</b><br>Attempts: ${EE.player.totalAttempts}</p>`;
-  [["🧠 Practice","EE.chooseTopic()"],["📖 Reading","EE.startReading()"],["🧩 Exam Mode","EE.startExam()"],["⚙️ Reset Progress","EE.resetProgress()"]]
-  .forEach(m=>{const b=EE.makeEl("button","ee-btn",m[0]);b.onclick=()=>eval(m[1]);w.appendChild(b);});
+  [
+    ["🧠 Practice","EE.chooseTopic()"],
+    ["📖 Reading","EE.startReading()"],
+    ["🧩 Exam Mode","EE.startExam()"],
+    ["📊 Score","EE.showScores()"],              // ← NEW BUTTON
+    ["⚙️ Reset Progress","EE.resetProgress()"]
+  ].forEach(m=>{const b=EE.makeEl("button","ee-btn",m[0]);b.onclick=()=>eval(m[1]);w.appendChild(b);});
   document.body.appendChild(w);
 };
 
@@ -154,13 +169,15 @@ EE.startQuiz=function(poolName,label){
   Object.assign(box.style,{maxWidth:"700px",margin:"30px auto",padding:"20px",background:EE.theme.cardBg,
     borderRadius:"16px",boxShadow:"0 0 15px rgba(0,0,0,0.05)",minHeight:"50vh"});
   document.body.appendChild(box);
-  EE.renderQuiz(box,qset,(score,qset,wrong)=>{
-    const pct=Math.round(score/qset.length*100);
+  EE.renderQuiz(box,qset,(score,full,wrong)=>{
+    const pct=Math.round(score/full.length*100);
     EE.player.totalAttempts++;if(pct>EE.player.bestScore)EE.player.bestScore=pct;
     EE.adjustLevel(pct);EE.saveProfile();
+    // log history
+    EE.logScore(label,EE.player.level,score,full.length);
     box.innerHTML=`<h2 style="color:${EE.theme.mainBtn}">${EE.motivate(pct)}</h2>
-      <p>You scored <b>${score}</b> / ${qset.length} → ${pct}%</p><p>Level now: <b>${EE.player.level}</b></p>`;
-    const rev=EE.makeEl("button","ee-btn","📋 Show Answers");rev.onclick=()=>EE.showReview(qset,wrong);
+      <p>You scored <b>${score}</b> / ${full.length} → ${pct}%</p><p>Level now: <b>${EE.player.level}</b></p>`;
+    const rev=EE.makeEl("button","ee-btn","📋 Show Answers");rev.onclick=()=>EE.showReview(full,wrong);
     const back=EE.makeEl("button","ee-btn","⬅ Back to Menu");back.onclick=EE.showMainMenu;
     box.append(rev,back);
   });
@@ -208,6 +225,7 @@ EE.runStoryQuestions=function(s){
   document.body.appendChild(c);
   EE.renderQuiz(c,s.questions,(score,qset,wrong)=>{
     const pct=Math.round(score/qset.length*100);
+    EE.logScore("Reading: "+s.title,EE.player.level,score,qset.length); // history
     c.innerHTML=`<h2 style="color:${EE.theme.mainBtn}">${EE.motivate(pct)}</h2>
       <p>You scored ${score}/${qset.length} → ${pct}%</p>`;
     const b=EE.makeEl("button","ee-btn","⬅ Back");b.onclick=EE.showMainMenu;c.appendChild(b);
@@ -230,11 +248,40 @@ EE.startQuizExam=function(pool,label){
   document.body.appendChild(c);
   EE.renderQuiz(c,pool,(score,qset,wrong)=>{
     const pct=Math.round(score/qset.length*100);
+    EE.logScore("Exam: "+label,EE.player.level,score,qset.length); // history
     c.innerHTML=`<h2 style="color:${EE.theme.mainBtn}">${EE.motivate(pct)}</h2>
       <p>Score: ${score}/${qset.length} → ${pct}%</p>`;
     const b=EE.makeEl("button","ee-btn","⬅ Back to Menu");b.onclick=EE.showMainMenu;c.appendChild(b);
     EE.adjustLevel(pct);EE.saveProfile();
   });
+};
+
+// ---------- Score History (NEW SCREEN) ----------
+EE.showScores=function(){
+  EE.clearScreen();
+  const wrap=EE.makeEl("div");
+  Object.assign(wrap.style,{maxWidth:"800px",margin:"30px auto",padding:"20px",
+    background:EE.theme.cardBg,borderRadius:"16px",boxShadow:"0 0 15px rgba(0,0,0,0.05)"});
+  const h=EE.makeEl("h2","",`📊 Score History`);
+  const t=EE.makeEl("table");
+  t.style.width="100%";
+  t.innerHTML=`<tr style="background:${EE.theme.mainBtn};color:#fff">
+    <th>Date & Time</th><th>Topic</th><th>Level</th><th>Score</th></tr>`;
+  const rows=EE._loadScores().slice().reverse(); // newest first
+  if(rows.length===0){
+    const p=EE.makeEl("p","",`No scores yet. Try a Practice, Reading, or Exam.`);
+    wrap.append(h,p);
+  }else{
+    rows.forEach(r=>{
+      const dt=new Date(r.ts);
+      const tr=document.createElement("tr");
+      tr.innerHTML=`<td>${dt.toLocaleString()}</td><td>${r.topic}</td><td>${r.level}</td><td>${r.score}</td>`;
+      t.appendChild(tr);
+    });
+    wrap.append(h,t);
+  }
+  const back=EE.makeEl("button","ee-btn","⬅ Back to Menu");back.onclick=EE.showMainMenu;wrap.appendChild(back);
+  document.body.appendChild(wrap);
 };
 
 // ---------- CSS ----------
