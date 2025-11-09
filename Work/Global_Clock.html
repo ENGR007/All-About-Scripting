@@ -17,11 +17,12 @@ h1{
   margin:0 0 18px 0;
   font-size:22px;
   font-weight:bold;
-  background:#003d74;
+  background:#003d74; /* LSEG navy */
   color:white;
   padding:12px 16px;
   border-radius:6px;
 }
+
 /* shared grid cards */
 #rowA,#rowB,#convOutGrid{
   display:grid;
@@ -54,10 +55,10 @@ h1{
   margin-bottom:14px;
 }
 
-/* center converter results */
+/* center the converter output grid */
 #convOutGrid{
-  max-width:980px;
-  margin:30px auto 40px;
+  max-width:980px;          /* keeps it neat */
+  margin:30px auto 40px;    /* centers the whole block */
 }
 </style>
 </head>
@@ -65,13 +66,15 @@ h1{
 
 <h1>Global Clock and Time Converter</h1>
 
-<div id="rowA"></div>
-<div id="rowB"></div>
+<!-- Live clocks -->
+<div id="rowA"></div>  <!-- Corporate favourites (time only) -->
+<div id="rowB"></div>  <!-- Global well-known regions (date + time) -->
 
+<!-- Converter (controls above results) -->
 <div id="convBox">
   <div style="font-weight:bold;margin-bottom:10px;">Time Converter</div>
   Time:
-  <!-- CHANGED HERE ↓↓↓ -->
+  <!-- changed ONLY this line -->
   <input id="convTime" type="text" value="00:00" placeholder="HH:MM" style="width:80px;text-align:center;">
   From TZ:
   <select id="convFrom"></select>
@@ -84,14 +87,16 @@ h1{
   <button id="convNowBtn">Now</button>
 </div>
 
+<!-- Converter results: 11 corporate cards, gap, then full global cards -->
 <div id="convOutGrid"></div>
 
 <script>
+/* ===== helpers for accurate timezone math ===== */
 function tzOffsetAt(utcMs, tz){
   const d = new Date(utcMs);
   const tzDate  = new Date(d.toLocaleString("en-US", { timeZone: tz }));
   const utcDate = new Date(d.toLocaleString("en-US", { timeZone: "UTC" }));
-  return tzDate.getTime() - utcDate.getTime();
+  return tzDate.getTime() - utcDate.getTime(); // ms east(+)/west(-) of UTC
 }
 function utcFromWallToday(H, M, fromTZ){
   const now = new Date();
@@ -103,7 +108,7 @@ function utcFromWallToday(H, M, fromTZ){
   return guessUTC - off;
 }
 
-/* corporate list */
+/* ===== Corporate favourites (Row A) ===== */
 const CORP_ZONES = {
  "Asia/Singapore":"Singapore",
  "Etc/GMT":"GMT",
@@ -118,8 +123,7 @@ const CORP_ZONES = {
  "America/Chicago":"Chicago"
 };
 
-/* build row A */
-(function(){
+(function buildRowA(){
   const host=document.getElementById("rowA");
   function tick(){
     const now=Date.now();
@@ -136,7 +140,7 @@ const CORP_ZONES = {
   tick(); setInterval(tick,1000);
 })();
 
-/* global list */
+/* ===== Global well-known city/regions (Row B) ===== */
 const GLOBAL_ZONES = [
   ["Pacific/Kwajalein",     "Baker Island (USA)"],
   ["Pacific/Pago_Pago",     "Pago Pago (American Samoa)"],
@@ -178,8 +182,7 @@ const GLOBAL_ZONES = [
   ["Pacific/Kiritimati",    "Kiribati (Line Islands)"]
 ];
 
-/* build row B */
-(function(){
+(function buildRowB(){
   const host=document.getElementById("rowB");
   function tick(){
     const now=new Date();
@@ -196,7 +199,7 @@ const GLOBAL_ZONES = [
   tick(); setInterval(tick,1000);
 })();
 
-/* converter */
+/* ===== Converter (controls above results) ===== */
 (function(){
   const sel=document.getElementById("convFrom");
   for(const tz in CORP_ZONES){
@@ -212,17 +215,20 @@ const GLOBAL_ZONES = [
     const fromTZ=document.getElementById("convFrom").value;
     const fmt12=document.getElementById("convFormat").value==="12";
 
+    // UTC instant for "today HH:MM in fromTZ"
     const utcMs=utcFromWallToday(H,M,fromTZ);
 
     const grid=document.getElementById("convOutGrid");
     grid.innerHTML="";
 
+    // Title card spanning all columns
     const title=document.createElement("div");
     title.className="tzCard";
     title.style.gridColumn="span 4";
     title.textContent=`Converted from ${CORP_ZONES[fromTZ]} @ ${timeVal}`;
     grid.appendChild(title);
 
+    // --- Corporate 11 cards (same order as rowA) ---
     for(const tz in CORP_ZONES){
       const inst=new Date(utcMs);
       const dateStr=inst.toLocaleDateString("en-GB",{timeZone:tz});
@@ -233,11 +239,13 @@ const GLOBAL_ZONES = [
       grid.appendChild(d);
     }
 
+    // --- 3-row visual gap (approx) ---
     const spacer=document.createElement("div");
     spacer.style.gridColumn="span 4";
-    spacer.style.height="40px";
+    spacer.style.height="40px"; /* ~3 text rows */
     grid.appendChild(spacer);
 
+    // --- Global list (same order as Row B) ---
     for(const [zone,name] of GLOBAL_ZONES){
       const inst=new Date(utcMs);
       const dateStr=inst.toLocaleDateString("en-GB",{timeZone:zone});
@@ -258,10 +266,10 @@ const GLOBAL_ZONES = [
   };
 })();
 
-/* THIS IS THE ONLY EXTRA for typing support */
+/* ===== allow typing HHMM / HH:MM in convTime ===== */
 document.getElementById("convTime").addEventListener("input", e=>{
   let v=e.target.value.replace(/\D/g,"");
-  if(v.length===3) v="0"+v;
+  if(v.length===3) v="0"+v;          
   if(v.length===4) v=v.slice(0,2)+":"+v.slice(2);
   e.target.value=v;
 });
