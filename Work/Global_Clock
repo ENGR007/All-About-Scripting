@@ -4,95 +4,120 @@
 <meta charset="utf-8">
 <title>Global Clock and Time Converter</title>
 <style>
-  body{
-    font-family:Arial, sans-serif;
-    font-size:15px;
-    padding:22px;
-    line-height:1.35;
-  }
-  h1{
-    margin:0 0 14px 0;
-    font-size:22px;
-    font-weight:bold;
-  }
+body{
+  font-family:Arial, sans-serif;
+  font-size:15px;
+  background:#f4f5f7;
+  padding:22px;
+  line-height:1.35;
+  margin:0;
+}
+h1{
+  text-align:center;
+  margin:0 0 18px 0;
+  font-size:22px;
+  font-weight:bold;
+  background:#003d74; /* LSEG navy */
+  color:white;
+  padding:12px 16px;
+  border-radius:6px;
+}
 
-  /* row A – corporate zones */
-  #rowA{
-    white-space:nowrap;
-    overflow-x:auto;
-    font-weight:bold;
-    margin-bottom:60px; /* 3 rows gap */
-    padding-bottom:6px;
-  }
+/* shared grid cards */
+#rowA,#rowB,#convOutGrid{
+  display:grid;
+  grid-template-columns:repeat(4, minmax(220px,1fr));
+  gap:8px 16px;
+  margin-bottom:40px;
+}
+.tzCard{
+  background:white;
+  border:1px solid #d0d3d6;
+  border-radius:6px;
+  padding:8px 10px;
+  box-shadow:0 1px 3px rgba(0,0,0,0.1);
+  font-weight:bold;
+  color:#003d74;
+  white-space:nowrap;
+}
+.tzLabel{ display:block; font-size:12px; color:#445; font-weight:600; }
+.tzMain{ font-size:15px; color:#003d74; }
 
-  /* row B – UTC-12 .. UTC+14 */
-  #rowB{
-    white-space:nowrap;
-    overflow-x:auto;
-    margin-bottom:40px;
-    padding-bottom:6px;
-  }
+/* converter panel */
+#convBox{
+  border:1px solid #ccc;
+  border-radius:6px;
+  padding:14px;
+  width:900px;
+  max-width:100%;
+  background:white;
+  box-shadow:0 2px 4px rgba(0,0,0,0.08);
+  margin-bottom:14px;
+}
 
-  /* converter block */
-  #convBox{
-    border:1px solid #ccc;
-    border-radius:6px;
-    padding:14px;
-    width:900px;
-    max-width:100%;
-  }
-
-  #convResult{
-    font-family:monospace;
-    margin-top:14px;
-    white-space:pre;
-    font-size:14px;
-  }
+/* center the converter output grid */
+#convOutGrid{
+  max-width:980px;          /* keeps it neat */
+  margin:30px auto 40px;    /* centers the whole block */
+}
+#footerNote{
+  position:fixed;
+  bottom:8px;
+  left:12px;
+  font-size:12px;
+  color:#003d74;
+  font-weight:600;
+  opacity:0.65;
+  pointer-events:none;
+}
 </style>
 </head>
 <body>
 
 <h1>Global Clock and Time Converter</h1>
 
-<!-- row A – corporate timezones -->
-<div id="rowA"></div>
+<!-- Live clocks -->
+<div id="rowA"></div>  <!-- Corporate favourites (time only) -->
+<div id="rowB"></div>  <!-- Global well-known regions (date + time) -->
 
-<!-- row B – UTC-12 to UTC+14 -->
-<div id="rowB"></div>
-
-<!-- time converter -->
+<!-- Converter (controls above results) -->
 <div id="convBox">
   <div style="font-weight:bold;margin-bottom:10px;">Time Converter</div>
-
   Time:
   <input id="convTime" type="time" value="00:00">
-
   From TZ:
   <select id="convFrom"></select>
-
   Format:
   <select id="convFormat">
     <option value="24" selected>24H</option>
     <option value="12">12H</option>
   </select>
-
   <button id="convRunBtn">Convert</button>
   <button id="convNowBtn">Now</button>
-
-  <div id="convResult"></div>
 </div>
 
-<!-- JS will be pasted here (PART 2) -->
+<!-- Converter results: 11 corporate cards, gap, then full global cards -->
+<div id="convOutGrid"></div>
 
-</body>
-</html>
 <script>
-/* ===== helper: tz offset difference ===== */
-function offsetMsFromTz(d, tz){
-    return new Date(d.toLocaleString("en-US",{timeZone:tz})).getTime() - d.getTime();
+/* ===== helpers for accurate timezone math ===== */
+function tzOffsetAt(utcMs, tz){
+  const d = new Date(utcMs);
+  const tzDate  = new Date(d.toLocaleString("en-US", { timeZone: tz }));
+  const utcDate = new Date(d.toLocaleString("en-US", { timeZone: "UTC" }));
+  return tzDate.getTime() - utcDate.getTime(); // ms east(+)/west(-) of UTC
+}
+function utcFromWallToday(H, M, fromTZ){
+  const now = new Date();
+  const y = now.getUTCFullYear();
+  const m = now.getUTCMonth();
+  const d = now.getUTCDate();
+  const guessUTC = Date.UTC(y, m, d, H, M, 0);
+  const off = tzOffsetAt(guessUTC, fromTZ);
+  return guessUTC - off;
 }
 
-/* ===== corporate block (row A) ===== */
+/* ===== Corporate favourites (Row A) ===== */
 const CORP_ZONES = {
  "Asia/Singapore":"Singapore",
  "Etc/GMT":"GMT",
@@ -107,127 +132,149 @@ const CORP_ZONES = {
  "America/Chicago":"Chicago"
 };
 
-/* ===== UTC block (row B) ===== */
-const UTC_ZONES = [
-  ["UTC−12","Pacific/Kwajalein","Baker Island (USA)"],
-  ["UTC−11","Pacific/Pago_Pago","Pago Pago (American Samoa)"],
-  ["UTC−10","Pacific/Honolulu","Honolulu (Hawaii, USA)"],
-  ["UTC−09:30","Pacific/Marquesas","Marquesas Islands"],
-  ["UTC−09","America/Anchorage","Anchorage (Alaska, USA)"],
-  ["UTC−08","America/Los_Angeles","Los Angeles / San Francisco (USA)"],
-  ["UTC−07","America/Denver","Denver / Phoenix (USA)"],
-  ["UTC−06","America/Chicago","Chicago / Mexico City"],
-  ["UTC−05","America/New_York","New York / Toronto / Bogotá / Lima"],
-  ["UTC−04","America/Santiago","Santiago / Caracas / Puerto Rico"],
-  ["UTC−03:30","America/St_Johns","St. John’s (Newfoundland, Canada)"],
-  ["UTC−03","America/Sao_Paulo","São Paulo / Buenos Aires"],
-  ["UTC−02","Atlantic/South_Georgia","South Georgia Islands"],
-  ["UTC−01","Atlantic/Azores","Azores (Portugal)"],
-  ["UTC±00","Europe/London","London / Dublin / Lisbon / Accra"],
-  ["UTC+01","Europe/Paris","Paris / Berlin / Rome / Madrid / Lagos"],
-  ["UTC+02","Europe/Athens","Athens / Johannesburg / Cairo / Helsinki"],
-  ["UTC+03","Europe/Moscow","Moscow / Riyadh / Nairobi"],
-  ["UTC+03:30","Asia/Tehran","Tehran (Iran)"],
-  ["UTC+04","Asia/Dubai","Dubai / Baku"],
-  ["UTC+04:30","Asia/Kabul","Kabul (Afghanistan)"],
-  ["UTC+05","Asia/Karachi","Karachi / Tashkent"],
-  ["UTC+05:30","Asia/Kolkata","New Delhi / Mumbai / Colombo"],
-  ["UTC+05:45","Asia/Kathmandu","Kathmandu (Nepal)"],
-  ["UTC+06","Asia/Dhaka","Dhaka / Almaty"],
-  ["UTC+06:30","Asia/Yangon","Yangon (Myanmar)"],
-  ["UTC+07","Asia/Bangkok","Bangkok / Jakarta / Ho Chi Minh"],
-  ["UTC+08","Asia/Singapore","Singapore / Beijing / Kuala Lumpur / Perth"],
-  ["UTC+08:45","Australia/Eucla","Eucla (WA)"],
-  ["UTC+09","Asia/Tokyo","Tokyo / Seoul"],
-  ["UTC+09:30","Australia/Adelaide","Adelaide / Darwin"],
-  ["UTC+10","Australia/Sydney","Sydney / Melbourne / Brisbane"],
-  ["UTC+10:30","Australia/Lord_Howe","Lord Howe Island"],
-  ["UTC+11","Pacific/Noumea","Solomon Islands / Nouméa"],
-  ["UTC+12","Pacific/Auckland","Auckland / Suva"],
-  ["UTC+12:45","Pacific/Chatham","Chatham Islands"],
-  ["UTC+13","Pacific/Tongatapu","Tonga / Samoa"],
-  ["UTC+14","Pacific/Kiritimati","Kiribati (Line Islands)"]
+(function buildRowA(){
+  const host=document.getElementById("rowA");
+  function tick(){
+    const now=Date.now();
+    host.innerHTML="";
+    for(const tz in CORP_ZONES){
+      const card=document.createElement("div");
+      card.className="tzCard";
+      card.innerHTML=`<span class="tzMain">${CORP_ZONES[tz]}: ${
+        new Date(now).toLocaleTimeString("en-GB",{hour12:false,timeZone:tz})
+      }</span>`;
+      host.appendChild(card);
+    }
+  }
+  tick(); setInterval(tick,1000);
+})();
+
+/* ===== Global well-known city/regions (Row B) ===== */
+const GLOBAL_ZONES = [
+  ["Pacific/Kwajalein",     "Baker Island (USA)"],
+  ["Pacific/Pago_Pago",     "Pago Pago (American Samoa)"],
+  ["Pacific/Honolulu",      "Honolulu (Hawaii, USA)"],
+  ["Pacific/Marquesas",     "Marquesas Islands"],
+  ["America/Anchorage",     "Anchorage (Alaska, USA)"],
+  ["America/Los_Angeles",   "Los Angeles / San Francisco (USA)"],
+  ["America/Denver",        "Denver / Phoenix (USA)"],
+  ["America/Chicago",       "Chicago / Mexico City"],
+  ["America/New_York",      "New York / Toronto / Bogotá / Lima"],
+  ["America/Santiago",      "Santiago / Caracas / Puerto Rico"],
+  ["America/St_Johns",      "St. John’s (Newfoundland, Canada)"],
+  ["America/Sao_Paulo",     "São Paulo / Buenos Aires"],
+  ["Atlantic/South_Georgia","South Georgia & South Sandwich Is."],
+  ["Atlantic/Azores",       "Azores (Portugal)"],
+  ["Europe/London",         "London / Dublin / Lisbon / Accra"],
+  ["Europe/Paris",          "Paris / Berlin / Rome / Madrid / Lagos"],
+  ["Europe/Athens",         "Athens / Johannesburg / Cairo / Helsinki"],
+  ["Europe/Moscow",         "Moscow / Riyadh / Nairobi"],
+  ["Asia/Tehran",           "Tehran (Iran)"],
+  ["Asia/Dubai",            "Dubai / Baku"],
+  ["Asia/Kabul",            "Kabul (Afghanistan)"],
+  ["Asia/Karachi",          "Karachi / Tashkent"],
+  ["Asia/Kolkata",          "New Delhi / Mumbai / Colombo"],
+  ["Asia/Kathmandu",        "Kathmandu (Nepal)"],
+  ["Asia/Dhaka",            "Dhaka / Almaty"],
+  ["Asia/Yangon",           "Yangon (Myanmar)"],
+  ["Asia/Bangkok",          "Bangkok / Jakarta / Ho Chi Minh"],
+  ["Asia/Singapore",        "Beijing / Malaysia / Manila"],
+  ["Australia/Eucla",       "Eucla (Western Australia)"],
+  ["Asia/Tokyo",            "Tokyo / Seoul"],
+  ["Australia/Adelaide",    "Adelaide / Darwin"],
+  ["Australia/Sydney",      "Sydney / Melbourne / Brisbane"],
+  ["Australia/Lord_Howe",   "Lord Howe Island"],
+  ["Pacific/Noumea",        "Solomon Islands / Nouméa"],
+  ["Pacific/Auckland",      "Auckland / Suva"],
+  ["Pacific/Chatham",       "Chatham Islands"],
+  ["Pacific/Tongatapu",     "Tonga / Samoa"],
+  ["Pacific/Kiritimati",    "Kiribati (Line Islands)"]
 ];
 
-/* ===== build Row A ===== */
-(function(){
-  const r = document.getElementById("rowA");
+(function buildRowB(){
+  const host=document.getElementById("rowB");
   function tick(){
-    const now = new Date();
-    let arr=[];
-    for(const tz in CORP_ZONES){
-      arr.push(`${CORP_ZONES[tz]}: ${now.toLocaleTimeString("en-GB",{hour12:false,timeZone:tz})}`);
+    const now=new Date();
+    host.innerHTML="";
+    for(const [zone,name] of GLOBAL_ZONES){
+      const dateStr=now.toLocaleDateString("en-GB",{timeZone:zone});
+      const timeStr=now.toLocaleTimeString("en-GB",{hour12:false,timeZone:zone});
+      const card=document.createElement("div");
+      card.className="tzCard";
+      card.innerHTML=`<span class="tzLabel">${name}</span><span class="tzMain">${dateStr} ${timeStr}</span>`;
+      host.appendChild(card);
     }
-    r.textContent = arr.join("   |   ");
   }
-  tick();
-  setInterval(tick,1000);
+  tick(); setInterval(tick,1000);
 })();
 
-/* ===== build Row B ===== */
+/* ===== Converter (controls above results) ===== */
 (function(){
-  const r = document.getElementById("rowB");
-  function tick(){
-    const now = new Date();
-    let arr=[];
-    for(const [label,zone,city] of UTC_ZONES){
-      arr.push(`${label} ${now.toLocaleString("en-GB",{hour12:false,timeZone:zone})} • ${city}`);
-    }
-    r.textContent = arr.join("   |   ");
-  }
-  tick();
-  setInterval(tick,1000);
-})();
-
-/* ===== converter ===== */
-(function(){
-  /* populate FROM TZ */
   const sel=document.getElementById("convFrom");
   for(const tz in CORP_ZONES){
     const o=document.createElement("option");
-    o.value=tz;
-    o.textContent=CORP_ZONES[tz];
+    o.value=tz; o.textContent=CORP_ZONES[tz];
     sel.appendChild(o);
   }
   sel.value="Asia/Singapore";
 
   function runConv(){
-    const timeVal = document.getElementById("convTime").value || "00:00";
+    const timeVal=document.getElementById("convTime").value||"00:00";
     const [H,M]=timeVal.split(":").map(Number);
-    const fromTZ = document.getElementById("convFrom").value;
-    const fmt12  = document.getElementById("convFormat").value==="12";
+    const fromTZ=document.getElementById("convFrom").value;
+    const fmt12=document.getElementById("convFormat").value==="12";
 
-    const now   = new Date();
-    const base  = new Date(`${now.getFullYear()}-${now.getMonth()+1}-${now.getDate()}T${String(H).padStart(2,"0")}:${String(M).padStart(2,"0")}:00`);
+    // UTC instant for "today HH:MM in fromTZ"
+    const utcMs=utcFromWallToday(H,M,fromTZ);
 
-    const fromOff=offsetMsFromTz(base,fromTZ);
-    const localOff=base.getTimezoneOffset()*60000;
-    const utc=base.getTime()+localOff-fromOff;
+    const grid=document.getElementById("convOutGrid");
+    grid.innerHTML="";
 
-    let out=[];
-    out.push(`Input: ${timeVal} (${CORP_ZONES[fromTZ]})\n`);
+    // Title card spanning all columns
+    const title=document.createElement("div");
+    title.className="tzCard";
+    title.style.gridColumn="span 4";
+    title.textContent=`Converted from ${CORP_ZONES[fromTZ]} @ ${timeVal}`;
+    grid.appendChild(title);
 
+    // --- Corporate 11 cards (same order as rowA) ---
     for(const tz in CORP_ZONES){
-       const inst=new Date(utc+offsetMsFromTz(base,tz));
-       out.push(`${CORP_ZONES[tz].padEnd(12)} ${inst.toLocaleDateString("en-GB",{timeZone:tz})} ${inst.toLocaleTimeString("en-US",{hour12:fmt12,timeZone:tz})}`);
+      const inst=new Date(utcMs);
+      const dateStr=inst.toLocaleDateString("en-GB",{timeZone:tz});
+      const timeStr=inst.toLocaleTimeString("en-US",{hour12:fmt12,timeZone:tz});
+      const d=document.createElement("div");
+      d.className="tzCard";
+      d.innerHTML=`<span class="tzMain">${CORP_ZONES[tz]}: ${timeStr}</span><br><span class="tzLabel">${dateStr}</span>`;
+      grid.appendChild(d);
     }
-    document.getElementById("convResult").textContent=out.join("\n");
+
+    // --- 3-row visual gap (approx) ---
+    const spacer=document.createElement("div");
+    spacer.style.gridColumn="span 4";
+    spacer.style.height="40px"; /* ~3 text rows */
+    grid.appendChild(spacer);
+
+    // --- Global list (same order as Row B) ---
+    for(const [zone,name] of GLOBAL_ZONES){
+      const inst=new Date(utcMs);
+      const dateStr=inst.toLocaleDateString("en-GB",{timeZone:zone});
+      const timeStr=inst.toLocaleTimeString("en-US",{hour12:fmt12,timeZone:zone});
+      const d=document.createElement("div");
+      d.className="tzCard";
+      d.innerHTML=`<span class="tzLabel">${name}</span><span class="tzMain">${dateStr} ${timeStr}</span>`;
+      grid.appendChild(d);
+    }
   }
 
   document.getElementById("convRunBtn").onclick=runConv;
   document.getElementById("convNowBtn").onclick=()=>{
     const n=new Date();
-    document.getElementById("convTime").value=`${String(n.getHours()).padStart(2,"0")}:${String(n.getMinutes()).padStart(2,"0")}`;
+    document.getElementById("convTime").value=
+      `${String(n.getHours()).padStart(2,"0")}:${String(n.getMinutes()).padStart(2,"0")}`;
     runConv();
   };
-
 })();
 </script>
-
-
-
-
-
-
-
-
+<div id="footerNote">Brought to you by Francis Gonzales</div>
+</body>
+</html>
