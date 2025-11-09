@@ -74,8 +74,7 @@ h1{
 <div id="convBox">
   <div style="font-weight:bold;margin-bottom:10px;">Time Converter</div>
   Time:
-  <!-- changed ONLY this line -->
-  <input id="convTime" type="text" value="00:00" placeholder="HH:MM" style="width:80px;text-align:center;">
+  <input id="convTime" type="time" value="00:00">
   From TZ:
   <select id="convFrom"></select>
   Format:
@@ -169,7 +168,7 @@ const GLOBAL_ZONES = [
   ["Asia/Dhaka",            "Dhaka / Almaty"],
   ["Asia/Yangon",           "Yangon (Myanmar)"],
   ["Asia/Bangkok",          "Bangkok / Jakarta / Ho Chi Minh"],
-  ["Asia/Singapore",        "Singapore / Beijing / Kuala Lumpur / Perth"],
+  ["Asia/Singapore",        "Beijing / Malaysia / Manila"],
   ["Australia/Eucla",       "Eucla (Western Australia)"],
   ["Asia/Tokyo",            "Tokyo / Seoul"],
   ["Australia/Adelaide",    "Adelaide / Darwin"],
@@ -265,14 +264,6 @@ const GLOBAL_ZONES = [
     runConv();
   };
 })();
-
-/* ===== allow typing HHMM / HH:MM in convTime ===== */
-document.getElementById("convTime").addEventListener("input", e=>{
-  let v=e.target.value.replace(/\D/g,"");
-  if(v.length===3) v="0"+v;          
-  if(v.length===4) v=v.slice(0,2)+":"+v.slice(2);
-  e.target.value=v;
-});
 </script>
 
 </body>
