@@ -81,6 +81,7 @@ th,td{border:1px solid #ddd;padding:6px 8px}th{background:#fff7ea}
 <div id="controls">
   <!-- Teacher button to the LEFT of Start -->
   <button id="teacherBtn" title="Available only in Practice (No time)" disabled>👩‍🏫 Teacher</button>
+  <button id="scoreReportBtn" title="View score history">📘 Score Report</button>
   <button id="soundBtn" onclick="toggleSound()">🔊 Sound: ON</button>
   Time:
   <select id="timeSel">
@@ -1174,6 +1175,66 @@ t_solve = function() {
   t_renderFrame();
 };
 
+/* === SCORE REPORT LOGGING === */
+// when a game ends, append a record
+function logScoreEntry() {
+  const op = document.getElementById("opSel").value;
+  const lvl = document.getElementById("lvlSel").value;
+  const timeSel = document.getElementById("timeSel");
+  const timeLabel = timeSel.options[timeSel.selectedIndex].text;
+  const totalQs = answers.length || 1;
+  const entry = {
+    dt: new Date().toLocaleString(),
+    time: timeLabel,
+    op: op,
+    lvl: lvl,
+    score: `${score}/${totalQs}`
+  };
+  const log = JSON.parse(localStorage.getItem("scoreLog") || "[]");
+  log.unshift(entry);              // newest first
+  if (log.length > 200) log.pop(); // keep manageable history
+  localStorage.setItem("scoreLog", JSON.stringify(log));
+}
+// hook into your existing endGame
+const orig_endGame = endGame;
+endGame = function() {
+  orig_endGame(); logScoreEntry();
+};
+
+/* === SCORE REPORT MODAL === */
+window.addEventListener("load", ()=>{
+  document.getElementById("scoreReportBtn").addEventListener("click", showScoreReport);
+  document.getElementById("scoreClose").addEventListener("click", ()=>{
+    document.getElementById("scoreModal").style.display="none";
+  });
+});
+function showScoreReport(){
+  const tbody=document.querySelector("#scoreTable tbody");
+  const log=JSON.parse(localStorage.getItem("scoreLog")||"[]");
+  tbody.innerHTML = log.length
+    ? log.map(r=>`<tr><td>${r.dt}</td><td>${r.time}</td><td>${r.op}</td><td>${r.lvl}</td><td>${r.score}</td></tr>`).join('')
+    : `<tr><td colspan="5">No history yet</td></tr>`;
+  document.getElementById("scoreModal").style.display="flex";
+}
+
 </script>
+<!-- ===== Score Report Modal ===== -->
+<div id="scoreModal" style="display:none;position:fixed;inset:0;
+background:rgba(0,0,0,.45);z-index:14000;align-items:center;justify-content:center">
+  <div style="width:min(800px,94vw);max-height:90vh;overflow:auto;
+  background:#fffef9;border:3px solid #ff9900;border-radius:14px;
+  box-shadow:0 8px 40px rgba(0,0,0,.35);padding:16px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+      <b style="color:#b45309;font-size:1.2em;">📘 Score Report</b>
+      <button id="scoreClose" style="background:#ff7043;color:#fff;border:none;">✖ Close</button>
+    </div>
+    <table id="scoreTable">
+      <thead>
+        <tr><th>Date & Time</th><th>Time</th><th>Operation</th><th>Level</th><th>Score</th></tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</div>
 </body>
 </html>
