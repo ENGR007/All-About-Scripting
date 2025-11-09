@@ -1202,9 +1202,11 @@ endGame = function() {
 };
 
 /* === SCORE REPORT MODAL === */
-document.getElementById("scoreReportBtn").addEventListener("click", showScoreReport);
-document.getElementById("scoreClose").addEventListener("click", ()=> {
-  document.getElementById("scoreModal").style.display="none";
+window.addEventListener("load", ()=>{
+  document.getElementById("scoreReportBtn").addEventListener("click", showScoreReport);
+  document.getElementById("scoreClose").addEventListener("click", ()=>{
+    document.getElementById("scoreModal").style.display="none";
+  });
 });
 function showScoreReport(){
   const tbody=document.querySelector("#scoreTable tbody");
