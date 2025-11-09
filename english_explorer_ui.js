@@ -85,7 +85,7 @@ EE.showMainMenu=function(){
     ["🧠 Practice","EE.chooseTopic()"],
     ["📖 Reading","EE.startReading()"],
     ["🧩 Exam Mode","EE.startExam()"],
-    ["📊 Score","EE.showScores()"],              // ← NEW BUTTON
+    ["📊 Score Report","EE.showScores()"],              // ← NEW BUTTON
     ["⚙️ Reset Progress","EE.resetProgress()"]
   ].forEach(m=>{const b=EE.makeEl("button","ee-btn",m[0]);b.onclick=()=>eval(m[1]);w.appendChild(b);});
   document.body.appendChild(w);
