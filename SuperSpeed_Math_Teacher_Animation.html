@@ -131,14 +131,18 @@ th,td{border:1px solid #ddd;padding:6px 8px}th{background:#fff7ea}
     <div id="whiteboardTitle">🖊 Whiteboard</div>
     <div id="score"></div>
   </div>
+
   <div id="whiteboardBox">
     <canvas id="whiteboardCanvas"></canvas>
+
     <div id="wbToolbar">
       <button id="wbPaint">🎨 Paint</button>
       <button id="wbEraser">🧽 Eraser</button>
       <button id="wbUndo">↶ Undo</button>
       <button id="wbClear">🧹 Clear</button>
+
       <label>Color <input id="wbColor" type="color" value="#222222"></label>
+
       <label>Size
         <select id="wbSize">
           <option>2</option>
@@ -491,7 +495,6 @@ wbMove = function(evt){
   wb.ctx.lineTo(p.x,p.y);
   wb.ctx.stroke();
 };
-
 /* =========================
    Arithmetic Teacher (full logic)
    ========================= */
