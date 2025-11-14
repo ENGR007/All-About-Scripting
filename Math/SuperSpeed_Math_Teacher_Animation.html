@@ -423,11 +423,26 @@ window.addEventListener('mouseup',wbEnd,{passive:false});wb.canvas.addEventListe
 wb.canvas.addEventListener('touchmove',wbMove,{passive:false});wb.canvas.addEventListener('touchend',wbEnd,{passive:false});
 wb.canvas.addEventListener('touchcancel',wbEnd,{passive:false});document.getElementById('wbClear').addEventListener('click',clearWhiteboard);
 // ERASER TOOL
+let wbIsEraser = false;
+
 document.getElementById('wbEraser').addEventListener('click', ()=>{
-    wb.strokeColor = "#ffffff";     // draw white to erase
-    wb.strokeWidth = 18;            // bigger eraser head
+    wbIsEraser = true;
+    wb.strokeColor = "#ffffff";   // white erase
+    wb.strokeWidth = 18;          // big eraser size
 });
-document.getElementById('wbUndo').addEventListener('click',undoWhiteboard);document.getElementById('wbColor').addEventListener('input',e=>{wb.strokeColor=e.target.value;});
+document.getElementById('wbUndo').addEventListener('click',undoWhiteboard);
+// Color picker → return to pen mode
+document.getElementById('wbColor').addEventListener('input', e=>{
+    wbIsEraser = false;
+    wb.strokeColor = e.target.value;
+});
+
+// Size picker → stay pen mode (unless eraser is manually selected)
+document.getElementById('wbSize').addEventListener('change', e=>{
+    if (!wbIsEraser) {
+        wb.strokeWidth = parseInt(e.target.value) || 3;
+    }
+});
 document.getElementById('wbSize').addEventListener('change',e=>{wb.strokeWidth=parseInt(e.target.value)||3;});
 window.addEventListener('resize',syncWhiteboardSize);window.addEventListener('orientationchange',()=>setTimeout(syncWhiteboardSize,250));}
 window.addEventListener('load',()=>{initWhiteboard();showWhiteboard();});
