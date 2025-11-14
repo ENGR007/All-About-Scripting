@@ -135,6 +135,7 @@ th,td{border:1px solid #ddd;padding:6px 8px}th{background:#fff7ea}
     <canvas id="whiteboardCanvas"></canvas>
     <div id="wbToolbar">
       <button id="wbUndo">↶ Undo</button>
+      <button id="wbEraser">🩹 Eraser</button>
       <button id="wbClear">🧹 Clear</button>
       <label>Color <input id="wbColor" type="color" value="#222222"></label>
       <label>Size
@@ -421,6 +422,11 @@ syncWhiteboardSize();wb.canvas.addEventListener('mousedown',wbBegin,{passive:fal
 window.addEventListener('mouseup',wbEnd,{passive:false});wb.canvas.addEventListener('touchstart',wbBegin,{passive:false});
 wb.canvas.addEventListener('touchmove',wbMove,{passive:false});wb.canvas.addEventListener('touchend',wbEnd,{passive:false});
 wb.canvas.addEventListener('touchcancel',wbEnd,{passive:false});document.getElementById('wbClear').addEventListener('click',clearWhiteboard);
+// ERASER TOOL
+document.getElementById('wbEraser').addEventListener('click', ()=>{
+    wb.strokeColor = "#ffffff";     // draw white to erase
+    wb.strokeWidth = 18;            // bigger eraser head
+});
 document.getElementById('wbUndo').addEventListener('click',undoWhiteboard);document.getElementById('wbColor').addEventListener('input',e=>{wb.strokeColor=e.target.value;});
 document.getElementById('wbSize').addEventListener('change',e=>{wb.strokeWidth=parseInt(e.target.value)||3;});
 window.addEventListener('resize',syncWhiteboardSize);window.addEventListener('orientationchange',()=>setTimeout(syncWhiteboardSize,250));}
