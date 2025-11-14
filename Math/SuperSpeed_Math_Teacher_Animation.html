@@ -435,6 +435,8 @@ document.getElementById('wbUndo').addEventListener('click',undoWhiteboard);
 document.getElementById('wbColor').addEventListener('input', e=>{
     wbIsEraser = false;
     wb.strokeColor = e.target.value;
+    wb.strokeWidth = 3;   // reset to default size when switching back to pen
+    document.getElementById('wbSize').value = "3";  // update dropdown UI
 });
 
 // Size picker → stay pen mode (unless eraser is manually selected)
