@@ -131,15 +131,27 @@ th,td{border:1px solid #ddd;padding:6px 8px}th{background:#fff7ea}
     <div id="whiteboardTitle">🖊 Whiteboard</div>
     <div id="score"></div>
   </div>
+
   <div id="whiteboardBox">
     <canvas id="whiteboardCanvas"></canvas>
+
     <div id="wbToolbar">
+      <button id="wbPaint">🎨 Paint</button>
+      <button id="wbEraser">🧽 Eraser</button>
       <button id="wbUndo">↶ Undo</button>
-      <button id="wbEraser">🩹 Eraser</button>
       <button id="wbClear">🧹 Clear</button>
+
       <label>Color <input id="wbColor" type="color" value="#222222"></label>
+
       <label>Size
-        <select id="wbSize"><option>2</option><option selected>3</option><option>4</option><option>6</option><option>8</option><option>12</option></select>
+        <select id="wbSize">
+          <option>2</option>
+          <option selected>3</option>
+          <option>4</option>
+          <option>6</option>
+          <option>8</option>
+          <option>12</option>
+        </select>
       </label>
     </div>
   </div>
@@ -448,7 +460,41 @@ document.getElementById('wbSize').addEventListener('change', e=>{
 document.getElementById('wbSize').addEventListener('change',e=>{wb.strokeWidth=parseInt(e.target.value)||3;});
 window.addEventListener('resize',syncWhiteboardSize);window.addEventListener('orientationchange',()=>setTimeout(syncWhiteboardSize,250));}
 window.addEventListener('load',()=>{initWhiteboard();showWhiteboard();});
+/* === Paint / Eraser Tools === */
+let wbMode = "paint";
 
+document.getElementById("wbPaint").addEventListener("click", () => {
+  wbMode = "paint";
+  wb.strokeColor = document.getElementById("wbColor").value;
+  wb.strokeWidth = 3; // return to writing size
+});
+
+document.getElementById("wbEraser").addEventListener("click", () => {
+  wbMode = "erase";
+  wb.strokeColor = "#FFFFFF"; // eraser color
+  wb.strokeWidth = 20;        // eraser thickness
+});
+
+// --- Override draw function ---
+const original_wbMove = wbMove;
+wbMove = function(evt){
+  if(!wb.drawing) return;
+  evt.preventDefault();
+
+  if (wbMode === "erase") {
+    wb.ctx.strokeStyle = "#FFFFFF";
+    wb.ctx.lineWidth = 20;
+  } else {
+    wb.ctx.strokeStyle = wb.strokeColor;
+    wb.ctx.lineWidth = wb.strokeWidth;
+  }
+
+  const p = getCanvasPos(evt);
+  wb.ctx.lineCap='round';
+  wb.ctx.lineJoin='round';
+  wb.ctx.lineTo(p.x,p.y);
+  wb.ctx.stroke();
+};
 /* =========================
    Arithmetic Teacher (full logic)
    ========================= */
