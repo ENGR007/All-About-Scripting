@@ -33,10 +33,37 @@ EE.logScore=(topic,level,score,total)=>{
 
 // ---------- Helpers ----------
 EE.makeEl=(t,c,h)=>{const e=document.createElement(t);if(c)e.className=c;if(h!==undefined)e.innerHTML=h;return e;};
-EE.clearScreen=()=>{document.body.innerHTML="";Object.assign(document.body.style,{
-  margin:"0",height:"100vh",background:EE.theme.bgGradient,fontFamily:"'Poppins',sans-serif",
-  color:EE.theme.text,backgroundAttachment:"fixed",backgroundSize:"cover"
-});};
+EE.clearScreen = () => {
+  // Wipe everything except footer ID tag
+  document.body.innerHTML = `
+    <footer id="ee-footer" style="
+      width:100%;
+      position:fixed;
+      bottom:0;
+      left:0;
+      background:#fff8e1;
+      text-align:center;
+      padding:12px 0;
+      font-size:0.9rem;
+      color:#6d4c41;
+      border-top:1px solid #e0c8a0;
+      z-index:999;
+    ">
+      Brought to you by <b>Francis Gonzales</b>
+    </footer>
+  `;
+
+  Object.assign(document.body.style, {
+    margin:"0",
+    paddingBottom:"80px",   // space so quiz doesn't overlap footer
+    height:"100vh",
+    background:EE.theme.bgGradient,
+    fontFamily:"'Poppins',sans-serif",
+    color:EE.theme.text,
+    backgroundAttachment:"fixed",
+    backgroundSize:"cover"
+  });
+};
 
 // ---------- Speech Toggle ----------
 EE.toggleSpeech=function(btn,text){
