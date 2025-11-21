@@ -3,13 +3,41 @@
 <head>
   <meta charset="UTF-8">
   <title>English Explorer v3</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
-<body>
+
+<body style="margin:0; padding:0; padding-bottom:70px; font-family:'Poppins',sans-serif;">
+
+  <!-- ========================================================= -->
+  <!-- QUESTION BANK FILES -->
+  <!-- ========================================================= -->
   <script src="english_questions_v3_part1.js"></script>
   <script src="english_questions_v3_part2.js"></script>
+
+  <!-- ========================================================= -->
+  <!-- MAIN UI ENGINE -->
+  <!-- ========================================================= -->
   <script src="english_explorer_ui.js"></script>
-<footer style="margin-top:40px; padding:12px 0; font-size:0.9rem; color:#6d4c41;">
-   Brought to you by <b>Francis Gonzales</b>
-</footer>
+
+  <!-- ========================================================= -->
+  <!-- FOOTER (PERSISTENT) -->
+  <!-- ========================================================= -->
+  <footer id="ee-footer" 
+    style="
+      width:100%;
+      position:fixed;
+      bottom:0;
+      left:0;
+      background:#fff8e1;
+      text-align:center;
+      padding:12px 0;
+      font-size:0.9rem;
+      color:#6d4c41;
+      border-top:1px solid #e0c8a0;
+      z-index:999;
+    ">
+     Brought to you by <b>Francis Gonzales</b>
+  </footer>
+
 </body>
 </html>
