@@ -47,20 +47,25 @@
       cursor: pointer;
     }
 
-    /* Notebook bar (dropdown + New Notebook) */
+    /* Notebook bar */
     .notebook-bar {
       display: flex;
       flex-wrap: wrap;
-      gap: 8px;
       align-items: center;
-      justify-content: space-between;
+      justify-content: center;
+      gap: 8px;
+      margin-bottom: 4px;
     }
     .notebook-select {
-      padding: 4px 6px;
+      min-width: 160px;
+      padding: 3px 6px;
       border-radius: 4px;
       border: 1px solid #ccc;
-      font-size: 0.9rem;
-      min-width: 160px;
+      font-size: 0.85rem;
+    }
+    .notebook-small-btn {
+      padding: 2px 6px;
+      font-size: 0.75rem;
     }
 
     .toolbar-row {
@@ -68,7 +73,7 @@
       flex-wrap: wrap;
       gap: 8px;
       align-items: center;
-      justify-content: space-between;
+      justify-content: center; /* centered Tools + Pen */
     }
     .toolbar-group {
       display: flex;
@@ -86,17 +91,6 @@
     button, input, textarea, select {
       font-family: inherit;
     }
-    /* Fix: Keep + New Notebook button small */
-    /* Fix: Keep + New Notebook button small */
-#newNotebookBtn {
-  width: auto !important;
-  display: inline-flex;
-  padding: 4px 10px;
-  white-space: nowrap; /* Prevent stretching */
-  height: auto;
-  align-self: center;
-}
-
     button {
       border: 1px solid #ccc;
       background: #f8f8f8;
@@ -317,25 +311,6 @@
     .fullscreen .notebook-wrapper {
       height: calc(100vh - 60px);
     }
-    
-    /* Fix Notebook bar to always stay in one line */
-.notebook-bar {
-  display: flex;
-  flex-wrap: nowrap;       /* force same line */
-  align-items: center;
-  gap: 8px;
-}
-
-/* Shrink the select width on mobile so it fits in line */
-.notebook-select {
-  max-width: 60vw;         /* keeps it from occupying the full width */
-}
-
-/* Make the + New Notebook button stay small */
-#newNotebookBtn {
-  white-space: nowrap;
-  flex-shrink: 0;          /* prevent button from being pushed out */
-}
 
     @media (max-width: 600px) {
       .toolbar-row,
@@ -362,6 +337,8 @@
       <div class="toolbar-group">
         <span class="toolbar-label">Notebook</span>
         <select id="notebookSelect" class="notebook-select"></select>
+        <button id="renameNotebookBtn" class="notebook-small-btn">Rename</button>
+        <button id="deleteNotebookBtn" class="notebook-small-btn">Delete</button>
       </div>
       <button id="newNotebookBtn">+ New Notebook</button>
     </div>
@@ -432,6 +409,15 @@
         <button id="startRecordBtn">Start Recording</button>
         <button id="stopRecordBtn" disabled>Stop</button>
         <span id="recordStatus">Recording status: Idle</span>
+
+        <!-- NEW: Audio mode selector -->
+        <label class="toolbar-label" style="margin-left:8px;">
+          Mode
+          <select id="audioMode" style="margin-left:4px; font-size:0.8rem; padding:2px 4px;">
+            <option value="standard">Standard</option>
+            <option value="enhanced">Enhanced (noise-reduced)</option>
+          </select>
+        </label>
       </div>
       <div id="audioList" class="audio-list"></div>
       <div id="audioHint" class="hint">
@@ -449,10 +435,12 @@
       </div>
     </div>
 
-    <!-- Export / Import -->
+    <!-- Export / Import / Restore -->
     <div class="export-import-row">
       <button id="exportBtn">⬇️ Export Notebook</button>
       <button id="importBtn">⬆️ Import Notebook</button>
+      <button id="restoreBackupBtn">⤴ Restore Auto Backup</button>
+      <span id="backupInfo" class="hint">Last auto backup: none yet</span>
       <input id="importFile" type="file" accept="application/json" style="display:none" />
     </div>
 
@@ -461,19 +449,15 @@
       Use Export/Import to back up or move to another browser.
     </div>
   </div>
-
   <script>
-    // ---- Storage keys ----
-    // Legacy single-notebook key (for migration)
-    const LEGACY_STORAGE_KEY = "handNotebook_v2";
-    // New multi-notebook key
-    const STORAGE_KEY = "handNotebook_multi_v1";
-
     // ---- Data model ----
-    let notebooks = [];
-    let currentNotebookIndex = 0;
+    const STORAGE_KEY = "handNotebook_v2";
 
-    // convenience aliases for the *current* notebook
+    // Multi-notebook state
+    let notebooks = [];
+    let currentNotebookId = null;
+
+    // Current notebook's pages (for drawing logic)
     let pages = [];
     let currentPageIndex = 0;
 
@@ -510,6 +494,13 @@
     const recordStatus = document.getElementById("recordStatus");
     const audioListEl = document.getElementById("audioList");
     const audioHintEl = document.getElementById("audioHint");
+    const audioModeSelect = document.getElementById("audioMode"); // NEW
+
+    // Notebook UI
+    const notebookSelect = document.getElementById("notebookSelect");
+    const newNotebookBtn = document.getElementById("newNotebookBtn");
+    const renameNotebookBtn = document.getElementById("renameNotebookBtn");
+    const deleteNotebookBtn = document.getElementById("deleteNotebookBtn");
 
     // Fullscreen state
     const appContainer = document.querySelector(".app-container");
@@ -517,11 +508,7 @@
     const fullscreenToggleBtn = document.getElementById("fullscreenToggleBtn");
     let isFullscreenMode = false;
 
-    // Notebook UI
-    const notebookSelect = document.getElementById("notebookSelect");
-    const newNotebookBtn = document.getElementById("newNotebookBtn");
-
-    // ---- Helpers for notebook pages ----
+    // ---- Helpers for notebook/pages ----
     function createBlankPage() {
       return {
         id: Date.now() + Math.random(),
@@ -536,122 +523,297 @@
 
     function createNotebook(name) {
       return {
-        id: Date.now() + Math.random(),
+        id: "nb_" + Date.now() + "_" + Math.random().toString(36).slice(2),
         name: name || `Notebook ${notebooks.length + 1}`,
         pages: [createBlankPage()],
         currentPageIndex: 0
       };
     }
 
-    function normalizeNotebook(nb, idx) {
-      const out = {
-        id: typeof nb.id !== "undefined" ? nb.id : Date.now() + Math.random(),
-        name: nb.name || `Notebook ${idx + 1}`,
-        pages: Array.isArray(nb.pages) ? nb.pages : [],
-        currentPageIndex: typeof nb.currentPageIndex === "number" ? nb.currentPageIndex : 0
-      };
-      if (!out.pages.length) {
-        out.pages = [createBlankPage()];
-        out.currentPageIndex = 0;
-      } else {
-        out.pages = out.pages.map(p => ({
-          ...createBlankPage(),
-          ...p,
-          audio: p.audio || []
-        }));
-        out.currentPageIndex = Math.min(out.currentPageIndex, out.pages.length - 1);
-      }
-      return out;
+    function getCurrentNotebook() {
+      if (!notebooks.length) return null;
+      if (!currentNotebookId) return notebooks[0];
+      const nb = notebooks.find(n => n.id === currentNotebookId);
+      return nb || notebooks[0];
     }
 
-    function syncToCurrentNotebook() {
-      if (!notebooks.length) return;
-      const nb = notebooks[currentNotebookIndex];
-      nb.pages = pages;
-      nb.currentPageIndex = currentPageIndex;
+    function updateBackupInfo(fromTs) {
+      const infoEl = document.getElementById("backupInfo");
+      if (!infoEl) return;
+
+      let ts = fromTs;
+      if (!ts) {
+        const metaRaw = localStorage.getItem(STORAGE_KEY + "_backup_meta");
+        if (!metaRaw) {
+          infoEl.textContent = "Last auto backup: none yet";
+          return;
+        }
+        try {
+          const meta = JSON.parse(metaRaw);
+          ts = meta.ts;
+        } catch (e) {
+          infoEl.textContent = "Last auto backup: unknown";
+          return;
+        }
+      }
+      if (!ts) {
+        infoEl.textContent = "Last auto backup: unknown";
+        return;
+      }
+      const d = new Date(ts);
+      infoEl.textContent = "Last auto backup: " + d.toLocaleString();
     }
 
     function saveNotebook() {
-      if (!notebooks || !notebooks.length) {
-        const nb = createNotebook("Notebook 1");
-        notebooks = [nb];
-        currentNotebookIndex = 0;
-        pages = nb.pages;
-        currentPageIndex = nb.currentPageIndex;
+      const nb = getCurrentNotebook();
+      if (nb) {
+        nb.pages = pages;
+        nb.currentPageIndex = currentPageIndex;
       }
-      syncToCurrentNotebook();
-      const currentNb = notebooks[currentNotebookIndex];
       const data = {
         notebooks,
-        currentNotebookId: currentNb.id
+        currentNotebookId
       };
       try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+        const json = JSON.stringify(data);
+        const nowIso = new Date().toISOString();
+        // main storage
+        localStorage.setItem(STORAGE_KEY, json);
+        // newest-only backup
+        localStorage.setItem(STORAGE_KEY + "_backup", json);
+        localStorage.setItem(
+          STORAGE_KEY + "_backup_meta",
+          JSON.stringify({ ts: nowIso })
+        );
+        updateBackupInfo(nowIso);
       } catch (e) {
         console.warn("Could not save notebook:", e);
       }
     }
 
-    function loadNotebook() {
-      const rawMulti = localStorage.getItem(STORAGE_KEY);
-      const rawLegacy = localStorage.getItem(LEGACY_STORAGE_KEY);
+    // Helper to apply parsed data into our runtime structures
+    function applyParsedNotebookData(parsed) {
+      if (parsed.notebooks && Array.isArray(parsed.notebooks)) {
+        notebooks = parsed.notebooks.map((n, idx) => {
+          const rawPages = n.pages || [];
+          const pageArr = rawPages.length
+            ? rawPages.map(p => ({
+                ...createBlankPage(),
+                ...p,
+                audio: p.audio || []
+              }))
+            : [createBlankPage()];
 
-      // Try multi-notebook data first
-      if (rawMulti) {
-        try {
-          const parsed = JSON.parse(rawMulti);
-          if (Array.isArray(parsed.notebooks) && parsed.notebooks.length) {
-            notebooks = parsed.notebooks.map((nb, idx) => normalizeNotebook(nb, idx));
-            let idx = 0;
-            if (parsed.currentNotebookId != null) {
-              const found = notebooks.findIndex(n => n.id === parsed.currentNotebookId);
-              if (found !== -1) idx = found;
-            }
-            currentNotebookIndex = idx;
-            const nb = notebooks[currentNotebookIndex];
-            pages = nb.pages;
-            currentPageIndex = nb.currentPageIndex;
-            return;
-          }
-        } catch (e) {
-          console.warn("Could not load multi-notebook data:", e);
-        }
-      }
+          return {
+            id: n.id || "nb_" + Date.now() + "_" + idx,
+            name: n.name || `Notebook ${idx + 1}`,
+            pages: pageArr,
+            currentPageIndex: Math.min(
+              typeof n.currentPageIndex === "number" ? n.currentPageIndex : 0,
+              pageArr.length - 1
+            )
+          };
+        });
 
-      // Fallback: legacy single-notebook data
-      if (rawLegacy) {
-        try {
-          const parsed = JSON.parse(rawLegacy);
-          const nb = createNotebook("Notebook 1");
-          nb.pages = (parsed.pages || []).map(p => ({
-            ...createBlankPage(),
-            ...p,
-            audio: p.audio || []
-          }));
-          if (!nb.pages.length) nb.pages = [createBlankPage()];
-          nb.currentPageIndex = Math.min(parsed.currentPageIndex || 0, nb.pages.length - 1);
+        if (!notebooks.length) {
+          const nb = createNotebook("My Notebook");
           notebooks = [nb];
-          currentNotebookIndex = 0;
-          pages = nb.pages;
-          currentPageIndex = nb.currentPageIndex;
-          saveNotebook(); // re-save as multi
-          return;
-        } catch (e) {
-          console.warn("Could not migrate legacy notebook:", e);
         }
+
+        if (parsed.currentNotebookId &&
+            notebooks.some(n => n.id === parsed.currentNotebookId)) {
+          currentNotebookId = parsed.currentNotebookId;
+        } else {
+          currentNotebookId = notebooks[0].id;
+        }
+      } else if (parsed.pages && Array.isArray(parsed.pages)) {
+        // Legacy single-notebook data -> wrap into one notebook
+        const pageArr = parsed.pages.map(p => ({
+          ...createBlankPage(),
+          ...p,
+          audio: p.audio || []
+        }));
+        const nb = createNotebook("My Notebook");
+        nb.pages = pageArr.length ? pageArr : [createBlankPage()];
+        nb.currentPageIndex = Math.min(
+          typeof parsed.currentPageIndex === "number" ? parsed.currentPageIndex : 0,
+          nb.pages.length - 1
+        );
+        notebooks = [nb];
+        currentNotebookId = nb.id;
+      } else {
+        const nb = createNotebook("My Notebook");
+        notebooks = [nb];
+        currentNotebookId = nb.id;
       }
 
-      // Nothing found: create default notebook
-      const nb = createNotebook("Notebook 1");
-      notebooks = [nb];
-      currentNotebookIndex = 0;
+      const nb = getCurrentNotebook();
+      if (nb) {
+        pages = nb.pages;
+        currentPageIndex = typeof nb.currentPageIndex === "number" ? nb.currentPageIndex : 0;
+        if (!pages.length) {
+          pages = [createBlankPage()];
+          nb.pages = pages;
+          currentPageIndex = 0;
+          nb.currentPageIndex = 0;
+        }
+      } else {
+        const nbNew = createNotebook("My Notebook");
+        notebooks = [nbNew];
+        currentNotebookId = nbNew.id;
+        pages = nbNew.pages;
+        currentPageIndex = nbNew.currentPageIndex;
+      }
+    }
+
+    function loadNotebooks() {
+      // Try primary first
+      let raw = localStorage.getItem(STORAGE_KEY);
+
+      // If missing, try backup
+      if (!raw) {
+        raw = localStorage.getItem(STORAGE_KEY + "_backup");
+      }
+
+      // If still missing → create fresh default notebook
+      if (!raw) {
+        const nb = createNotebook("My Notebook");
+        notebooks = [nb];
+        currentNotebookId = nb.id;
+        pages = nb.pages;
+        currentPageIndex = nb.currentPageIndex;
+        updateBackupInfo(); // will show "none yet"
+        return;
+      }
+
+      try {
+        const parsed = JSON.parse(raw);
+        applyParsedNotebookData(parsed);
+        updateBackupInfo(); // load from *_backup_meta if present
+      } catch (e) {
+        console.warn("Could not load notebook:", e);
+        const nb = createNotebook("My Notebook");
+        notebooks = [nb];
+        currentNotebookId = nb.id;
+        pages = nb.pages;
+        currentPageIndex = nb.currentPageIndex;
+        updateBackupInfo();
+      }
+    }
+
+    function refreshNotebookSelect() {
+      notebookSelect.innerHTML = "";
+      notebooks.forEach(nb => {
+        const opt = document.createElement("option");
+        opt.value = nb.id;
+        opt.textContent = nb.name;
+        if (nb.id === currentNotebookId) {
+          opt.selected = true;
+        }
+        notebookSelect.appendChild(opt);
+      });
+    }
+
+    function switchNotebook(notebookId) {
+      if (!notebookId || notebookId === currentNotebookId) return;
+
+      const old = getCurrentNotebook();
+      if (old) {
+        old.pages = pages;
+        old.currentPageIndex = currentPageIndex;
+      }
+
+      currentNotebookId = notebookId;
+      const nb = getCurrentNotebook();
+      if (!nb) return;
+
+      pages = nb.pages;
+      currentPageIndex = typeof nb.currentPageIndex === "number" ? nb.currentPageIndex : 0;
+      if (!pages.length) {
+        pages = [createBlankPage()];
+        nb.pages = pages;
+        currentPageIndex = 0;
+        nb.currentPageIndex = 0;
+      }
+
+      refreshNotebookSelect();
+      updatePageInfo();
+      document.getElementById("pageTitle").value = pages[currentPageIndex].title || "";
+      document.getElementById("pageText").value = pages[currentPageIndex].text || "";
+      resizeCanvasToContainer();
+      renderAudioList();
+      saveNotebook();
+    }
+
+    function handleNewNotebook() {
+      const name = prompt("Notebook name:", `Notebook ${notebooks.length + 1}`);
+      if (name === null) return;
+      const finalName = name.trim() || `Notebook ${notebooks.length + 1}`;
+      const old = getCurrentNotebook();
+      if (old) {
+        old.pages = pages;
+        old.currentPageIndex = currentPageIndex;
+      }
+      const nb = createNotebook(finalName);
+      notebooks.push(nb);
+      currentNotebookId = nb.id;
       pages = nb.pages;
       currentPageIndex = nb.currentPageIndex;
+      refreshNotebookSelect();
+      updatePageInfo();
+      document.getElementById("pageTitle").value = "";
+      document.getElementById("pageText").value = "";
+      resizeCanvasToContainer();
+      renderAudioList();
+      saveNotebook();
+    }
+
+    function handleRenameNotebook() {
+      const nb = getCurrentNotebook();
+      if (!nb) return;
+      const name = prompt("Rename notebook:", nb.name);
+      if (name === null) return;
+      const finalName = name.trim();
+      if (!finalName) return;
+      nb.name = finalName;
+      refreshNotebookSelect();
+      saveNotebook();
+    }
+
+    function handleDeleteNotebook() {
+      if (notebooks.length <= 1) {
+        alert("You must have at least one notebook.");
+        return;
+      }
+      const nb = getCurrentNotebook();
+      if (!nb) return;
+      if (!confirm(`Delete notebook "${nb.name}"? This cannot be undone.`)) return;
+
+      notebooks = notebooks.filter(n => n.id !== nb.id);
+      currentNotebookId = notebooks[0].id;
+      const newCurrent = getCurrentNotebook();
+      pages = newCurrent.pages;
+      currentPageIndex = typeof newCurrent.currentPageIndex === "number"
+        ? newCurrent.currentPageIndex : 0;
+      if (!pages.length) {
+        pages = [createBlankPage()];
+        newCurrent.pages = pages;
+        currentPageIndex = 0;
+        newCurrent.currentPageIndex = 0;
+      }
+
+      refreshNotebookSelect();
+      updatePageInfo();
+      document.getElementById("pageTitle").value = pages[currentPageIndex].title || "";
+      document.getElementById("pageText").value = pages[currentPageIndex].text || "";
+      resizeCanvasToContainer();
+      renderAudioList();
+      saveNotebook();
     }
 
     function updatePageInfo() {
       const info = document.getElementById("pageInfo");
-      info.textContent = `Page ${currentPageIndex + 1} / ${pages.length}`;
+      info.textContent = `Page ${currentPageIndex + 1} / ${pages.length || 1}`;
     }
 
     function resizeCanvasToContainer() {
@@ -665,69 +827,11 @@
       resizeCanvasToContainer();
     });
 
-    // ---- Notebook select UI ----
-    function renderNotebookSelect() {
-      if (!notebookSelect) return;
-      notebookSelect.innerHTML = "";
-      notebooks.forEach((nb, idx) => {
-        const opt = document.createElement("option");
-        opt.value = String(nb.id);
-        opt.textContent = nb.name || `Notebook ${idx + 1}`;
-        if (idx === currentNotebookIndex) opt.selected = true;
-        notebookSelect.appendChild(opt);
-      });
-    }
-
-    function switchToNotebookIndex(idx) {
-      if (idx < 0 || idx >= notebooks.length) return;
-      syncToCurrentNotebook();
-      currentNotebookIndex = idx;
-      const nb = notebooks[currentNotebookIndex];
-      pages = nb.pages;
-      if (!pages.length) pages = [createBlankPage()];
-      currentPageIndex = Math.min(nb.currentPageIndex || 0, pages.length - 1);
-      document.getElementById("pageTitle").value = pages[currentPageIndex].title || "";
-      document.getElementById("pageText").value = pages[currentPageIndex].text || "";
-      updatePageInfo();
-      resizeCanvasToContainer();
-      renderAudioList();
-      renderNotebookSelect();
-      saveNotebook();
-    }
-
-    notebookSelect.addEventListener("change", (e) => {
-      const idStr = e.target.value;
-      const idx = notebooks.findIndex(nb => String(nb.id) === idStr);
-      if (idx === -1 || idx === currentNotebookIndex) return;
-      switchToNotebookIndex(idx);
-    });
-
-    newNotebookBtn.addEventListener("click", () => {
-      const defaultName = `Notebook ${notebooks.length + 1}`;
-      const name = prompt("Name for new notebook:", defaultName);
-      if (name === null) return;
-      const trimmed = name.trim();
-      const finalName = trimmed || defaultName;
-
-      syncToCurrentNotebook();
-      const nb = createNotebook(finalName);
-      notebooks.push(nb);
-      currentNotebookIndex = notebooks.length - 1;
-      pages = nb.pages;
-      currentPageIndex = nb.currentPageIndex;
-
-      document.getElementById("pageTitle").value = "";
-      document.getElementById("pageText").value = "";
-      updatePageInfo();
-      resizeCanvasToContainer();
-      renderAudioList();
-      renderNotebookSelect();
-      saveNotebook();
-    });
-
     // ---- Drawing logic ----
     function startStroke(x, y) {
       const page = pages[currentPageIndex];
+      if (!page) return;
+
       page.redoStack = []; // new stroke invalidates redo history
 
       const normalizedPoint = normalizePoint(x, y);
@@ -753,7 +857,7 @@
       if (!isDrawing) return;
       isDrawing = false;
       const page = pages[currentPageIndex];
-      if (currentStroke && currentStroke.points.length > 0) {
+      if (page && currentStroke && currentStroke.points.length > 0) {
         page.undoStack.push(currentStroke);
       }
       currentStroke = null;
@@ -827,7 +931,8 @@
           return "#000000";
       }
     }
-        // ---- Undo / Redo / Clear ----
+
+    // ---- Undo / Redo / Clear ----
     function undo() {
       const page = pages[currentPageIndex];
       if (!page || page.strokes.length === 0) return;
@@ -1013,17 +1118,20 @@
         downloadBtn.textContent = "Download";
         downloadBtn.addEventListener("click", () => {
           try {
-            const blob = dataUrlToBlob(clip.dataUrl);
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement("a");
-            a.href = url;
             const safeName = (clip.name || `audio_${idx + 1}`).replace(/[^\w\- ]+/g, "_");
+
+            // Use existing DataURL for iOS-friendly download
+            const a = document.createElement("a");
+            a.href = clip.dataUrl;
             a.download = safeName + ".webm";
+
             document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
+            setTimeout(() => {
+              a.click();
+              document.body.removeChild(a);
+            }, 100);
           } catch (e) {
+            console.error(e);
             alert("Unable to download this audio clip.");
           }
         });
@@ -1045,18 +1153,40 @@
       });
     }
 
+    // ---- Enhanced recording ----
     async function startRecording() {
       if (!audioSupported || isRecordingAudio) return;
       try {
-        const constraints = { audio: true };
+        // Choose constraints based on audio mode
+        const mode = audioModeSelect ? audioModeSelect.value : "standard";
+
+        let constraints;
+        if (mode === "enhanced") {
+          // Ask the browser for better-quality, speech-focused input
+          constraints = {
+            audio: {
+              channelCount: 1,
+              echoCancellation: true,
+              noiseSuppression: true,
+              autoGainControl: true
+              // sampleRate / sampleSize are often ignored, so we skip them
+            }
+          };
+        } else {
+          constraints = { audio: true };
+        }
+
         currentStream = await navigator.mediaDevices.getUserMedia(constraints);
 
+        // Prefer high-quality Opus where supported
         let options = {};
         if (window.MediaRecorder && MediaRecorder.isTypeSupported) {
-          if (MediaRecorder.isTypeSupported("audio/mp4")) {
-            options.mimeType = "audio/mp4";
+          if (MediaRecorder.isTypeSupported("audio/webm;codecs=opus")) {
+            options.mimeType = "audio/webm;codecs=opus";
           } else if (MediaRecorder.isTypeSupported("audio/webm")) {
             options.mimeType = "audio/webm";
+          } else if (MediaRecorder.isTypeSupported("audio/mp4")) {
+            options.mimeType = "audio/mp4";
           }
         }
 
@@ -1084,7 +1214,10 @@
             return;
           }
 
-          const blob = new Blob(recordedChunks, { type: mediaRecorder.mimeType || "audio/webm" });
+          const blob = new Blob(
+            recordedChunks,
+            { type: mediaRecorder.mimeType || "audio/webm" }
+          );
           const reader = new FileReader();
           reader.onloadend = () => {
             const dataUrl = reader.result;
@@ -1107,7 +1240,10 @@
         isRecordingAudio = true;
         startRecordBtn.disabled = true;
         stopRecordBtn.disabled = false;
-        recordStatus.textContent = "Recording status: Recording...";
+        recordStatus.textContent =
+          mode === "enhanced"
+            ? "Recording status: Recording (enhanced)…"
+            : "Recording status: Recording...";
       } catch (e) {
         console.error(e);
         recordStatus.textContent = "Recording status: Permission denied or error.";
@@ -1133,24 +1269,56 @@
       stopRecordBtn.addEventListener("click", stopRecording);
     }
 
-    // ---- Export / Import (multi-notebook aware) ----
+    // ---- Export / Import (full backup) ----
     const exportBtn = document.getElementById("exportBtn");
     const importBtn = document.getElementById("importBtn");
     const importFileInput = document.getElementById("importFile");
+    const restoreBackupBtn = document.getElementById("restoreBackupBtn");
 
     exportBtn.addEventListener("click", () => {
-      syncToCurrentNotebook();
-      const dataStr = JSON.stringify({ notebooks, currentNotebookIndex });
-      const blob = new Blob([dataStr], { type: "application/json" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      const dateStr = new Date().toISOString().slice(0, 10);
-      a.download = `handwritten_notebooks_${dateStr}.json`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      try {
+        saveNotebook();
+
+        const fullBackup = {
+          notebooks,
+          currentNotebookId,
+          backupTimestamp: new Date().toISOString()
+        };
+
+        const json = JSON.stringify(fullBackup);
+
+        // Save newest backup locally
+        localStorage.setItem(STORAGE_KEY + "_backup", json);
+        localStorage.setItem(
+          STORAGE_KEY + "_backup_meta",
+          JSON.stringify({ ts: fullBackup.backupTimestamp })
+        );
+        updateBackupInfo(fullBackup.backupTimestamp);
+
+        // ---- iOS-compatible download ----
+        const base64 = btoa(unescape(encodeURIComponent(json)));
+        const dataUrl = "data:application/json;base64," + base64;
+
+        const a = document.createElement("a");
+        a.href = dataUrl;
+
+        const dateStr = fullBackup.backupTimestamp.replace(/[:.]/g, "-");
+        a.download = `handwritten_notebook_FULL_${dateStr}.json`;
+
+        // append to DOM so iOS allows it
+        document.body.appendChild(a);
+
+        // must be timed for Safari to work
+        setTimeout(() => {
+          a.click();
+          document.body.removeChild(a);
+        }, 100);
+
+        alert("Full backup exported successfully.");
+      } catch (e) {
+        console.error(e);
+        alert("Export failed.");
+      }
     });
 
     importBtn.addEventListener("click", () => {
@@ -1160,50 +1328,67 @@
     importFileInput.addEventListener("change", (e) => {
       const file = e.target.files[0];
       if (!file) return;
+
       const reader = new FileReader();
       reader.onload = (ev) => {
         try {
-          const data = JSON.parse(ev.target.result);
+          const loaded = JSON.parse(ev.target.result);
 
-          if (Array.isArray(data.notebooks)) {
-            // New multi-notebook format
-            notebooks = data.notebooks.map((nb, idx) => normalizeNotebook(nb, idx));
-            if (!notebooks.length) notebooks = [createNotebook("Notebook 1")];
-            currentNotebookIndex = Math.min(data.currentNotebookIndex || 0, notebooks.length - 1);
-            const nb = notebooks[currentNotebookIndex];
-            pages = nb.pages;
-            currentPageIndex = nb.currentPageIndex;
-            goToPage(currentPageIndex);
-          } else if (Array.isArray(data.pages)) {
-            // Old single-notebook export
-            const nb = createNotebook("Imported Notebook");
-            nb.pages = data.pages.map(p => ({
-              ...createBlankPage(),
-              ...p,
-              audio: p.audio || []
-            }));
-            if (!nb.pages.length) nb.pages = [createBlankPage()];
-            nb.currentPageIndex = Math.min(data.currentPageIndex || 0, nb.pages.length - 1);
-            notebooks = [nb];
-            currentNotebookIndex = 0;
-            pages = nb.pages;
-            currentPageIndex = nb.currentPageIndex;
-            goToPage(currentPageIndex);
-          } else {
-            throw new Error("Unsupported notebook format");
+          // must have full structure
+          if (!loaded.notebooks || !Array.isArray(loaded.notebooks)) {
+            throw new Error("Invalid full backup format");
           }
 
-          renderNotebookSelect();
+          notebooks = loaded.notebooks;
+          currentNotebookId = loaded.currentNotebookId || notebooks[0].id;
+
+          const nb = getCurrentNotebook();
+          pages = nb.pages;
+          currentPageIndex = nb.currentPageIndex ?? 0;
+
+          refreshNotebookSelect();
+          goToPage(currentPageIndex);
           saveNotebook();
-          alert("Notebook(s) imported successfully.");
-        } catch (err) {
+
+          alert("✔ Full backup restored successfully!");
+        }
+        catch (err) {
           console.error(err);
-          alert("Could not import file. It may not be a valid notebook backup.");
-        } finally {
+          alert("Could not import file. It may not be a valid FULL backup.");
+        }
+        finally {
           importFileInput.value = "";
         }
       };
+
       reader.readAsText(file);
+    });
+
+    // Restore from auto-backup stored in localStorage
+    restoreBackupBtn.addEventListener("click", () => {
+      const raw = localStorage.getItem(STORAGE_KEY + "_backup");
+      if (!raw) {
+        alert("No auto backup found in this browser yet.");
+        return;
+      }
+      if (!confirm("Restore from last auto backup? This will overwrite the current notebooks stored in this browser.")) {
+        return;
+      }
+      try {
+        const parsed = JSON.parse(raw);
+        applyParsedNotebookData(parsed);
+        refreshNotebookSelect();
+        updatePageInfo();
+        document.getElementById("pageTitle").value = pages[currentPageIndex].title || "";
+        document.getElementById("pageText").value = pages[currentPageIndex].text || "";
+        resizeCanvasToContainer();
+        renderAudioList();
+        saveNotebook(); // also refreshes backup + timestamp
+        alert("Restored from auto backup.");
+      } catch (e) {
+        console.error(e);
+        alert("Backup data is invalid or corrupted.");
+      }
     });
 
     // ---- Fullscreen (app-level) ----
@@ -1276,9 +1461,17 @@
       performSearch(e.target.value);
     });
 
+    // Notebook selectors
+    notebookSelect.addEventListener("change", (e) => {
+      switchNotebook(e.target.value);
+    });
+    newNotebookBtn.addEventListener("click", handleNewNotebook);
+    renameNotebookBtn.addEventListener("click", handleRenameNotebook);
+    deleteNotebookBtn.addEventListener("click", handleDeleteNotebook);
+
     // ---- Init ----
-    loadNotebook();
-    renderNotebookSelect();
+    loadNotebooks();
+    refreshNotebookSelect();
     updatePageInfo();
     document.getElementById("pageTitle").value = pages[currentPageIndex].title || "";
     document.getElementById("pageText").value = pages[currentPageIndex].text || "";
@@ -1290,4 +1483,3 @@
   </script>
 </body>
 </html>
-
