@@ -317,6 +317,25 @@
     .fullscreen .notebook-wrapper {
       height: calc(100vh - 60px);
     }
+    
+    /* Fix Notebook bar to always stay in one line */
+.notebook-bar {
+  display: flex;
+  flex-wrap: nowrap;       /* force same line */
+  align-items: center;
+  gap: 8px;
+}
+
+/* Shrink the select width on mobile so it fits in line */
+.notebook-select {
+  max-width: 60vw;         /* keeps it from occupying the full width */
+}
+
+/* Make the + New Notebook button stay small */
+#newNotebookBtn {
+  white-space: nowrap;
+  flex-shrink: 0;          /* prevent button from being pushed out */
+}
 
     @media (max-width: 600px) {
       .toolbar-row,
