@@ -1236,10 +1236,8 @@
 
     exportBtn.addEventListener("click", () => {
       try {
-        // Always save latest first
         saveNotebook();
     
-        // Build full backup package
         const fullBackup = {
           notebooks,
           currentNotebookId,
@@ -1248,7 +1246,7 @@
     
         const json = JSON.stringify(fullBackup);
     
-        // Save to local newest-backup slot
+        // Save newest backup locally
         localStorage.setItem(STORAGE_KEY + "_backup", json);
         localStorage.setItem(
           STORAGE_KEY + "_backup_meta",
@@ -1256,20 +1254,24 @@
         );
         updateBackupInfo(fullBackup.backupTimestamp);
     
-        // Create download file
-        const blob = new Blob([json], { type: "application/json" });
-        const url = URL.createObjectURL(blob);
+        // ---- iOS-compatible download ----
+        const base64 = btoa(unescape(encodeURIComponent(json)));
+        const dataUrl = "data:application/json;base64," + base64;
     
         const a = document.createElement("a");
-        a.href = url;
+        a.href = dataUrl;
     
         const dateStr = fullBackup.backupTimestamp.replace(/[:.]/g, "-");
         a.download = `handwritten_notebook_FULL_${dateStr}.json`;
     
+        // append to DOM so iOS allows it
         document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
+    
+        // must be timed for Safari to work
+        setTimeout(() => {
+          a.click();
+          document.body.removeChild(a);
+        }, 100);
     
         alert("Full backup exported successfully.");
       } catch (e) {
