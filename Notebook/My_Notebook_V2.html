@@ -441,7 +441,6 @@
     <script>
     // ---- Data model ----
     const STORAGE_KEY = "handNotebook_v2";
-    const BACKUP_KEY  = "handNotebook_v2_backup";
 
     // Multi-notebook state
     let notebooks = [];
@@ -527,48 +526,44 @@
     }
 
     function saveNotebook() {
+      const nb = getCurrentNotebook();
+      if (nb) {
+        nb.pages = pages;
+        nb.currentPageIndex = currentPageIndex;
+      }
       const data = {
-        pages,
-        currentPageIndex
+        notebooks,
+        currentNotebookId
       };
-      const json = JSON.stringify(data);
       try {
-        // main copy
+        const json = JSON.stringify(data);
         localStorage.setItem(STORAGE_KEY, json);
-        // single rolling backup (Option T + A: keep only newest)
-        localStorage.setItem(BACKUP_KEY, json);
+        localStorage.setItem(STORAGE_KEY + "_backup", json);  // newest-only backup
+        
       } catch (e) {
         console.warn("Could not save notebook:", e);
       }
     }
-    
+
     function loadNotebooks() {
-      // ---- Try MAIN first ----
+      // Try primary first
       let raw = localStorage.getItem(STORAGE_KEY);
-      let loadedFrom = "main";
     
-      // ---- If main missing → try BACKUP ----
+      // If missing, try backup
       if (!raw) {
-        raw = localStorage.getItem(BACKUP_KEY);
-        if (raw) loadedFrom = "backup";
+        raw = localStorage.getItem(STORAGE_KEY + "_backup");
       }
     
-  // ---- If both missing → create 1 blank notebook ----
-  if (!raw) {
-    const nb = createNotebook("My Notebook");
-    notebooks = [nb];
-    currentNotebookId = nb.id;
-    pages = nb.pages;
-    currentPageIndex = nb.currentPageIndex;
-
-    // Also write backup once
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ notebooks, currentNotebookId }));
-    localStorage.setItem(BACKUP_KEY, JSON.stringify({ notebooks, currentNotebookId }));
-    return;
-  }
-
-  // ---- Continue with your existing parsing logic below this line ----
+      // If still missing → create fresh default notebook
+      if (!raw) {
+        const nb = createNotebook("My Notebook");
+        notebooks = [nb];
+        currentNotebookId = nb.id;
+        pages = nb.pages;
+        currentPageIndex = nb.currentPageIndex;
+        return;
       }
+      
       try {
         const parsed = JSON.parse(raw);
 
