@@ -418,10 +418,6 @@
     let isDrawing = false;
     let currentStroke = null;
 
-    // for hybrid engine incremental drawing
-    let lastX = 0;
-    let lastY = 0;
-
     const toolButtons = {
       pen: document.getElementById("toolPen"),
       highlighter: document.getElementById("toolHighlighter"),
@@ -525,50 +521,7 @@
       resizeCanvasToContainer();
     });
 
-    // ---- Hybrid Drawing logic (fast incremental + stored strokes) ----
-    function startStroke(x, y) {
-      const page = pages[currentPageIndex];
-      page.redoStack = []; // new stroke invalidates redo history
-
-      lastX = x;
-      lastY = y;
-
-      const normalizedPoint = normalizePoint(x, y);
-      const stroke = {
-        tool: currentTool, // 'pen', 'highlighter', 'eraser'
-        color: currentColor,
-        size: currentSize,
-        points: [normalizedPoint]
-      };
-      currentStroke = stroke;
-      page.strokes.push(stroke);
-      isDrawing = true;
-
-      // draw a tiny dot to avoid gap at start
-      drawSegment(lastX, lastY, x, y, true);
-    }
-
-    function addPointToStroke(x, y) {
-      if (!isDrawing || !currentStroke) return;
-      const normalizedPoint = normalizePoint(x, y);
-      currentStroke.points.push(normalizedPoint);
-      // draw only the new segment
-      drawSegment(lastX, lastY, x, y, false);
-      lastX = x;
-      lastY = y;
-    }
-
-    function endStroke() {
-      if (!isDrawing) return;
-      isDrawing = false;
-      const page = pages[currentPageIndex];
-      if (currentStroke && currentStroke.points.length > 0) {
-        page.undoStack.push(currentStroke);
-      }
-      currentStroke = null;
-      saveNotebook();
-    }
-
+    // ---- Coordinate helpers (now use canvas width/height for speed) ----
     function normalizePoint(x, y) {
       return {
         x: x / canvas.width,
@@ -583,6 +536,7 @@
       };
     }
 
+    // ---- Drawing logic (hybrid: incremental + full redraw when needed) ----
     function applyStrokeStyle(stroke) {
       if (stroke.tool === "eraser") {
         ctx.globalCompositeOperation = "destination-out";
@@ -601,18 +555,58 @@
       ctx.lineJoin = "round";
     }
 
-    // draw incremental segment for currentStroke
-    function drawSegment(x1, y1, x2, y2, isFirst) {
-      if (!currentStroke) return;
-      applyStrokeStyle(currentStroke);
+    function startStroke(x, y) {
+      const page = pages[currentPageIndex];
+      page.redoStack = []; // new stroke invalidates redo history
+
+      const normalizedPoint = normalizePoint(x, y);
+      const stroke = {
+        tool: currentTool, // 'pen', 'highlighter', 'eraser'
+        color: currentColor,
+        size: currentSize,
+        points: [normalizedPoint]
+      };
+      currentStroke = stroke;
+      page.strokes.push(stroke);
+      isDrawing = true;
+      // No full redraw here (performance).
+    }
+
+    function drawStrokeSegment(stroke, p1Norm, p2Norm) {
+      const p1 = denormalizePoint(p1Norm);
+      const p2 = denormalizePoint(p2Norm);
+      ctx.save();
+      applyStrokeStyle(stroke);
       ctx.beginPath();
-      if (isFirst) {
-        ctx.moveTo(x2, y2);
-      } else {
-        ctx.moveTo(x1, y1);
-      }
-      ctx.lineTo(x2, y2);
+      ctx.moveTo(p1.x, p1.y);
+      ctx.lineTo(p2.x, p2.y);
       ctx.stroke();
+      ctx.restore();
+    }
+
+    function addPointToStroke(x, y) {
+      if (!isDrawing || !currentStroke) return;
+      const page = pages[currentPageIndex];
+      if (!page) return;
+
+      const normalizedPoint = normalizePoint(x, y);
+      const pts = currentStroke.points;
+      const prevPoint = pts[pts.length - 1];
+      pts.push(normalizedPoint);
+
+      // Incremental draw only last segment for smoothness
+      drawStrokeSegment(currentStroke, prevPoint, normalizedPoint);
+    }
+
+    function endStroke() {
+      if (!isDrawing) return;
+      isDrawing = false;
+      const page = pages[currentPageIndex];
+      if (currentStroke && currentStroke.points.length > 0) {
+        page.undoStack.push(currentStroke);
+      }
+      currentStroke = null;
+      saveNotebook();
     }
 
     function redrawCurrentPage() {
@@ -627,17 +621,19 @@
 
     function drawStroke(stroke) {
       if (!stroke.points || stroke.points.length < 1) return;
-
+      ctx.save();
       applyStrokeStyle(stroke);
 
+      const pts = stroke.points;
+      const first = denormalizePoint(pts[0]);
       ctx.beginPath();
-      const first = denormalizePoint(stroke.points[0]);
       ctx.moveTo(first.x, first.y);
-      for (let i = 1; i < stroke.points.length; i++) {
-        const p = denormalizePoint(stroke.points[i]);
+      for (let i = 1; i < pts.length; i++) {
+        const p = denormalizePoint(pts[i]);
         ctx.lineTo(p.x, p.y);
       }
       ctx.stroke();
+      ctx.restore();
     }
 
     function getColorValue(name) {
@@ -650,7 +646,7 @@
           return "#000000";
       }
     }
-    
+
     // ---- Undo / Redo / Clear ----
     function undo() {
       const page = pages[currentPageIndex];
@@ -689,7 +685,7 @@
       document.getElementById("pageTitle").value = page.title || "";
       document.getElementById("pageText").value = page.text || "";
       updatePageInfo();
-      resizeCanvasToContainer(); // this will also redraw
+      resizeCanvasToContainer(); // also redraw
       renderAudioList();
       saveNotebook();
     }
@@ -741,7 +737,7 @@
       });
     }
 
-    // ---- Pointer events (hybrid + palm handling, no delay) ----
+    // ---- Pointer events (palm-friendly, pen priority, no delay) ----
     function getCanvasCoordinates(evt) {
       const rect = canvas.getBoundingClientRect();
       const x = evt.clientX - rect.left;
@@ -794,7 +790,7 @@
         endStroke();
       }
     });
-
+    
     // ---- Audio helpers ----
     function dataUrlToBlob(dataUrl) {
       const parts = dataUrl.split(",");
@@ -927,7 +923,7 @@
           reader.readAsDataURL(blob);
         };
 
-        // Unlimited recording until Stop is pressed
+        // unlimited duration until you press Stop
         mediaRecorder.start();
         isRecordingAudio = true;
         startRecordBtn.disabled = true;
