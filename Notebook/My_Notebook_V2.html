@@ -441,6 +441,7 @@
     <script>
     // ---- Data model ----
     const STORAGE_KEY = "handNotebook_v2";
+    const BACKUP_KEY  = "handNotebook_v2_backup";
 
     // Multi-notebook state
     let notebooks = [];
@@ -525,32 +526,48 @@
       return nb || notebooks[0];
     }
 
-    function saveNotebook() {
-      const nb = getCurrentNotebook();
-      if (nb) {
-        nb.pages = pages;
-        nb.currentPageIndex = currentPageIndex;
-      }
-      const data = {
-        notebooks,
-        currentNotebookId
-      };
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-      } catch (e) {
-        console.warn("Could not save notebook:", e);
-      }
-    }
+function saveNotebook() {
+  const data = {
+    pages,
+    currentPageIndex
+  };
+  const json = JSON.stringify(data);
+  try {
+    // main copy
+    localStorage.setItem(STORAGE_KEY, json);
+    // single rolling backup (Option T + A: keep only newest)
+    localStorage.setItem(BACKUP_KEY, json);
+  } catch (e) {
+    console.warn("Could not save notebook:", e);
+  }
+}
 
-    function loadNotebooks() {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (!raw) {
-        const nb = createNotebook("My Notebook");
-        notebooks = [nb];
-        currentNotebookId = nb.id;
-        pages = nb.pages;
-        currentPageIndex = nb.currentPageIndex;
-        return;
+function loadNotebooks() {
+  // ---- Try MAIN first ----
+  let raw = localStorage.getItem(STORAGE_KEY);
+  let loadedFrom = "main";
+
+  // ---- If main missing → try BACKUP ----
+  if (!raw) {
+    raw = localStorage.getItem(BACKUP_KEY);
+    if (raw) loadedFrom = "backup";
+  }
+
+  // ---- If both missing → create 1 blank notebook ----
+  if (!raw) {
+    const nb = createNotebook("My Notebook");
+    notebooks = [nb];
+    currentNotebookId = nb.id;
+    pages = nb.pages;
+    currentPageIndex = nb.currentPageIndex;
+
+    // Also write backup once
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ notebooks, currentNotebookId }));
+    localStorage.setItem(BACKUP_KEY, JSON.stringify({ notebooks, currentNotebookId }));
+    return;
+  }
+
+  // ---- Continue with your existing parsing logic below this line ----
       }
       try {
         const parsed = JSON.parse(raw);
