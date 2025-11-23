@@ -1108,17 +1108,23 @@
         downloadBtn.textContent = "Download";
         downloadBtn.addEventListener("click", () => {
           try {
-            const blob = dataUrlToBlob(clip.dataUrl);
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement("a");
-            a.href = url;
             const safeName = (clip.name || `audio_${idx + 1}`).replace(/[^\w\- ]+/g, "_");
+        
+            // Convert existing DataURL to valid iOS download
+            const a = document.createElement("a");
+            a.href = clip.dataUrl; // Already base64 from recorder
             a.download = safeName + ".webm";
+        
             document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
+        
+            // Must delay for Safari to allow the click
+            setTimeout(() => {
+              a.click();
+              document.body.removeChild(a);
+            }, 100);
+        
           } catch (e) {
+            console.error(e);
             alert("Unable to download this audio clip.");
           }
         });
