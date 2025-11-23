@@ -47,12 +47,33 @@
       cursor: pointer;
     }
 
+    /* Notebook bar */
+    .notebook-bar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 4px;
+    }
+    .notebook-select {
+      min-width: 160px;
+      padding: 3px 6px;
+      border-radius: 4px;
+      border: 1px solid #ccc;
+      font-size: 0.85rem;
+    }
+    .notebook-small-btn {
+      padding: 2px 6px;
+      font-size: 0.75rem;
+    }
+
     .toolbar-row {
       display: flex;
       flex-wrap: wrap;
       gap: 8px;
       align-items: center;
-      justify-content: space-between;
+      justify-content: center; /* centered Tools + Pen */
     }
     .toolbar-group {
       display: flex;
@@ -280,7 +301,8 @@
     .fullscreen .search-row,
     .fullscreen .export-import-row,
     .fullscreen .audio-section,
-    .fullscreen .footer {
+    .fullscreen .footer,
+    .fullscreen .notebook-bar {
       display: none;
     }
     .fullscreen .fullscreen-topbar {
@@ -292,7 +314,8 @@
 
     @media (max-width: 600px) {
       .toolbar-row,
-      .page-controls {
+      .page-controls,
+      .notebook-bar {
         flex-direction: column;
         align-items: stretch;
       }
@@ -307,6 +330,17 @@
   <div class="app-container">
     <div id="fullscreenTopBar" class="fullscreen-topbar">
       Tap here to show toolbar / exit full screen
+    </div>
+
+    <!-- Notebook selector -->
+    <div class="notebook-bar">
+      <div class="toolbar-group">
+        <span class="toolbar-label">Notebook</span>
+        <select id="notebookSelect" class="notebook-select"></select>
+        <button id="renameNotebookBtn" class="notebook-small-btn">Rename</button>
+        <button id="deleteNotebookBtn" class="notebook-small-btn">Delete</button>
+      </div>
+      <button id="newNotebookBtn">+ New Notebook</button>
     </div>
 
     <!-- Top toolbar: tools + pen size -->
@@ -404,11 +438,15 @@
       Use Export/Import to back up or move to another browser.
     </div>
   </div>
-
-  <script>
+    <script>
     // ---- Data model ----
     const STORAGE_KEY = "handNotebook_v2";
 
+    // Multi-notebook state
+    let notebooks = [];
+    let currentNotebookId = null;
+
+    // Current notebook's pages (for drawing logic)
     let pages = [];
     let currentPageIndex = 0;
 
@@ -446,13 +484,19 @@
     const audioListEl = document.getElementById("audioList");
     const audioHintEl = document.getElementById("audioHint");
 
+    // Notebook UI
+    const notebookSelect = document.getElementById("notebookSelect");
+    const newNotebookBtn = document.getElementById("newNotebookBtn");
+    const renameNotebookBtn = document.getElementById("renameNotebookBtn");
+    const deleteNotebookBtn = document.getElementById("deleteNotebookBtn");
+
     // Fullscreen state
     const appContainer = document.querySelector(".app-container");
     const fullscreenTopBar = document.getElementById("fullscreenTopBar");
     const fullscreenToggleBtn = document.getElementById("fullscreenToggleBtn");
     let isFullscreenMode = false;
 
-    // ---- Helpers for notebook pages ----
+    // ---- Helpers for notebook/pages ----
     function createBlankPage() {
       return {
         id: Date.now() + Math.random(),
@@ -465,10 +509,31 @@
       };
     }
 
+    function createNotebook(name) {
+      return {
+        id: "nb_" + Date.now() + "_" + Math.random().toString(36).slice(2),
+        name: name || `Notebook ${notebooks.length + 1}`,
+        pages: [createBlankPage()],
+        currentPageIndex: 0
+      };
+    }
+
+    function getCurrentNotebook() {
+      if (!notebooks.length) return null;
+      if (!currentNotebookId) return notebooks[0];
+      const nb = notebooks.find(n => n.id === currentNotebookId);
+      return nb || notebooks[0];
+    }
+
     function saveNotebook() {
+      const nb = getCurrentNotebook();
+      if (nb) {
+        nb.pages = pages;
+        nb.currentPageIndex = currentPageIndex;
+      }
       const data = {
-        pages,
-        currentPageIndex
+        notebooks,
+        currentNotebookId
       };
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
@@ -477,37 +542,213 @@
       }
     }
 
-    function loadNotebook() {
+    function loadNotebooks() {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (!raw) {
-        pages = [createBlankPage()];
-        currentPageIndex = 0;
+        const nb = createNotebook("My Notebook");
+        notebooks = [nb];
+        currentNotebookId = nb.id;
+        pages = nb.pages;
+        currentPageIndex = nb.currentPageIndex;
         return;
       }
       try {
         const parsed = JSON.parse(raw);
-        pages = (parsed.pages || []).map(p => ({
-          ...createBlankPage(),
-          ...p,
-          audio: p.audio || []
-        }));
-        if (!pages.length) {
-          pages = [createBlankPage()];
+
+        if (parsed.notebooks && Array.isArray(parsed.notebooks)) {
+          notebooks = parsed.notebooks.map((n, idx) => {
+            const rawPages = n.pages || [];
+            const pageArr = rawPages.length
+              ? rawPages.map(p => ({
+                  ...createBlankPage(),
+                  ...p,
+                  audio: p.audio || []
+                }))
+              : [createBlankPage()];
+
+            return {
+              id: n.id || "nb_" + Date.now() + "_" + idx,
+              name: n.name || `Notebook ${idx + 1}`,
+              pages: pageArr,
+              currentPageIndex: Math.min(
+                typeof n.currentPageIndex === "number" ? n.currentPageIndex : 0,
+                pageArr.length - 1
+              )
+            };
+          });
+
+          if (!notebooks.length) {
+            const nb = createNotebook("My Notebook");
+            notebooks = [nb];
+          }
+
+          if (parsed.currentNotebookId &&
+              notebooks.some(n => n.id === parsed.currentNotebookId)) {
+            currentNotebookId = parsed.currentNotebookId;
+          } else {
+            currentNotebookId = notebooks[0].id;
+          }
+        } else if (parsed.pages && Array.isArray(parsed.pages)) {
+          // Legacy single-notebook data -> wrap into one notebook
+          const pageArr = parsed.pages.map(p => ({
+            ...createBlankPage(),
+            ...p,
+            audio: p.audio || []
+          }));
+          const nb = createNotebook("My Notebook");
+          nb.pages = pageArr.length ? pageArr : [createBlankPage()];
+          nb.currentPageIndex = Math.min(
+            typeof parsed.currentPageIndex === "number" ? parsed.currentPageIndex : 0,
+            nb.pages.length - 1
+          );
+          notebooks = [nb];
+          currentNotebookId = nb.id;
+        } else {
+          const nb = createNotebook("My Notebook");
+          notebooks = [nb];
+          currentNotebookId = nb.id;
         }
-        currentPageIndex = Math.min(
-          parsed.currentPageIndex || 0,
-          pages.length - 1
-        );
+
+        const nb = getCurrentNotebook();
+        if (nb) {
+          pages = nb.pages;
+          currentPageIndex = typeof nb.currentPageIndex === "number" ? nb.currentPageIndex : 0;
+          if (!pages.length) {
+            pages = [createBlankPage()];
+            nb.pages = pages;
+            currentPageIndex = 0;
+            nb.currentPageIndex = 0;
+          }
+        } else {
+          const nbNew = createNotebook("My Notebook");
+          notebooks = [nbNew];
+          currentNotebookId = nbNew.id;
+          pages = nbNew.pages;
+          currentPageIndex = nbNew.currentPageIndex;
+        }
       } catch (e) {
         console.warn("Could not load notebook:", e);
-        pages = [createBlankPage()];
-        currentPageIndex = 0;
+        const nb = createNotebook("My Notebook");
+        notebooks = [nb];
+        currentNotebookId = nb.id;
+        pages = nb.pages;
+        currentPageIndex = nb.currentPageIndex;
       }
+    }
+
+    function refreshNotebookSelect() {
+      notebookSelect.innerHTML = "";
+      notebooks.forEach(nb => {
+        const opt = document.createElement("option");
+        opt.value = nb.id;
+        opt.textContent = nb.name;
+        if (nb.id === currentNotebookId) {
+          opt.selected = true;
+        }
+        notebookSelect.appendChild(opt);
+      });
+    }
+
+    function switchNotebook(notebookId) {
+      if (!notebookId || notebookId === currentNotebookId) return;
+
+      const old = getCurrentNotebook();
+      if (old) {
+        old.pages = pages;
+        old.currentPageIndex = currentPageIndex;
+      }
+
+      currentNotebookId = notebookId;
+      const nb = getCurrentNotebook();
+      if (!nb) return;
+
+      pages = nb.pages;
+      currentPageIndex = typeof nb.currentPageIndex === "number" ? nb.currentPageIndex : 0;
+      if (!pages.length) {
+        pages = [createBlankPage()];
+        nb.pages = pages;
+        currentPageIndex = 0;
+        nb.currentPageIndex = 0;
+      }
+
+      refreshNotebookSelect();
+      updatePageInfo();
+      document.getElementById("pageTitle").value = pages[currentPageIndex].title || "";
+      document.getElementById("pageText").value = pages[currentPageIndex].text || "";
+      resizeCanvasToContainer();
+      renderAudioList();
+      saveNotebook();
+    }
+
+    function handleNewNotebook() {
+      const name = prompt("Notebook name:", `Notebook ${notebooks.length + 1}`);
+      if (name === null) return;
+      const finalName = name.trim() || `Notebook ${notebooks.length + 1}`;
+      const old = getCurrentNotebook();
+      if (old) {
+        old.pages = pages;
+        old.currentPageIndex = currentPageIndex;
+      }
+      const nb = createNotebook(finalName);
+      notebooks.push(nb);
+      currentNotebookId = nb.id;
+      pages = nb.pages;
+      currentPageIndex = nb.currentPageIndex;
+      refreshNotebookSelect();
+      updatePageInfo();
+      document.getElementById("pageTitle").value = "";
+      document.getElementById("pageText").value = "";
+      resizeCanvasToContainer();
+      renderAudioList();
+      saveNotebook();
+    }
+
+    function handleRenameNotebook() {
+      const nb = getCurrentNotebook();
+      if (!nb) return;
+      const name = prompt("Rename notebook:", nb.name);
+      if (name === null) return;
+      const finalName = name.trim();
+      if (!finalName) return;
+      nb.name = finalName;
+      refreshNotebookSelect();
+      saveNotebook();
+    }
+
+    function handleDeleteNotebook() {
+      if (notebooks.length <= 1) {
+        alert("You must have at least one notebook.");
+        return;
+      }
+      const nb = getCurrentNotebook();
+      if (!nb) return;
+      if (!confirm(`Delete notebook "${nb.name}"? This cannot be undone.`)) return;
+
+      notebooks = notebooks.filter(n => n.id !== nb.id);
+      currentNotebookId = notebooks[0].id;
+      const newCurrent = getCurrentNotebook();
+      pages = newCurrent.pages;
+      currentPageIndex = typeof newCurrent.currentPageIndex === "number"
+        ? newCurrent.currentPageIndex : 0;
+      if (!pages.length) {
+        pages = [createBlankPage()];
+        newCurrent.pages = pages;
+        currentPageIndex = 0;
+        newCurrent.currentPageIndex = 0;
+      }
+
+      refreshNotebookSelect();
+      updatePageInfo();
+      document.getElementById("pageTitle").value = pages[currentPageIndex].title || "";
+      document.getElementById("pageText").value = pages[currentPageIndex].text || "";
+      resizeCanvasToContainer();
+      renderAudioList();
+      saveNotebook();
     }
 
     function updatePageInfo() {
       const info = document.getElementById("pageInfo");
-      info.textContent = `Page ${currentPageIndex + 1} / ${pages.length}`;
+      info.textContent = `Page ${currentPageIndex + 1} / ${pages.length || 1}`;
     }
 
     function resizeCanvasToContainer() {
@@ -524,6 +765,8 @@
     // ---- Drawing logic ----
     function startStroke(x, y) {
       const page = pages[currentPageIndex];
+      if (!page) return;
+
       page.redoStack = []; // new stroke invalidates redo history
 
       const normalizedPoint = normalizePoint(x, y);
@@ -549,7 +792,7 @@
       if (!isDrawing) return;
       isDrawing = false;
       const page = pages[currentPageIndex];
-      if (currentStroke && currentStroke.points.length > 0) {
+      if (page && currentStroke && currentStroke.points.length > 0) {
         page.undoStack.push(currentStroke);
       }
       currentStroke = null;
@@ -714,7 +957,7 @@
       });
     }
 
-    // ---- Pointer events (with palm handling & no delay) ----
+    // ---- Pointer events (with palm handling) ----
     function getCanvasCoordinates(evt) {
       const rect = canvas.getBoundingClientRect();
       const x = evt.clientX - rect.left;
@@ -767,6 +1010,7 @@
         endStroke();
       }
     });
+
     // ---- Audio helpers ----
     function dataUrlToBlob(dataUrl) {
       const parts = dataUrl.split(",");
@@ -929,7 +1173,7 @@
       stopRecordBtn.addEventListener("click", stopRecording);
     }
 
-    // ---- Export / Import ----
+    // ---- Export / Import (current notebook only) ----
     const exportBtn = document.getElementById("exportBtn");
     const importBtn = document.getElementById("importBtn");
     const importFileInput = document.getElementById("importFile");
@@ -962,17 +1206,25 @@
           if (!data.pages || !Array.isArray(data.pages)) {
             throw new Error("Invalid notebook format");
           }
-          pages = data.pages.map(p => ({
+          const mapped = data.pages.map(p => ({
             ...createBlankPage(),
             ...p,
             audio: p.audio || []
           }));
-          if (!pages.length) pages = [createBlankPage()];
-          currentPageIndex = Math.min(data.currentPageIndex || 0, pages.length - 1);
+          pages = mapped.length ? mapped : [createBlankPage()];
+          currentPageIndex = Math.min(
+            typeof data.currentPageIndex === "number" ? data.currentPageIndex : 0,
+            pages.length - 1
+          );
+          const nb = getCurrentNotebook();
+          if (nb) {
+            nb.pages = pages;
+            nb.currentPageIndex = currentPageIndex;
+          }
           goToPage(currentPageIndex);
           updatePageInfo();
           saveNotebook();
-          alert("Notebook imported successfully.");
+          alert("Notebook imported into current notebook successfully.");
         } catch (err) {
           console.error(err);
           alert("Could not import file. It may not be a valid notebook backup.");
@@ -1053,8 +1305,17 @@
       performSearch(e.target.value);
     });
 
+    // Notebook selectors
+    notebookSelect.addEventListener("change", (e) => {
+      switchNotebook(e.target.value);
+    });
+    newNotebookBtn.addEventListener("click", handleNewNotebook);
+    renameNotebookBtn.addEventListener("click", handleRenameNotebook);
+    deleteNotebookBtn.addEventListener("click", handleDeleteNotebook);
+
     // ---- Init ----
-    loadNotebook();
+    loadNotebooks();
+    refreshNotebookSelect();
     updatePageInfo();
     document.getElementById("pageTitle").value = pages[currentPageIndex].title || "";
     document.getElementById("pageText").value = pages[currentPageIndex].text || "";
