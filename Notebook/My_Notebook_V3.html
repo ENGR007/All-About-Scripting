@@ -17,6 +17,8 @@
       flex-direction: column;
       align-items: center;
       padding: 10px;
+      -webkit-user-select: none;
+      user-select: none;
     }
     h1 {
       font-size: 1.4rem;
@@ -137,6 +139,8 @@
       background-size: 100% 24px;
       background-color: #fffbf3;
       padding-left: 40px; /* margin like a notebook */
+      -webkit-user-select: none;
+      user-select: none;
     }
     .page-surface::before {
       /* vertical margin line */
@@ -155,6 +159,8 @@
       width: 100%;
       height: 100%;
       touch-action: none; /* prevent scrolling during draw */
+      -webkit-user-select: none;
+      user-select: none;
     }
 
     .note-meta {
@@ -175,6 +181,8 @@
       border-radius: 4px;
       border: 1px solid #ccc;
       font-size: 0.85rem;
+      -webkit-user-select: text;
+      user-select: text;
     }
 
     .audio-section {
@@ -328,7 +336,8 @@
           <span class="color-dot color-yellow"></span> Yellow
         </button>
         <label class="toolbar-label">Size
-          <input id="sizeSlider" type="range" min="1" max="15" value="3" />
+          <!-- default pen size now 1 -->
+          <input id="sizeSlider" type="range" min="1" max="15" value="1" />
         </label>
       </div>
     </div>
@@ -399,7 +408,7 @@
 
   <script>
     // ---- Data model ----
-    const STORAGE_KEY = "handNotebook_v2";
+    const STORAGE_KEY = "handNotebook_v3";
 
     let pages = [];
     let currentPageIndex = 0;
@@ -409,6 +418,10 @@
 
     let isDrawing = false;
     let currentStroke = null;
+
+    // Pointer tracking for palm rejection + smoother behavior
+    let activePointerId = null;
+    let activePointerType = null; // "pen", "touch", "mouse"
 
     const toolButtons = {
       pen: document.getElementById("toolPen"),
@@ -441,10 +454,6 @@
     const fullscreenToggleBtn = document.getElementById("fullscreenToggleBtn");
     let isFullscreenMode = false;
 
-    // Palm rejection Mode C:
-    // - If we ever see a pen pointer, we treat touch as palm on this device.
-    // - On devices with only touch (e.g. iPhone), finger still works for writing.
-    let hasPenInput = false;
     // ---- Helpers for notebook pages ----
     function createBlankPage() {
       return {
@@ -513,7 +522,7 @@
     window.addEventListener("resize", () => {
       resizeCanvasToContainer();
     });
-
+    
     // ---- Drawing logic ----
     function startStroke(x, y) {
       const page = pages[currentPageIndex];
@@ -707,7 +716,7 @@
       });
     }
 
-    // ---- Pointer events with palm rejection Mode C ----
+    // ---- Pointer events (with palm rejection + Pencil/finger support) ----
     function getCanvasCoordinates(evt) {
       const rect = canvas.getBoundingClientRect();
       const x = evt.clientX - rect.left;
@@ -718,36 +727,59 @@
     canvas.addEventListener("pointerdown", (evt) => {
       evt.preventDefault();
 
-      // Detect pen once; if pen exists, treat later touches as palm.
-      if (evt.pointerType === "pen") {
-        hasPenInput = true;
-      } else if (evt.pointerType === "touch" && hasPenInput) {
-        // On devices where a pen exists, ignore touch on canvas (palm/finger).
+      // Palm rejection:
+      // If a pen is currently drawing, ignore extra touches (palm).
+      if (evt.pointerType === "touch" && activePointerType === "pen") {
         return;
       }
 
-      canvas.setPointerCapture(evt.pointerId);
+      // Single active pointer only
+      if (activePointerId !== null && evt.pointerId !== activePointerId) {
+        return;
+      }
+
+      activePointerId = evt.pointerId;
+      activePointerType = evt.pointerType;
+
       const { x, y } = getCanvasCoordinates(evt);
       startStroke(x, y);
     });
 
     canvas.addEventListener("pointermove", (evt) => {
       if (!isDrawing) return;
+      if (evt.pointerId !== activePointerId) return;
+
       evt.preventDefault();
-      const { x, y } = getCanvasCoordinates(evt);
-      addPointToStroke(x, y);
+
+      // Use coalesced events when available (helps Pencil smoothness)
+      const events = evt.getCoalescedEvents ? evt.getCoalescedEvents() : [evt];
+      for (const e of events) {
+        const { x, y } = getCanvasCoordinates(e);
+        addPointToStroke(x, y);
+      }
     });
+
+    function endPointer(evt) {
+      if (evt && evt.pointerId !== activePointerId) return;
+      endStroke();
+      activePointerId = null;
+      activePointerType = null;
+    }
 
     canvas.addEventListener("pointerup", (evt) => {
       evt.preventDefault();
-      canvas.releasePointerCapture(evt.pointerId);
-      endStroke();
+      endPointer(evt);
     });
 
-    canvas.addEventListener("pointerleave", () => {
-      if (isDrawing) {
-        endStroke();
-      }
+    canvas.addEventListener("pointercancel", (evt) => {
+      evt.preventDefault();
+      endPointer(evt);
+    });
+
+    canvas.addEventListener("pointerleave", (evt) => {
+      if (!isDrawing) return;
+      evt.preventDefault();
+      endPointer(evt);
     });
 
     // ---- Audio helpers ----
@@ -762,31 +794,6 @@
         bytes[i] = binary.charCodeAt(i);
       }
       return new Blob([bytes], { type: mime });
-    }
-
-    function downloadAudioClip(clip) {
-      try {
-        const blob = dataUrlToBlob(clip.dataUrl);
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-
-        const mime = blob.type || "";
-        let ext = "webm";
-        if (mime.includes("mp4") || mime.includes("m4a")) {
-          ext = "m4a";
-        }
-        const baseName = (clip.name || "audio_note").replace(/[^\w\-]+/g, "_");
-        a.download = baseName + "." + ext;
-
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-      } catch (e) {
-        console.error(e);
-        alert("Could not download audio.");
-      }
     }
 
     function renderAudioList() {
@@ -814,7 +821,22 @@
 
         const downloadBtn = document.createElement("button");
         downloadBtn.textContent = "Download";
-        downloadBtn.addEventListener("click", () => downloadAudioClip(clip));
+        downloadBtn.addEventListener("click", () => {
+          try {
+            const blob = dataUrlToBlob(clip.dataUrl);
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            const baseName = (clip.name || `audio_${idx + 1}`).replace(/[^\w\-]+/g, "_");
+            a.download = baseName + ".webm";
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+          } catch (e) {
+            alert("Unable to download this audio on this browser.");
+          }
+        });
 
         const delBtn = document.createElement("button");
         delBtn.textContent = "Delete";
@@ -891,7 +913,7 @@
           reader.readAsDataURL(blob);
         };
 
-        // No artificial time limit here: "unlimited" recording
+        // No hard limit here => "unlimited" recording (browser/device limits only)
         mediaRecorder.start();
         isRecordingAudio = true;
         startRecordBtn.disabled = true;
