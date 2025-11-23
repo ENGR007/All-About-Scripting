@@ -1,969 +1,1113 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<title>Handwritten Notebook</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<style>
-  * { box-sizing: border-box; }
-  body {
-    margin: 0;
-    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    background: #f3f3f3;
-    color: #222;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 10px;
-  }
-  h1 {
-    font-size: 1.4rem;
-    margin: 5px 0 10px;
-    text-align: center;
-  }
+  <meta charset="UTF-8" />
+  <title>Handwritten Notebook</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #f3f3f3;
+      color: #222;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 10px;
+    }
 
-  .app-container {
-    width: 100%;
-    max-width: 980px;
-    background: #ffffff;
-    border-radius: 10px;
-    box-shadow: 0 4px 14px rgba(0,0,0,0.12);
-    padding: 10px 10px 15px;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    position: relative;
-  }
+    h1 {
+      font-size: 1.4rem;
+      margin: 5px 0 10px;
+      text-align: center;
+    }
 
-  /* Notebook selector row */
-  .notebook-row {
-    display: flex;
-    gap: 8px;
-    align-items: center;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    padding-bottom: 4px;
-    border-bottom: 1px solid #ddd;
-  }
-  .notebook-row select {
-    padding: 4px 6px;
-    font-size: 0.9rem;
-    border-radius: 5px;
-    border: 1px solid #ccc;
-  }
-  .notebook-row button {
-    padding: 4px 8px;
-    font-size: 0.85rem;
-  }
+    /* NOTEBOOK ROW */
+    .notebook-row {
+      width: 100%;
+      max-width: 980px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+      padding: 4px 6px;
+    }
 
-  .fullscreen-topbar {
-    display: none;
-    text-align: center;
-    font-size: 0.8rem;
-    padding: 4px 6px;
-    background: #333;
-    color: #fff;
-    border-radius: 6px;
-    cursor: pointer;
-  }
+    .notebook-left {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
 
-  .toolbar-row {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    align-items: center;
-    justify-content: space-between;
-  }
-  .toolbar-group {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    align-items: center;
-  }
-  .toolbar-label {
-    font-size: 0.8rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.03em;
-    color: #555;
-  }
+    .toolbar-label {
+      font-size: 0.8rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      color: #555;
+      letter-spacing: 0.03em;
+    }
 
-  button {
-    border: 1px solid #ccc;
-    background: #f8f8f8;
-    border-radius: 5px;
-    padding: 4px 8px;
-    font-size: 0.85rem;
-    cursor: pointer;
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-  }
-  button.active {
-    border-color: #0052cc;
-    background: #e7f0ff;
-  }
+    #notebookSelect {
+      padding: 4px 6px;
+      border-radius: 4px;
+      border: 1px solid #ccc;
+      font-size: 0.85rem;
+    }
 
-  .color-dot {
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
-    border: 1px solid #999;
-  }
-  .color-black { background: #000; }
-  .color-blue { background: #0052cc; }
-  .color-red { background: #cc0000; }
-  .color-yellow { background: #ffd54f; }
+    #newNotebookBtn {
+      padding: 4px 10px;
+      background: #eaf3ff;
+      border: 1px solid #99b8ff;
+      border-radius: 5px;
+      font-size: 0.85rem;
+      cursor: pointer;
+    }
 
-  .page-controls {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    align-items: center;
-    justify-content: space-between;
-  }
-  .page-title-input {
-    flex: 1;
-    min-width: 160px;
-    padding: 4px 6px;
-    border: 1px solid #ccc;
-    border-radius: 4px;
-    font-size: 0.9rem;
-  }
+    #newNotebookBtn:hover {
+      background: #d7e8ff;
+    }
 
-  .notebook-wrapper {
-    margin-top: 4px;
-    border-radius: 8px;
-    border: 1px solid #ddd;
-    overflow: hidden;
-    background: #fdfcf8;
-    position: relative;
-    height: min(70vh, 640px);
-    -webkit-user-select: none;
-    user-select: none;
-  }
-  .page-surface {
-    position: relative;
-    width: 100%;
-    height: 100%;
-    background-image: linear-gradient(to bottom, rgba(0,0,0,0.05) 1px, transparent 1px);
-    background-size: 100% 24px;
-    background-color: #fffbf3;
-    padding-left: 40px;
-    -webkit-user-select: none;
-    user-select: none;
-    touch-action: none;
-  }
-  .page-surface::before {
-    content: "";
-    position: absolute;
-    top: 0; bottom: 0; left: 30px;
-    border-left: 2px solid rgba(255,0,0,0.35);
-    pointer-events: none;
-  }
-  #drawingCanvas {
-    position: absolute;
-    top: 0; left: 0;
-    width: 100%;
-    height: 100%;
-    touch-action: none;
-    -webkit-user-select: none;
-    user-select: none;
-  }
+    /* MAIN APP CONTAINER */
+    .app-container {
+      width: 100%;
+      max-width: 980px;
+      background: #ffffff;
+      border-radius: 10px;
+      padding: 10px;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.12);
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
 
-  .note-meta { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
-  .note-meta textarea {
-    width: 100%;
-    min-height: 60px;
-    resize: vertical;
-    padding: 5px 6px;
-    border-radius: 4px;
-    border: 1px solid #ccc;
-    font-size: 0.85rem;
-  }
+    /* TOOLBAR AREA */
+    .toolbar-row {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 6px;
+    }
 
-  .audio-section {
-    margin-top: 6px;
-    padding: 6px 4px;
-    border-radius: 6px;
-    border: 1px solid #eee;
-    background: #fafafa;
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-  }
-  .audio-controls { display: flex; gap: 6px; flex-wrap: wrap; }
-  .audio-list { display: flex; flex-direction: column; gap: 4px; }
-  .audio-row { display: flex; flex-wrap: wrap; gap: 6px; font-size: 0.8rem; }
+    .toolbar-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+    }
 
-  .search-row { margin-top: 4px; display: flex; flex-direction: column; gap: 4px; }
-  .search-input {
-    width: 100%;
-    padding: 4px 6px;
-    border-radius: 4px;
-    border: 1px solid #ccc;
-  }
+    button {
+      padding: 4px 8px;
+      font-size: 0.85rem;
+      background: #f8f8f8;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
 
-  .export-import-row {
-    margin-top: 4px;
-    display: flex;
-    gap: 6px;
-    flex-wrap: wrap;
-  }
+    button:hover { background: #ececec; }
+    button.active {
+      border-color: #0052cc;
+      background: #e7f0ff;
+    }
 
-  .footer {
-    margin-top: 6px;
-    font-size: 0.75rem;
-    text-align: center;
-    color: #777;
-  }
+    .color-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      border: 1px solid #999;
+    }
 
-  /* FULLSCREEN */
-  .fullscreen .toolbar-row,
-  .fullscreen .note-meta,
-  .fullscreen .search-row,
-  .fullscreen .export-import-row,
-  .fullscreen .audio-section,
-  .fullscreen .page-controls,
-  .fullscreen .footer,
-  .fullscreen .notebook-row {
-    display: none;
-  }
-  .fullscreen .fullscreen-topbar { display: block; }
-  .fullscreen .notebook-wrapper { height: calc(100vh - 60px); }
+    .color-black { background: #000; }
+    .color-blue { background: #0052cc; }
+    .color-red { background: #cc0000; }
+    .color-yellow { background: #ffd54f; }
 
-  @media (max-width: 600px) {
-    .toolbar-row, .page-controls { flex-direction: column; align-items: stretch; }
-  }
-</style>
+    /* PAGE CONTROLS */
+    .page-controls {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .page-title-input {
+      flex: 1;
+      min-width: 160px;
+      padding: 4px 6px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+
+    /* CANVAS NOTEBOOK PAGE */
+    .notebook-wrapper {
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      background: #fdfcf8;
+      position: relative;
+      height: min(70vh, 650px);
+      overflow: hidden;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    .page-surface {
+      width: 100%;
+      height: 100%;
+      background-image: linear-gradient(to bottom, rgba(0,0,0,0.06) 1px, transparent 1px);
+      background-size: 100% 24px;
+      padding-left: 40px;
+      position: relative;
+    }
+
+    .page-surface::before {
+      content: "";
+      position: absolute;
+      left: 30px;
+      top: 0;
+      bottom: 0;
+      border-left: 2px solid rgba(255,0,0,0.35);
+    }
+
+    #drawingCanvas {
+      position: absolute;
+      left: 0;
+      top: 0;
+      touch-action: none;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    /* AUDIO + SEARCH + FOOTER WILL CONTINUE IN PART 2 */
+  </style>
 </head>
+
 <body>
+  <h1>Handwritten Notebook</h1>
 
-<h1>Handwritten Notebook</h1>
-<div class="app-container">
-
-  <!-- NOTEBOOK MANAGER -->
+  <!-- NOTEBOOK SELECTOR ROW -->
   <div class="notebook-row">
-    <div>
+    <div class="notebook-left">
       <span class="toolbar-label">Notebook:</span>
       <select id="notebookSelect"></select>
     </div>
-    <button id="newNotebookBtn">➕ New Notebook</button>
+    <button id="newNotebookBtn">+ New Notebook</button>
   </div>
 
-  <div id="fullscreenTopBar" class="fullscreen-topbar">Tap here to exit full screen</div>
+  <div class="app-container">
+    
+    <!-- TOOLS ROW -->
+    <div class="toolbar-row">
+      <div class="toolbar-group">
+        <span class="toolbar-label">Tools</span>
+        <button id="toolPen" class="active">✏️ Pen</button>
+        <button id="toolHighlighter">🖍 Highlighter</button>
+        <button id="toolEraser">🩹 Eraser</button>
+        <button id="undoBtn">↶ Undo</button>
+        <button id="redoBtn">↷ Redo</button>
+        <button id="clearPageBtn">🗑 Clear</button>
+      </div>
 
-  <!-- TOOLBAR -->
-  <div class="toolbar-row">
-    <div class="toolbar-group">
-      <span class="toolbar-label">Tools</span>
-      <button id="toolPen" class="active">✏️ Pen</button>
-      <button id="toolHighlighter">🖍 Highlighter</button>
-      <button id="toolEraser">🩹 Eraser</button>
-      <button id="undoBtn">↶ Undo</button>
-      <button id="redoBtn">↷ Redo</button>
-      <button id="clearPageBtn">🗑 Clear</button>
+      <div class="toolbar-group">
+        <span class="toolbar-label">Pen</span>
+        <button class="color-btn active" data-color="black">
+          <span class="color-dot color-black"></span> Black
+        </button>
+        <button class="color-btn" data-color="blue">
+          <span class="color-dot color-blue"></span> Blue
+        </button>
+        <button class="color-btn" data-color="red">
+          <span class="color-dot color-red"></span> Red
+        </button>
+        <button class="color-btn" data-color="yellow">
+          <span class="color-dot color-yellow"></span> Yellow
+        </button>
+
+        <label class="toolbar-label">Size
+          <input id="sizeSlider" type="range" min="1" max="15" value="1"/>
+        </label>
+      </div>
     </div>
 
-    <div class="toolbar-group">
-      <span class="toolbar-label">Pen</span>
-      <button data-color="black" class="color-btn active"><span class="color-dot color-black"></span>Black</button>
-      <button data-color="blue" class="color-btn"><span class="color-dot color-blue"></span>Blue</button>
-      <button data-color="red" class="color-btn"><span class="color-dot color-red"></span>Red</button>
-      <button data-color="yellow" class="color-btn"><span class="color-dot color-yellow"></span>Yellow</button>
+    <!-- PAGE CONTROLS -->
+    <div class="page-controls">
+      <div class="toolbar-group">
+        <button id="prevPageBtn">◀ Prev</button>
+        <button id="nextPageBtn">Next ▶</button>
+        <button id="addPageBtn">➕ Add Page</button>
+        <span id="pageInfo">Page 1 / 1</span>
+      </div>
 
-      <label class="toolbar-label">Size
-        <input id="sizeSlider" type="range" min="1" max="15" value="1" />
-      </label>
-    </div>
-  </div>
-
-  <!-- PAGE CONTROLS -->
-  <div class="page-controls">
-    <div class="toolbar-group">
-      <button id="prevPageBtn">◀ Prev</button>
-      <button id="nextPageBtn">Next ▶</button>
-      <button id="addPageBtn">➕ Add Page</button>
-      <span id="pageInfo"></span>
+      <div class="toolbar-group">
+        <input id="pageTitle" class="page-title-input" placeholder="Page title..."/>
+        <button id="fullscreenToggleBtn">Full Screen</button>
+      </div>
     </div>
 
-    <div class="toolbar-group">
-      <input id="pageTitle" class="page-title-input" placeholder="Page title..." />
-      <button id="fullscreenToggleBtn">Full Screen</button>
+    <!-- DRAWING AREA -->
+    <div class="notebook-wrapper">
+      <div class="page-surface">
+        <canvas id="drawingCanvas"></canvas>
+      </div>
     </div>
-  </div>
-
-  <!-- CANVAS -->
-  <div class="notebook-wrapper">
-    <div class="page-surface">
-      <canvas id="drawingCanvas"></canvas>
-    </div>
-  </div>
-
-  <!-- NOTES -->
-  <div class="note-meta">
-    <label for="pageText">Typed notes / keywords:</label>
-    <textarea id="pageText"></textarea>
-  </div>
-
-  <!-- AUDIO -->
-  <div class="audio-section">
-    <label>Audio Notes (per page):</label>
-    <div class="audio-controls">
-      <button id="startRecordBtn">Start Recording</button>
-      <button id="stopRecordBtn" disabled>Stop</button>
-      <span id="recordStatus">Recording status: Idle</span>
-    </div>
-    <div id="audioList" class="audio-list"></div>
-  </div>
-
-  <!-- SEARCH -->
-  <div class="search-row">
-    <label>Search Pages:</label>
-    <input id="searchInput" class="search-input" placeholder="Search titles or typed notes..." />
-    <div id="searchResults" class="search-results"></div>
-  </div>
-
-  <!-- EXPORT -->
-  <div class="export-import-row">
-    <button id="exportBtn">⬇ Export Notebook</button>
-    <button id="importBtn">⬆ Import Notebook</button>
-    <input id="importFile" type="file" accept="application/json" style="display:none" />
-  </div>
-
-  <div class="footer">
-    All notebooks stored locally in your browser. Use Export/Import for backup.
-  </div>
-</div>
-
-<script>
-/* ============================================================
-   NOTEBOOK SYSTEM (Multiple Notebook Support)
-   ============================================================ */
-
-const NOTEBOOK_LIST_KEY = "NOTEBOOK_LIST";
-const LAST_NOTEBOOK_KEY = "LAST_NOTEBOOK_USED";
-
-/* Load notebook list */
-function loadNotebookList() {
-  const raw = localStorage.getItem(NOTEBOOK_LIST_KEY);
-  if (!raw) return ["Default Notebook"];
-  try {
-    const list = JSON.parse(raw);
-    return Array.isArray(list) && list.length ? list : ["Default Notebook"];
-  } catch {
-    return ["Default Notebook"];
-  }
-}
-
-/* Save notebook list */
-function saveNotebookList(list) {
-  localStorage.setItem(NOTEBOOK_LIST_KEY, JSON.stringify(list));
-}
-
-/* Save last opened notebook */
-function setLastNotebook(name) {
-  localStorage.setItem(LAST_NOTEBOOK_KEY, name);
-}
-
-/* Load last opened notebook */
-function getLastNotebook() {
-  return localStorage.getItem(LAST_NOTEBOOK_KEY);
-}
-
-/* UI for notebook selector */
-const notebookSelect = document.getElementById("notebookSelect");
-const newNotebookBtn = document.getElementById("newNotebookBtn");
-
-let NOTEBOOK_LIST = loadNotebookList();
-let currentNotebookName = getLastNotebook() || NOTEBOOK_LIST[0];
-
-/* Fill dropdown */
-function refreshNotebookDropdown() {
-  notebookSelect.innerHTML = "";
-  NOTEBOOK_LIST.forEach(name => {
-    const opt = document.createElement("option");
-    opt.value = name;
-    opt.textContent = name;
-    if (name === currentNotebookName) opt.selected = true;
-    notebookSelect.appendChild(opt);
-  });
-}
-refreshNotebookDropdown();
-
-/* Helper to access a notebook's storage key */
-function storageKeyForNotebook(name) {
-  return "NOTEBOOK_DATA_" + name.replace(/\W+/g, "_");
-}
-
-/* ============================================================
-   OLD NOTEBOOK LOGIC (per notebook)
-   ============================================================ */
-
-let pages = [];
-let currentPageIndex = 0;
-
-const canvas = document.getElementById("drawingCanvas");
-const ctx = canvas.getContext("2d");
-
-let isDrawing = false;
-let currentStroke = null;
-
-let currentTool = "pen";
-let currentSize = 1;
-let currentColor = "black";
-
-let pencilIsDown = false;
-
-/* Audio */
-let mediaRecorder = null;
-let recordedChunks = [];
-let currentStream = null;
-let isRecordingAudio = false;
-const audioSupported = !!(navigator.mediaDevices && window.MediaRecorder);
-
-/* UI references */
-const startRecordBtn = document.getElementById("startRecordBtn");
-const stopRecordBtn = document.getElementById("stopRecordBtn");
-const recordStatus = document.getElementById("recordStatus");
-const audioListEl = document.getElementById("audioList");
-
-/* ============================================================
-   NOTEBOOK LOAD / SAVE
-   ============================================================ */
-
-function createBlankPage() {
-  return {
-    title: "",
-    text: "",
-    strokes: [],
-    undoStack: [],
-    redoStack: [],
-    audio: []
-  };
-}
-
-function loadNotebook(notebookName) {
-  const key = storageKeyForNotebook(notebookName);
-  const raw = localStorage.getItem(key);
-
-  if (!raw) {
-    pages = [createBlankPage()];
-    currentPageIndex = 0;
-    saveNotebook();
-    return;
-  }
-
-  try {
-    const parsed = JSON.parse(raw);
-    pages = parsed.pages || [createBlankPage()];
-    currentPageIndex = parsed.currentPageIndex || 0;
-  } catch {
-    pages = [createBlankPage()];
-    currentPageIndex = 0;
-  }
-}
-
-function saveNotebook() {
-  const key = storageKeyForNotebook(currentNotebookName);
-  localStorage.setItem(
-    key,
-    JSON.stringify({ pages, currentPageIndex })
-  );
-}
-
-/* ============================================================
-   PAGE & UI HELPERS
-   ============================================================ */
-
-function updatePageInfo() {
-  document.getElementById("pageInfo").textContent =
-    `Page ${currentPageIndex + 1} / ${pages.length}`;
-}
-
-function resizeCanvas() {
-  const rect = canvas.parentElement.getBoundingClientRect();
-  canvas.width = rect.width;
-  canvas.height = rect.height;
-  redrawFullPage();
-}
-
-window.addEventListener("resize", resizeCanvas);
-
-/* Redraw everything (only when switching pages, resizing, undo/redo) */
-function redrawFullPage() {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-  const page = pages[currentPageIndex];
-  if (!page) return;
-
-  for (const stroke of page.strokes) {
-    drawFullStroke(stroke);
-  }
-}
-
-/* Draw entire stroke (for redraw) */
-function drawFullStroke(stroke) {
-  if (!stroke.points.length) return;
-
-  prepareStrokeStyle(stroke);
-
-  ctx.beginPath();
-  ctx.moveTo(stroke.points[0].x, stroke.points[0].y);
-
-  for (let i = 1; i < stroke.points.length; i++) {
-    ctx.lineTo(stroke.points[i].x, stroke.points[i].y);
-  }
-  ctx.stroke();
-}
-
-/* Draw only new segment (for Apple-Notes smoothness) */
-function drawLatestSegment(stroke) {
-  const pts = stroke.points;
-  if (pts.length < 2) return;
-
-  prepareStrokeStyle(stroke);
-
-  const p1 = pts[pts.length - 2];
-  const p2 = pts[pts.length - 1];
-
-  ctx.beginPath();
-  ctx.moveTo(p1.x, p1.y);
-  ctx.lineTo(p2.x, p2.y);
-  ctx.stroke();
-}
-
-function prepareStrokeStyle(stroke) {
-  if (stroke.tool === "eraser") {
-    ctx.globalCompositeOperation = "destination-out";
-    ctx.lineWidth = stroke.size * 3;
-    ctx.strokeStyle = "rgba(0,0,0,1)";
-  } else if (stroke.tool === "highlighter") {
-    ctx.globalCompositeOperation = "source-over";
-    ctx.lineWidth = stroke.size * 3;
-    ctx.strokeStyle = "rgba(255, 235, 59, 0.45)";
-  } else {
-    ctx.globalCompositeOperation = "source-over";
-    ctx.lineWidth = stroke.size * 2;
-    ctx.strokeStyle = getColorValue(stroke.color);
-  }
-
-  ctx.lineCap = "round";
-  ctx.lineJoin = "round";
-}
-
-function getColorValue(name) {
-  return {
-    blue: "#0052cc",
-    red: "#cc0000",
-    yellow: "#ffd54f",
-    black: "#000"
-  }[name] || "#000";
-}
-
-/* ============================================================
-   STROKE ENGINE
-   ============================================================ */
-
-function startStroke(x, y) {
-  const page = pages[currentPageIndex];
-  page.redoStack = [];
-
-  currentStroke = {
-    tool: currentTool,
-    color: currentColor,
-    size: currentSize,
-    points: [{ x, y }]
-  };
-
-  page.strokes.push(currentStroke);
-  isDrawing = true;
-
-  drawLatestSegment(currentStroke);
-}
-
-function addPoint(x, y) {
-  if (!isDrawing || !currentStroke) return;
-  currentStroke.points.push({ x, y });
-  drawLatestSegment(currentStroke);
-}
-
-function endStroke() {
-  if (!isDrawing) return;
-  isDrawing = false;
-
-  const page = pages[currentPageIndex];
-  if (currentStroke && currentStroke.points.length) {
-    page.undoStack.push(currentStroke);
-  }
-  currentStroke = null;
-
-  saveNotebook();
-}
-
-/* ============================================================
-   POINTER EVENTS (Finger + Pencil + Palm Rejection)
-   ============================================================ */
-
-function getXY(evt) {
-  const rect = canvas.getBoundingClientRect();
-  return {
-    x: evt.clientX - rect.left,
-    y: evt.clientY - rect.top
-  };
-}
-
-canvas.addEventListener("pointerdown", evt => {
-  if (pencilIsDown && evt.pointerType === "touch") return;
-
-  if (evt.pointerType === "pen") {
-    pencilIsDown = true;
-  }
-
-  const { x, y } = getXY(evt);
-  startStroke(x, y);
-});
-
-canvas.addEventListener("pointermove", evt => {
-  if (!isDrawing) return;
-  const { x, y } = getXY(evt);
-  addPoint(x, y);
-});
-
-canvas.addEventListener("pointerup", evt => {
-  if (evt.pointerType === "pen") pencilIsDown = false;
-  endStroke();
-});
-
-canvas.addEventListener("pointercancel", evt => {
-  if (evt.pointerType === "pen") pencilIsDown = false;
-  endStroke();
-});
-
-/* ============================================================
-   UNDO / REDO / CLEAR
-   ============================================================ */
-
-document.getElementById("undoBtn").onclick = () => {
-  const page = pages[currentPageIndex];
-  if (!page.strokes.length) return;
-
-  const stroke = page.strokes.pop();
-  page.redoStack.push(stroke);
-
-  redrawFullPage();
-  saveNotebook();
-};
-
-document.getElementById("redoBtn").onclick = () => {
-  const page = pages[currentPageIndex];
-  if (!page.redoStack.length) return;
-
-  const stroke = page.redoStack.pop();
-  page.strokes.push(stroke);
-
-  redrawFullPage();
-  saveNotebook();
-};
-
-document.getElementById("clearPageBtn").onclick = () => {
-  if (!confirm("Clear this page?")) return;
-
-  const page = pages[currentPageIndex];
-  page.strokes = [];
-  page.undoStack = [];
-  page.redoStack = [];
-
-  redrawFullPage();
-  saveNotebook();
-};
-
-/* ============================================================
-   PAGE NAVIGATION
-   ============================================================ */
-
-function goToPage(index) {
-  if (index < 0 || index >= pages.length) return;
-
-  currentPageIndex = index;
-  document.getElementById("pageTitle").value = pages[index].title;
-  document.getElementById("pageText").value = pages[index].text;
-  updatePageInfo();
-  redrawFullPage();
-  renderAudioList();
-  saveNotebook();
-}
-
-document.getElementById("addPageBtn").onclick = () => {
-  pages.push(createBlankPage());
-  goToPage(pages.length - 1);
-};
-
-document.getElementById("prevPageBtn").onclick = () => {
-  if (currentPageIndex > 0) goToPage(currentPageIndex - 1);
-};
-
-document.getElementById("nextPageBtn").onclick = () => {
-  if (currentPageIndex < pages.length - 1) goToPage(currentPageIndex + 1);
-};
-
-/* ============================================================
-   TITLE + TEXT SAVE
-   ============================================================ */
-
-document.getElementById("pageTitle").oninput = e => {
-  pages[currentPageIndex].title = e.target.value;
-  saveNotebook();
-};
-document.getElementById("pageText").oninput = e => {
-  pages[currentPageIndex].text = e.target.value;
-  saveNotebook();
-};
-
-/* ============================================================
-   SEARCH
-   ============================================================ */
-
-document.getElementById("searchInput").oninput = e => {
-  const q = e.target.value.trim().toLowerCase();
-  const results = document.getElementById("searchResults");
-  results.innerHTML = "";
-  if (!q) return;
-
-  pages.forEach((p, i) => {
-    const hay = (p.title + " " + p.text).toLowerCase();
-    if (hay.includes(q)) {
-      const btn = document.createElement("button");
-      btn.textContent = `Page ${i + 1}: ${p.title || "(Untitled)"}`;
-      btn.onclick = () => goToPage(i);
-      results.appendChild(btn);
+    
+  <script>
+    // =========================
+    //  MULTI-NOTEBOOK SUPPORT
+    // =========================
+    const SINGLE_STORAGE_KEY = "handNotebook_v2";          // old format (pages only)
+    const LIB_STORAGE_KEY    = "handNotebook_library_v1";  // new multi-notebook format
+
+    // library: { [id]: { id, name, pages, currentPageIndex } }
+    let notebooks = {};
+    let currentNotebookId = null;
+
+    // ---- Data model for pages ----
+    let pages = [];
+    let currentPageIndex = 0;
+
+    const canvas = document.getElementById("drawingCanvas");
+    const ctx = canvas.getContext("2d");
+
+    let isDrawing = false;
+    let currentStroke = null;
+
+    const toolButtons = {
+      pen: document.getElementById("toolPen"),
+      highlighter: document.getElementById("toolHighlighter"),
+      eraser: document.getElementById("toolEraser")
+    };
+    let currentTool = "pen";
+
+    const sizeSlider = document.getElementById("sizeSlider");
+    let currentSize = parseInt(sizeSlider.value, 10);
+
+    let currentColor = "black";
+
+    // palm-handling state
+    let penActive = false;
+
+    // Notebook UI
+    const notebookSelect  = document.getElementById("notebookSelect");
+    const newNotebookBtn  = document.getElementById("newNotebookBtn");
+
+    // Audio state
+    let mediaRecorder = null;
+    let recordedChunks = [];
+    let currentStream = null;
+    let isRecordingAudio = false;
+    const audioSupported = !!(navigator.mediaDevices && window.MediaRecorder);
+
+    const startRecordBtn = document.getElementById("startRecordBtn");
+    const stopRecordBtn  = document.getElementById("stopRecordBtn");
+    const recordStatus   = document.getElementById("recordStatus");
+    const audioListEl    = document.getElementById("audioList");
+    const audioHintEl    = document.getElementById("audioHint");
+
+    // Fullscreen state
+    const appContainer      = document.querySelector(".app-container");
+    const fullscreenTopBar  = document.getElementById("fullscreenTopBar");
+    const fullscreenToggleBtn = document.getElementById("fullscreenToggleBtn");
+    let isFullscreenMode = false;
+
+    // -----------------------------
+    //   Helpers – pages & notebooks
+    // -----------------------------
+    function createBlankPage() {
+      return {
+        id: Date.now() + Math.random(),
+        title: "",
+        text: "",
+        strokes: [],
+        undoStack: [],
+        redoStack: [],
+        audio: [] // {id, dataUrl, name}
+      };
     }
-  });
 
-  if (!results.children.length) {
-    results.textContent = "No matches found.";
-  }
-};
+    function createBlankNotebook(name) {
+      return {
+        id: "nb_" + Date.now() + "_" + Math.random().toString(36).slice(2, 8),
+        name: name || "New Notebook",
+        pages: [createBlankPage()],
+        currentPageIndex: 0
+      };
+    }
 
-/* ============================================================
-   AUDIO RECORDING
-   ============================================================ */
+    function saveLibrary() {
+      if (currentNotebookId && notebooks[currentNotebookId]) {
+        const nb = notebooks[currentNotebookId];
+        nb.pages = pages;
+        nb.currentPageIndex = currentPageIndex;
+      }
+      try {
+        localStorage.setItem(
+          LIB_STORAGE_KEY,
+          JSON.stringify({ notebooks, currentNotebookId })
+        );
+      } catch (e) {
+        console.warn("Could not save notebook library:", e);
+      }
+    }
 
-function dataUrlToBlob(dataUrl) {
-  const parts = dataUrl.split(",");
-  const mime = parts[0].match(/:(.*?);/)[1];
-  const binary = atob(parts[1]);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-  return new Blob([bytes], { type: mime });
-}
+    // keep old name so existing calls still work
+    function saveNotebook() {
+      saveLibrary();
+    }
 
-function renderAudioList() {
-  const page = pages[currentPageIndex];
-  audioListEl.innerHTML = "";
+    function refreshNotebookSelect() {
+      if (!notebookSelect) return;
+      notebookSelect.innerHTML = "";
+      const ids = Object.keys(notebooks);
+      if (!ids.length) return;
 
-  if (!page.audio.length) {
-    audioListEl.textContent = "No audio notes yet.";
-    return;
-  }
+      ids.forEach(id => {
+        const nb = notebooks[id];
+        const opt = document.createElement("option");
+        opt.value = id;
+        opt.textContent = nb.name || "Untitled Notebook";
+        notebookSelect.appendChild(opt);
+      });
 
-  page.audio.forEach((clip, idx) => {
-    const row = document.createElement("div");
-    row.className = "audio-row";
+      if (currentNotebookId && notebooks[currentNotebookId]) {
+        notebookSelect.value = currentNotebookId;
+      } else {
+        currentNotebookId = ids[0];
+        notebookSelect.value = currentNotebookId;
+      }
+    }
 
-    const audio = document.createElement("audio");
-    audio.controls = true;
-    audio.src = URL.createObjectURL(dataUrlToBlob(clip.dataUrl));
+    function switchNotebook(id) {
+      if (!id || !notebooks[id]) return;
+      // save current first
+      saveLibrary();
 
-    const name = document.createElement("span");
-    name.textContent = clip.name;
+      currentNotebookId = id;
+      const nb = notebooks[id];
+      pages = nb.pages || [];
+      currentPageIndex = nb.currentPageIndex || 0;
 
-    const download = document.createElement("button");
-    download.textContent = "Download";
-    download.onclick = () => {
-      const blob = dataUrlToBlob(clip.dataUrl);
+      if (!pages.length) {
+        pages = [createBlankPage()];
+        nb.pages = pages;
+        nb.currentPageIndex = 0;
+        currentPageIndex = 0;
+      }
+
+      refreshNotebookSelect();
+      notebookSelect.value = currentNotebookId;
+      goToPage(currentPageIndex);
+      saveLibrary();
+    }
+
+    function loadNotebook() {
+      // 1) try new library format
+      const rawLib = localStorage.getItem(LIB_STORAGE_KEY);
+      if (rawLib) {
+        try {
+          const parsed = JSON.parse(rawLib);
+          notebooks = parsed.notebooks || {};
+          currentNotebookId = parsed.currentNotebookId || null;
+        } catch (e) {
+          console.warn("Could not parse library; creating default.", e);
+          notebooks = {};
+          currentNotebookId = null;
+        }
+      }
+
+      // 2) if no library, try migrate from old single-notebook format
+      if (!Object.keys(notebooks).length) {
+        let migratedPages = null;
+        let migratedIndex = 0;
+        const rawOld = localStorage.getItem(SINGLE_STORAGE_KEY);
+        if (rawOld) {
+          try {
+            const parsedOld = JSON.parse(rawOld);
+            if (parsedOld && Array.isArray(parsedOld.pages)) {
+              migratedPages = parsedOld.pages.map(p => ({
+                ...createBlankPage(),
+                ...p,
+                audio: p.audio || []
+              }));
+              migratedIndex = Math.min(
+                parsedOld.currentPageIndex || 0,
+                migratedPages.length - 1
+              );
+            }
+          } catch (e) {
+            console.warn("Could not migrate old notebook:", e);
+          }
+        }
+
+        const defaultNb = {
+          id: "nb_default",
+          name: "Default Notebook",
+          pages: migratedPages || [createBlankPage()],
+          currentPageIndex: migratedPages ? migratedIndex : 0
+        };
+        notebooks = { [defaultNb.id]: defaultNb };
+        currentNotebookId = defaultNb.id;
+      }
+
+      if (!currentNotebookId || !notebooks[currentNotebookId]) {
+        const firstId = Object.keys(notebooks)[0];
+        currentNotebookId = firstId;
+      }
+
+      const nb = notebooks[currentNotebookId];
+      pages = nb.pages || [createBlankPage()];
+      currentPageIndex = nb.currentPageIndex || 0;
+      if (!pages.length) {
+        pages = [createBlankPage()];
+        nb.pages = pages;
+        nb.currentPageIndex = 0;
+        currentPageIndex = 0;
+      }
+
+      refreshNotebookSelect();
+    }
+
+    function updatePageInfo() {
+      const info = document.getElementById("pageInfo");
+      info.textContent = `Page ${currentPageIndex + 1} / ${pages.length}`;
+    }
+
+    function resizeCanvasToContainer() {
+      const rect = canvas.parentElement.getBoundingClientRect();
+      canvas.width = rect.width;
+      canvas.height = rect.height;
+      redrawCurrentPage();
+    }
+
+    window.addEventListener("resize", () => {
+      resizeCanvasToContainer();
+    });
+
+    // -----------------------------
+    //   Drawing logic (optimised)
+    // -----------------------------
+    function startStroke(x, y) {
+      const page = pages[currentPageIndex];
+      page.redoStack = []; // new stroke invalidates redo history
+
+      const normalizedPoint = normalizePoint(x, y);
+      const stroke = {
+        tool: currentTool, // 'pen', 'highlighter', 'eraser'
+        color: currentColor,
+        size: currentSize,
+        points: [normalizedPoint]
+      };
+      currentStroke = stroke;
+      page.strokes.push(stroke);
+      isDrawing = true;
+
+      // draw existing strokes plus single-point stroke once
+      redrawCurrentPage();
+    }
+
+    function addPointToStroke(x, y) {
+      if (!isDrawing || !currentStroke) return;
+      const rect = canvas.getBoundingClientRect();
+
+      const lastPoint = currentStroke.points[currentStroke.points.length - 1];
+      const newPoint = {
+        x: x / rect.width,
+        y: y / rect.height
+      };
+      currentStroke.points.push(newPoint);
+
+      // draw only the newest segment for better performance
+      const stroke = currentStroke;
+
+      if (stroke.tool === "eraser") {
+        ctx.globalCompositeOperation = "destination-out";
+        ctx.lineWidth = stroke.size * 3;
+        ctx.strokeStyle = "rgba(0,0,0,1)";
+      } else if (stroke.tool === "highlighter") {
+        ctx.globalCompositeOperation = "source-over";
+        ctx.lineWidth = stroke.size * 3;
+        ctx.strokeStyle = "rgba(255, 235, 59, 0.45)";
+      } else {
+        ctx.globalCompositeOperation = "source-over";
+        ctx.lineWidth = stroke.size * 2;
+        ctx.strokeStyle = getColorValue(stroke.color || "black");
+      }
+
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+
+      const p1 = denormalizePoint(lastPoint);
+      const p2 = denormalizePoint(newPoint);
+      ctx.beginPath();
+      ctx.moveTo(p1.x, p1.y);
+      ctx.lineTo(p2.x, p2.y);
+      ctx.stroke();
+    }
+
+    function endStroke() {
+      if (!isDrawing) return;
+      isDrawing = false;
+      const page = pages[currentPageIndex];
+      if (currentStroke && currentStroke.points.length > 0) {
+        page.undoStack.push(currentStroke);
+      }
+      currentStroke = null;
+      saveNotebook();
+    }
+
+    function normalizePoint(x, y) {
+      const rect = canvas.getBoundingClientRect();
+      return {
+        x: x / rect.width,
+        y: y / rect.height
+      };
+    }
+
+    function denormalizePoint(p) {
+      const rect = canvas.getBoundingClientRect();
+      return {
+        x: p.x * rect.width,
+        y: p.y * rect.height
+      };
+    }
+
+    function redrawCurrentPage() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      const page = pages[currentPageIndex];
+      if (!page) return;
+
+      for (const stroke of page.strokes) {
+        drawStroke(stroke);
+      }
+    }
+
+    function drawStroke(stroke) {
+      if (!stroke.points || stroke.points.length < 1) return;
+
+      if (stroke.tool === "eraser") {
+        ctx.globalCompositeOperation = "destination-out";
+        ctx.lineWidth = stroke.size * 3; // thicker erase
+        ctx.strokeStyle = "rgba(0,0,0,1)";
+      } else if (stroke.tool === "highlighter") {
+        ctx.globalCompositeOperation = "source-over";
+        ctx.lineWidth = stroke.size * 3;
+        ctx.strokeStyle = "rgba(255, 235, 59, 0.45)";
+      } else {
+        ctx.globalCompositeOperation = "source-over";
+        ctx.lineWidth = stroke.size * 2;
+        ctx.strokeStyle = getColorValue(stroke.color || "black");
+      }
+
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+
+      ctx.beginPath();
+      const first = denormalizePoint(stroke.points[0]);
+      ctx.moveTo(first.x, first.y);
+      for (let i = 1; i < stroke.points.length; i++) {
+        const p = denormalizePoint(stroke.points[i]);
+        ctx.lineTo(p.x, p.y);
+      }
+      ctx.stroke();
+    }
+
+    function getColorValue(name) {
+      switch (name) {
+        case "blue":   return "#0052cc";
+        case "red":    return "#cc0000";
+        case "yellow": return "#ffd54f";
+        case "black":
+        default:
+          return "#000000";
+      }
+    }
+
+    // ---- Undo / Redo / Clear ----
+    function undo() {
+      const page = pages[currentPageIndex];
+      if (!page || page.strokes.length === 0) return;
+      const stroke = page.strokes.pop();
+      page.redoStack.push(stroke);
+      redrawCurrentPage();
+      saveNotebook();
+    }
+
+    function redo() {
+      const page = pages[currentPageIndex];
+      if (!page || page.redoStack.length === 0) return;
+      const stroke = page.redoStack.pop();
+      page.strokes.push(stroke);
+      page.undoStack.push(stroke);
+      redrawCurrentPage();
+      saveNotebook();
+    }
+
+    function clearPage() {
+      if (!confirm("Clear this entire page? This cannot be undone.")) return;
+      const page = pages[currentPageIndex];
+      page.strokes = [];
+      page.undoStack = [];
+      page.redoStack = [];
+      redrawCurrentPage();
+      saveNotebook();
+    }
+
+    // ---- Page navigation ----
+    function goToPage(index) {
+      if (index < 0 || index >= pages.length) return;
+      currentPageIndex = index;
+      const page = pages[currentPageIndex];
+      document.getElementById("pageTitle").value = page.title || "";
+      document.getElementById("pageText").value  = page.text || "";
+      updatePageInfo();
+      resizeCanvasToContainer(); // also redraws
+      renderAudioList();
+      saveNotebook();
+    }
+
+    function addPage() {
+      const newPage = createBlankPage();
+      pages.push(newPage);
+      goToPage(pages.length - 1);
+    }
+
+    // ---- Search ----
+    function performSearch(query) {
+      const resultsContainer = document.getElementById("searchResults");
+      resultsContainer.innerHTML = "";
+      const q = query.trim().toLowerCase();
+      if (!q) return;
+
+      pages.forEach((page, idx) => {
+        const haystack = ((page.title || "") + " " + (page.text || "")).toLowerCase();
+        if (haystack.includes(q)) {
+          const btn = document.createElement("button");
+          const title = page.title || `Untitled page ${idx + 1}`;
+          btn.textContent = `Page ${idx + 1}: ${title}`;
+          btn.addEventListener("click", () => {
+            goToPage(idx);
+          });
+          resultsContainer.appendChild(btn);
+        }
+      });
+
+      if (!resultsContainer.children.length) {
+        resultsContainer.textContent = "No matches found.";
+      }
+    }
+
+    // ---- UI setup ----
+    function setActiveTool(tool) {
+      currentTool = tool;
+      Object.values(toolButtons).forEach(btn => btn.classList.remove("active"));
+      if (tool === "pen")        toolButtons.pen.classList.add("active");
+      if (tool === "highlighter") toolButtons.highlighter.classList.add("active");
+      if (tool === "eraser")    toolButtons.eraser.classList.add("active");
+    }
+
+    function setActiveColor(color) {
+      currentColor = color;
+      document.querySelectorAll(".color-btn").forEach(btn => {
+        btn.classList.toggle("active", btn.dataset.color === color);
+      });
+    }
+
+    // ---- Pointer events (palm handling) ----
+    function getCanvasCoordinates(evt) {
+      const rect = canvas.getBoundingClientRect();
+      const x = evt.clientX - rect.left;
+      const y = evt.clientY - rect.top;
+      return { x, y };
+    }
+
+    canvas.addEventListener("pointerdown", (evt) => {
+      // basic palm rejection: if a pen stroke is active, ignore extra touches
+      if (penActive && evt.pointerType === "touch") {
+        return;
+      }
+      if (evt.pointerType === "pen") {
+        penActive = true;
+      }
+      evt.preventDefault();
+      const { x, y } = getCanvasCoordinates(evt);
+      startStroke(x, y);
+    });
+
+    canvas.addEventListener("pointermove", (evt) => {
+      if (!isDrawing) return;
+      evt.preventDefault();
+      const { x, y } = getCanvasCoordinates(evt);
+      addPointToStroke(x, y);
+    });
+
+    canvas.addEventListener("pointerup", (evt) => {
+      if (evt.pointerType === "pen") {
+        penActive = false;
+      }
+      if (!isDrawing) return;
+      evt.preventDefault();
+      endStroke();
+    });
+
+    canvas.addEventListener("pointerleave", (evt) => {
+      if (!isDrawing) return;
+      if (evt.pointerType === "pen") {
+        penActive = false;
+      }
+      endStroke();
+    });
+
+    canvas.addEventListener("pointercancel", (evt) => {
+      if (evt.pointerType === "pen") {
+        penActive = false;
+      }
+      if (isDrawing) {
+        endStroke();
+      }
+    });
+
+    // -----------------
+    //   Audio helpers
+    // -----------------
+    function dataUrlToBlob(dataUrl) {
+      const parts = dataUrl.split(",");
+      const match = parts[0].match(/:(.*?);/);
+      const mime = match ? match[1] : "audio/webm";
+      const binary = atob(parts[1]);
+      const len = binary.length;
+      const bytes = new Uint8Array(len);
+      for (let i = 0; i < len; i++) {
+        bytes[i] = binary.charCodeAt(i);
+      }
+      return new Blob([bytes], { type: mime });
+    }
+
+    function renderAudioList() {
+      const page = pages[currentPageIndex];
+      audioListEl.innerHTML = "";
+      if (!page || !page.audio || !page.audio.length) {
+        audioListEl.textContent = "No audio notes on this page yet.";
+        return;
+      }
+      page.audio.forEach((clip, idx) => {
+        const row = document.createElement("div");
+        row.className = "audio-row";
+
+        const audioEl = document.createElement("audio");
+        audioEl.controls = true;
+        try {
+          const blob = dataUrlToBlob(clip.dataUrl);
+          audioEl.src = URL.createObjectURL(blob);
+        } catch (e) {
+          audioEl.textContent = "Audio not supported.";
+        }
+
+        const labelSpan = document.createElement("span");
+        labelSpan.textContent = clip.name || `Audio ${idx + 1}`;
+
+        // Download button
+        const downloadBtn = document.createElement("button");
+        downloadBtn.textContent = "Download";
+        downloadBtn.addEventListener("click", () => {
+          try {
+            const blob = dataUrlToBlob(clip.dataUrl);
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            const safeName = (clip.name || `audio_${idx + 1}`).replace(/[^\w\- ]+/g, "_");
+            a.href = url;
+            a.download = safeName + ".webm";
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+          } catch (e) {
+            alert("Unable to download this audio clip.");
+          }
+        });
+
+        const delBtn = document.createElement("button");
+        delBtn.textContent = "Delete";
+        delBtn.addEventListener("click", () => {
+          if (!confirm("Delete this audio note?")) return;
+          page.audio.splice(idx, 1);
+          saveNotebook();
+          renderAudioList();
+        });
+
+        row.appendChild(audioEl);
+        row.appendChild(labelSpan);
+        row.appendChild(downloadBtn);
+        row.appendChild(delBtn);
+        audioListEl.appendChild(row);
+      });
+    }
+
+    async function startRecording() {
+      if (!audioSupported || isRecordingAudio) return;
+      try {
+        const constraints = { audio: true };
+        currentStream = await navigator.mediaDevices.getUserMedia(constraints);
+
+        let options = {};
+        if (window.MediaRecorder && MediaRecorder.isTypeSupported) {
+          if (MediaRecorder.isTypeSupported("audio/mp4")) {
+            options.mimeType = "audio/mp4";
+          } else if (MediaRecorder.isTypeSupported("audio/webm")) {
+            options.mimeType = "audio/webm";
+          }
+        }
+
+        mediaRecorder = new MediaRecorder(currentStream, options);
+        recordedChunks = [];
+
+        mediaRecorder.ondataavailable = (e) => {
+          if (e.data && e.data.size > 0) {
+            recordedChunks.push(e.data);
+          }
+        };
+
+        mediaRecorder.onstop = () => {
+          isRecordingAudio = false;
+          startRecordBtn.disabled = false;
+          stopRecordBtn.disabled = true;
+
+          if (currentStream) {
+            currentStream.getTracks().forEach(t => t.stop());
+            currentStream = null;
+          }
+
+          if (!recordedChunks.length) {
+            recordStatus.textContent = "Recording status: No audio captured.";
+            return;
+          }
+
+          const blob = new Blob(recordedChunks, { type: mediaRecorder.mimeType || "audio/webm" });
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            const dataUrl = reader.result;
+            const page = pages[currentPageIndex];
+            if (!page.audio) page.audio = [];
+            const name = `Audio ${page.audio.length + 1} (${new Date().toLocaleTimeString()})`;
+            page.audio.push({
+              id: Date.now(),
+              dataUrl,
+              name
+            });
+            saveNotebook();
+            renderAudioList();
+            recordStatus.textContent = "Recording status: Saved.";
+          };
+          reader.readAsDataURL(blob);
+        };
+
+        mediaRecorder.start(); // unlimited until you press Stop
+        isRecordingAudio = true;
+        startRecordBtn.disabled = true;
+        stopRecordBtn.disabled = false;
+        recordStatus.textContent = "Recording status: Recording...";
+      } catch (e) {
+        console.error(e);
+        recordStatus.textContent = "Recording status: Permission denied or error.";
+      }
+    }
+
+    function stopRecording() {
+      if (!isRecordingAudio || !mediaRecorder) return;
+      recordStatus.textContent = "Recording status: Stopping...";
+      mediaRecorder.stop();
+    }
+
+    function initAudio() {
+      if (!audioSupported) {
+        startRecordBtn.disabled = true;
+        stopRecordBtn.disabled = true;
+        recordStatus.textContent = "Recording status: Not supported in this browser.";
+        audioHintEl.textContent = "Your browser does not support in-page audio recording.";
+        return;
+      }
+
+      startRecordBtn.addEventListener("click", startRecording);
+      stopRecordBtn.addEventListener("click", stopRecording);
+    }
+
+    // ---- Export / Import (library-aware) ----
+    const exportBtn      = document.getElementById("exportBtn");
+    const importBtn      = document.getElementById("importBtn");
+    const importFileInput = document.getElementById("importFile");
+
+    exportBtn.addEventListener("click", () => {
+      saveLibrary();
+      const dataStr = JSON.stringify({ notebooks, currentNotebookId });
+      const blob = new Blob([dataStr], { type: "application/json" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = clip.name.replace(/\W+/g, "_") + ".webm";
+      const dateStr = new Date().toISOString().slice(0, 10);
+      a.download = `handwritten_notebooks_${dateStr}.json`;
+      document.body.appendChild(a);
       a.click();
+      document.body.removeChild(a);
       URL.revokeObjectURL(url);
-    };
+    });
 
-    const del = document.createElement("button");
-    del.textContent = "Delete";
-    del.onclick = () => {
-      if (!confirm("Delete this audio?")) return;
-      page.audio.splice(idx, 1);
-      saveNotebook();
-      renderAudioList();
-    };
+    importBtn.addEventListener("click", () => {
+      importFileInput.click();
+    });
 
-    row.append(audio, name, download, del);
-    audioListEl.appendChild(row);
-  });
-}
-
-async function startRecording() {
-  if (!audioSupported || isRecordingAudio) return;
-
-  try {
-    currentStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-
-    let options = {};
-    if (MediaRecorder.isTypeSupported("audio/mp4")) {
-      options.mimeType = "audio/mp4";
-    } else if (MediaRecorder.isTypeSupported("audio/webm")) {
-      options.mimeType = "audio/webm";
-    }
-
-    mediaRecorder = new MediaRecorder(currentStream, options);
-    recordedChunks = [];
-    mediaRecorder.ondataavailable = e => recordedChunks.push(e.data);
-
-    mediaRecorder.onstop = () => {
-      isRecordingAudio = false;
-      startRecordBtn.disabled = false;
-      stopRecordBtn.disabled = true;
-
-      currentStream.getTracks().forEach(t => t.stop());
-
-      if (!recordedChunks.length) return;
-
-      const blob = new Blob(recordedChunks, { type: mediaRecorder.mimeType });
+    importFileInput.addEventListener("change", (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
       const reader = new FileReader();
+      reader.onload = (ev) => {
+        try {
+          const data = JSON.parse(ev.target.result);
+          if (data.notebooks) {
+            notebooks = data.notebooks;
+            currentNotebookId = data.currentNotebookId || Object.keys(notebooks)[0];
+          } else if (data.pages && Array.isArray(data.pages)) {
+            const nb = {
+              id: "nb_imported",
+              name: "Imported Notebook",
+              pages: data.pages.map(p => ({
+                ...createBlankPage(),
+                ...p,
+                audio: p.audio || []
+              })),
+              currentPageIndex: Math.min(data.currentPageIndex || 0, data.pages.length - 1)
+            };
+            notebooks = { [nb.id]: nb };
+            currentNotebookId = nb.id;
+          } else {
+            throw new Error("Invalid notebook format");
+          }
 
-      reader.onloadend = () => {
-        const page = pages[currentPageIndex];
-        const dataUrl = reader.result;
-        page.audio.push({
-          name: `Audio ${page.audio.length + 1}`,
-          dataUrl
-        });
-        saveNotebook();
-        renderAudioList();
+          switchNotebook(currentNotebookId);
+          refreshNotebookSelect();
+          saveLibrary();
+          alert("Notebook library imported successfully.");
+        } catch (err) {
+          console.error(err);
+          alert("Could not import file. It may not be a valid notebook backup.");
+        } finally {
+          importFileInput.value = "";
+        }
       };
+      reader.readAsText(file);
+    });
 
-      reader.readAsDataURL(blob);
-    };
-
-    mediaRecorder.start();
-    isRecordingAudio = true;
-    startRecordBtn.disabled = true;
-    stopRecordBtn.disabled = false;
-    recordStatus.textContent = "Recording...";
-  } catch {
-    recordStatus.textContent = "Recording failed.";
-  }
-}
-
-function stopRecording() {
-  if (!isRecordingAudio) return;
-  recordStatus.textContent = "Stopping...";
-  mediaRecorder.stop();
-}
-
-startRecordBtn.onclick = startRecording;
-stopRecordBtn.onclick = stopRecording;
-
-/* ============================================================
-   EXPORT / IMPORT
-   ============================================================ */
-
-document.getElementById("exportBtn").onclick = () => {
-  const dataStr = JSON.stringify({ pages, currentPageIndex });
-  const blob = new Blob([dataStr], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `${currentNotebookName.replace(/\W+/g, "_")}.json`;
-  a.click();
-
-  URL.revokeObjectURL(url);
-};
-
-document.getElementById("importBtn").onclick = () => {
-  document.getElementById("importFile").click();
-};
-
-document.getElementById("importFile").onchange = e => {
-  const file = e.target.files[0];
-  if (!file) return;
-
-  const reader = new FileReader();
-  reader.onload = ev => {
-    try {
-      const parsed = JSON.parse(ev.target.result);
-      pages = parsed.pages || [createBlankPage()];
-      currentPageIndex = parsed.currentPageIndex || 0;
-      redrawFullPage();
-      renderAudioList();
-      saveNotebook();
-      alert("Notebook imported.");
-    } catch {
-      alert("Invalid notebook file.");
+    // ---- Fullscreen (app-level) ----
+    function enterFullscreen() {
+      isFullscreenMode = true;
+      appContainer.classList.add("fullscreen");
+      fullscreenToggleBtn.textContent = "Exit Full Screen";
+      resizeCanvasToContainer();
     }
 
-    e.target.value = "";
-  };
+    function exitFullscreen() {
+      isFullscreenMode = false;
+      appContainer.classList.remove("fullscreen");
+      fullscreenToggleBtn.textContent = "Full Screen";
+      resizeCanvasToContainer();
+    }
 
-  reader.readAsText(file);
-};
+    fullscreenToggleBtn.addEventListener("click", () => {
+      if (isFullscreenMode) {
+        exitFullscreen();
+      } else {
+        enterFullscreen();
+      }
+    });
 
-/* ============================================================
-   NOTEBOOK SWITCHING
-   ============================================================ */
+    fullscreenTopBar.addEventListener("click", () => {
+      if (isFullscreenMode) {
+        exitFullscreen();
+      }
+    });
 
-notebookSelect.onchange = () => {
-  currentNotebookName = notebookSelect.value;
-  setLastNotebook(currentNotebookName);
-  loadNotebook(currentNotebookName);
-  resizeCanvas();
-  updatePageInfo();
-  document.getElementById("pageTitle").value = pages[currentPageIndex].title;
-  document.getElementById("pageText").value = pages[currentPageIndex].text;
-  renderAudioList();
-};
+    // ---- Wire up controls ----
+    document.getElementById("undoBtn").addEventListener("click", undo);
+    document.getElementById("redoBtn").addEventListener("click", redo);
+    document.getElementById("clearPageBtn").addEventListener("click", clearPage);
 
-newNotebookBtn.onclick = () => {
-  const name = prompt("Enter new notebook name:");
-  if (!name) return;
+    toolButtons.pen.addEventListener("click", () => setActiveTool("pen"));
+    toolButtons.highlighter.addEventListener("click", () => setActiveTool("highlighter"));
+    toolButtons.eraser.addEventListener("click", () => setActiveTool("eraser"));
 
-  if (NOTEBOOK_LIST.includes(name)) {
-    alert("Notebook already exists.");
-    return;
-  }
+    document.querySelectorAll(".color-btn").forEach(btn => {
+      btn.addEventListener("click", () => setActiveColor(btn.dataset.color));
+    });
 
-  NOTEBOOK_LIST.push(name);
-  saveNotebookList(NOTEBOOK_LIST);
-  refreshNotebookDropdown();
+    sizeSlider.addEventListener("input", () => {
+      currentSize = parseInt(sizeSlider.value, 10);
+    });
 
-  currentNotebookName = name;
-  setLastNotebook(name);
+    document.getElementById("prevPageBtn").addEventListener("click", () => {
+      if (currentPageIndex > 0) goToPage(currentPageIndex - 1);
+    });
+    document.getElementById("nextPageBtn").addEventListener("click", () => {
+      if (currentPageIndex < pages.length - 1) goToPage(currentPageIndex + 1);
+    });
+    document.getElementById("addPageBtn").addEventListener("click", addPage);
 
-  pages = [createBlankPage()];
-  currentPageIndex = 0;
-  saveNotebook();
-  resizeCanvas();
-  updatePageInfo();
-  renderAudioList();
-};
+    document.getElementById("pageTitle").addEventListener("input", (e) => {
+      const page = pages[currentPageIndex];
+      page.title = e.target.value;
+      saveNotebook();
+    });
 
-/* ============================================================
-   INITIALIZE
-   ============================================================ */
+    document.getElementById("pageText").addEventListener("input", (e) => {
+      const page = pages[currentPageIndex];
+      page.text = e.target.value;
+      saveNotebook();
+    });
 
-loadNotebook(currentNotebookName);
-refreshNotebookDropdown();
+    document.getElementById("searchInput").addEventListener("input", (e) => {
+      performSearch(e.target.value);
+    });
 
-resizeCanvas();
-updatePageInfo();
+    // Notebook dropdown / new notebook
+    notebookSelect.addEventListener("change", (e) => {
+      switchNotebook(e.target.value);
+    });
 
-document.getElementById("pageTitle").value = pages[currentPageIndex].title;
-document.getElementById("pageText").value = pages[currentPageIndex].text;
+    newNotebookBtn.addEventListener("click", () => {
+      const baseName = "New Notebook";
+      const usedNames = new Set(
+        Object.values(notebooks).map(nb => nb.name || "")
+      );
+      let idx = 1;
+      let name = baseName;
+      while (usedNames.has(name)) {
+        idx += 1;
+        name = `${baseName} ${idx}`;
+      }
+      const nb = createBlankNotebook(name);
+      notebooks[nb.id] = nb;
+      currentNotebookId = nb.id;
+      pages = nb.pages;
+      currentPageIndex = 0;
+      refreshNotebookSelect();
+      notebookSelect.value = currentNotebookId;
+      goToPage(0);
+      saveLibrary();
+    });
 
-renderAudioList();
-</script>
+    // ---- Init ----
+    loadNotebook();
+    refreshNotebookSelect();
+    if (currentNotebookId) {
+      switchNotebook(currentNotebookId);
+    } else {
+      goToPage(0);
+    }
+    setActiveTool(currentTool);
+    setActiveColor(currentColor);
+    initAudio();
+  </script>
 </body>
 </html>
