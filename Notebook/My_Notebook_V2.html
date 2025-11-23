@@ -127,16 +127,21 @@
       background: #fdfcf8;
       position: relative;
       height: min(70vh, 640px); /* adapt to screen */
+      -webkit-user-select: none;
+      user-select: none;
     }
     .page-surface {
       position: relative;
       width: 100%;
       height: 100%;
-      background-image: 
+      background-image:
         linear-gradient(to bottom, rgba(0,0,0,0.05) 1px, transparent 1px);
       background-size: 100% 24px;
       background-color: #fffbf3;
       padding-left: 40px; /* margin like a notebook */
+      -webkit-user-select: none;
+      user-select: none;
+      touch-action: none;
     }
     .page-surface::before {
       /* vertical margin line */
@@ -155,6 +160,8 @@
       width: 100%;
       height: 100%;
       touch-action: none; /* prevent scrolling during draw */
+      -webkit-user-select: none;
+      user-select: none;
     }
 
     .note-meta {
@@ -328,7 +335,7 @@
           <span class="color-dot color-yellow"></span> Yellow
         </button>
         <label class="toolbar-label">Size
-          <!-- Default now 1 -->
+          <!-- default pen size now 1 -->
           <input id="sizeSlider" type="range" min="1" max="15" value="1" />
         </label>
       </div>
@@ -372,7 +379,6 @@
       <div id="audioList" class="audio-list"></div>
       <div id="audioHint" class="hint">
         🎙 Audio recording uses your microphone. Support depends on your browser/device.
-        Recording time is effectively unlimited (no timer) but very long clips create large files.
       </div>
     </div>
 
@@ -398,7 +404,7 @@
       Use Export/Import to back up or move to another browser.
     </div>
   </div>
-  
+
   <script>
     // ---- Data model ----
     const STORAGE_KEY = "handNotebook_v2";
@@ -424,6 +430,9 @@
 
     let currentColor = "black";
 
+    // palm-handling state
+    let penActive = false;
+
     // Audio state
     let mediaRecorder = null;
     let recordedChunks = [];
@@ -442,23 +451,6 @@
     const fullscreenTopBar = document.getElementById("fullscreenTopBar");
     const fullscreenToggleBtn = document.getElementById("fullscreenToggleBtn");
     let isFullscreenMode = false;
-
-    // ---- Palm rejection helpers (Mode C) ----
-    function isLikelyIPad() {
-      const ua = navigator.userAgent || "";
-      const platform = navigator.platform || "";
-      // Covers iPad and iPadOS 13+ (MacIntel + touch)
-      return /iPad/.test(ua) || (platform === "MacIntel" && navigator.maxTouchPoints > 1);
-    }
-    const IS_IPAD = isLikelyIPad();
-
-    function shouldIgnorePointer(evt) {
-      // On iPad: ignore "touch" (palm), but allow Pencil ("pen") and mouse.
-      // On non-iPad (iPhone, desktop, Android): do NOT ignore finger.
-      if (!IS_IPAD) return false;
-      if (evt.pointerType === "touch") return true;
-      return false;
-    }
 
     // ---- Helpers for notebook pages ----
     function createBlankPage() {
@@ -604,7 +596,7 @@
         ctx.strokeStyle = "rgba(255, 235, 59, 0.45)";
       } else {
         ctx.globalCompositeOperation = "source-over";
-        ctx.lineWidth = stroke.size * 2; // clearer pen
+        ctx.lineWidth = stroke.size * 2; // make pen clearer
         ctx.strokeStyle = getColorValue(stroke.color || "black");
       }
 
@@ -722,7 +714,7 @@
       });
     }
 
-    // ---- Pointer events ----
+    // ---- Pointer events (with palm handling & no delay) ----
     function getCanvasCoordinates(evt) {
       const rect = canvas.getBoundingClientRect();
       const x = evt.clientX - rect.left;
@@ -731,44 +723,50 @@
     }
 
     canvas.addEventListener("pointerdown", (evt) => {
-      if (shouldIgnorePointer(evt)) return;   // palm rejection on iPad
-      evt.preventDefault();
-      if (canvas.setPointerCapture) {
-        try { canvas.setPointerCapture(evt.pointerId); } catch (e) {}
+      // basic palm rejection: if a pen stroke is active, ignore extra touches
+      if (penActive && evt.pointerType === "touch") {
+        return;
       }
+      if (evt.pointerType === "pen") {
+        penActive = true;
+      }
+      evt.preventDefault();
       const { x, y } = getCanvasCoordinates(evt);
       startStroke(x, y);
     });
 
     canvas.addEventListener("pointermove", (evt) => {
       if (!isDrawing) return;
-      if (shouldIgnorePointer(evt)) return;   // ignore palm moves
       evt.preventDefault();
       const { x, y } = getCanvasCoordinates(evt);
       addPointToStroke(x, y);
     });
 
     canvas.addEventListener("pointerup", (evt) => {
+      if (evt.pointerType === "pen") {
+        penActive = false;
+      }
+      if (!isDrawing) return;
       evt.preventDefault();
-      if (canvas.releasePointerCapture) {
-        try { canvas.releasePointerCapture(evt.pointerId); } catch (e) {}
+      endStroke();
+    });
+
+    canvas.addEventListener("pointerleave", (evt) => {
+      if (!isDrawing) return;
+      if (evt.pointerType === "pen") {
+        penActive = false;
       }
       endStroke();
     });
 
-    canvas.addEventListener("pointerleave", () => {
+    canvas.addEventListener("pointercancel", (evt) => {
+      if (evt.pointerType === "pen") {
+        penActive = false;
+      }
       if (isDrawing) {
         endStroke();
       }
     });
-
-    canvas.addEventListener("pointercancel", () => {
-      // Fix: if Safari cancels the pointer, end the stroke immediately
-      if (isDrawing) {
-        endStroke();
-      }
-    });
-
     // ---- Audio helpers ----
     function dataUrlToBlob(dataUrl) {
       const parts = dataUrl.split(",");
@@ -806,6 +804,7 @@
         const labelSpan = document.createElement("span");
         labelSpan.textContent = clip.name || `Audio ${idx + 1}`;
 
+        // Download button so you can save to phone / device
         const downloadBtn = document.createElement("button");
         downloadBtn.textContent = "Download";
         downloadBtn.addEventListener("click", () => {
@@ -814,16 +813,14 @@
             const url = URL.createObjectURL(blob);
             const a = document.createElement("a");
             a.href = url;
-            const baseName = (clip.name || `audio_${idx + 1}`).replace(/[^\w\-]+/g, "_");
-            // Most browsers will save to phone storage / Downloads
-            a.download = baseName + ".webm";
+            const safeName = (clip.name || `audio_${idx + 1}`).replace(/[^\w\- ]+/g, "_");
+            a.download = safeName + ".webm";
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
-          } catch (err) {
-            console.error(err);
-            alert("Unable to download this audio on this browser.");
+          } catch (e) {
+            alert("Unable to download this audio clip.");
           }
         });
 
@@ -883,7 +880,6 @@
             return;
           }
 
-          // Unlimited duration: no timer, we just use whatever chunks were recorded.
           const blob = new Blob(recordedChunks, { type: mediaRecorder.mimeType || "audio/webm" });
           const reader = new FileReader();
           reader.onloadend = () => {
@@ -903,7 +899,7 @@
           reader.readAsDataURL(blob);
         };
 
-        mediaRecorder.start(); // No time limit: stop when user taps Stop
+        mediaRecorder.start(); // unlimited until you press Stop
         isRecordingAudio = true;
         startRecordBtn.disabled = true;
         stopRecordBtn.disabled = false;
