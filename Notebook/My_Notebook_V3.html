@@ -418,6 +418,10 @@
     let isDrawing = false;
     let currentStroke = null;
 
+    // for hybrid engine incremental drawing
+    let lastX = 0;
+    let lastY = 0;
+
     const toolButtons = {
       pen: document.getElementById("toolPen"),
       highlighter: document.getElementById("toolHighlighter"),
@@ -429,6 +433,9 @@
     let currentSize = parseInt(sizeSlider.value, 10);
 
     let currentColor = "black";
+
+    // palm-handling state
+    let penActive = false;
 
     // Audio state
     let mediaRecorder = null;
@@ -518,10 +525,13 @@
       resizeCanvasToContainer();
     });
 
-    // ---- Drawing logic ----
+    // ---- Hybrid Drawing logic (fast incremental + stored strokes) ----
     function startStroke(x, y) {
       const page = pages[currentPageIndex];
       page.redoStack = []; // new stroke invalidates redo history
+
+      lastX = x;
+      lastY = y;
 
       const normalizedPoint = normalizePoint(x, y);
       const stroke = {
@@ -533,13 +543,19 @@
       currentStroke = stroke;
       page.strokes.push(stroke);
       isDrawing = true;
-      redrawCurrentPage();
+
+      // draw a tiny dot to avoid gap at start
+      drawSegment(lastX, lastY, x, y, true);
     }
 
     function addPointToStroke(x, y) {
       if (!isDrawing || !currentStroke) return;
-      currentStroke.points.push(normalizePoint(x, y));
-      redrawCurrentPage();
+      const normalizedPoint = normalizePoint(x, y);
+      currentStroke.points.push(normalizedPoint);
+      // draw only the new segment
+      drawSegment(lastX, lastY, x, y, false);
+      lastX = x;
+      lastY = y;
     }
 
     function endStroke() {
@@ -554,19 +570,49 @@
     }
 
     function normalizePoint(x, y) {
-      const rect = canvas.getBoundingClientRect();
       return {
-        x: x / rect.width,
-        y: y / rect.height
+        x: x / canvas.width,
+        y: y / canvas.height
       };
     }
 
     function denormalizePoint(p) {
-      const rect = canvas.getBoundingClientRect();
       return {
-        x: p.x * rect.width,
-        y: p.y * rect.height
+        x: p.x * canvas.width,
+        y: p.y * canvas.height
       };
+    }
+
+    function applyStrokeStyle(stroke) {
+      if (stroke.tool === "eraser") {
+        ctx.globalCompositeOperation = "destination-out";
+        ctx.lineWidth = stroke.size * 3; // thicker erase
+        ctx.strokeStyle = "rgba(0,0,0,1)";
+      } else if (stroke.tool === "highlighter") {
+        ctx.globalCompositeOperation = "source-over";
+        ctx.lineWidth = stroke.size * 3;
+        ctx.strokeStyle = "rgba(255, 235, 59, 0.45)";
+      } else {
+        ctx.globalCompositeOperation = "source-over";
+        ctx.lineWidth = stroke.size * 2; // clearer pen
+        ctx.strokeStyle = getColorValue(stroke.color || "black");
+      }
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+    }
+
+    // draw incremental segment for currentStroke
+    function drawSegment(x1, y1, x2, y2, isFirst) {
+      if (!currentStroke) return;
+      applyStrokeStyle(currentStroke);
+      ctx.beginPath();
+      if (isFirst) {
+        ctx.moveTo(x2, y2);
+      } else {
+        ctx.moveTo(x1, y1);
+      }
+      ctx.lineTo(x2, y2);
+      ctx.stroke();
     }
 
     function redrawCurrentPage() {
@@ -582,23 +628,7 @@
     function drawStroke(stroke) {
       if (!stroke.points || stroke.points.length < 1) return;
 
-      if (stroke.tool === "eraser") {
-        ctx.globalCompositeOperation = "destination-out";
-        ctx.lineWidth = stroke.size * 3; // thicker erase
-        ctx.strokeStyle = "rgba(0,0,0,1)";
-      } else if (stroke.tool === "highlighter") {
-        ctx.globalCompositeOperation = "source-over";
-        ctx.lineWidth = stroke.size * 3;
-        // highlighter is always yellowish
-        ctx.strokeStyle = "rgba(255, 235, 59, 0.45)";
-      } else {
-        ctx.globalCompositeOperation = "source-over";
-        ctx.lineWidth = stroke.size * 2; // make pen clearer
-        ctx.strokeStyle = getColorValue(stroke.color || "black");
-      }
-
-      ctx.lineCap = "round";
-      ctx.lineJoin = "round";
+      applyStrokeStyle(stroke);
 
       ctx.beginPath();
       const first = denormalizePoint(stroke.points[0]);
@@ -620,7 +650,7 @@
           return "#000000";
       }
     }
-
+    
     // ---- Undo / Redo / Clear ----
     function undo() {
       const page = pages[currentPageIndex];
@@ -711,7 +741,7 @@
       });
     }
 
-    // ---- Pointer events (restored simple behavior, no palm gating) ----
+    // ---- Pointer events (hybrid + palm handling, no delay) ----
     function getCanvasCoordinates(evt) {
       const rect = canvas.getBoundingClientRect();
       const x = evt.clientX - rect.left;
@@ -720,8 +750,14 @@
     }
 
     canvas.addEventListener("pointerdown", (evt) => {
+      // basic palm rejection: if a pen stroke is active, ignore extra touches
+      if (penActive && evt.pointerType === "touch") {
+        return;
+      }
+      if (evt.pointerType === "pen") {
+        penActive = true;
+      }
       evt.preventDefault();
-      canvas.setPointerCapture(evt.pointerId);
       const { x, y } = getCanvasCoordinates(evt);
       startStroke(x, y);
     });
@@ -734,19 +770,26 @@
     });
 
     canvas.addEventListener("pointerup", (evt) => {
+      if (evt.pointerType === "pen") {
+        penActive = false;
+      }
       if (!isDrawing) return;
       evt.preventDefault();
-      canvas.releasePointerCapture(evt.pointerId);
       endStroke();
     });
 
-    canvas.addEventListener("pointerleave", () => {
-      if (isDrawing) {
-        endStroke();
+    canvas.addEventListener("pointerleave", (evt) => {
+      if (!isDrawing) return;
+      if (evt.pointerType === "pen") {
+        penActive = false;
       }
+      endStroke();
     });
 
-    canvas.addEventListener("pointercancel", () => {
+    canvas.addEventListener("pointercancel", (evt) => {
+      if (evt.pointerType === "pen") {
+        penActive = false;
+      }
       if (isDrawing) {
         endStroke();
       }
@@ -884,7 +927,8 @@
           reader.readAsDataURL(blob);
         };
 
-        mediaRecorder.start(); // unlimited until you press Stop
+        // Unlimited recording until Stop is pressed
+        mediaRecorder.start();
         isRecordingAudio = true;
         startRecordBtn.disabled = true;
         stopRecordBtn.disabled = false;
