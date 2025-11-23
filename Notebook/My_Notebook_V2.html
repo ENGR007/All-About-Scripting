@@ -426,10 +426,12 @@
       </div>
     </div>
 
-    <!-- Export / Import -->
+    <!-- Export / Import / Restore -->
     <div class="export-import-row">
       <button id="exportBtn">⬇️ Export Notebook</button>
       <button id="importBtn">⬆️ Import Notebook</button>
+      <button id="restoreBackupBtn">⤴ Restore Auto Backup</button>
+      <span id="backupInfo" class="hint">Last auto backup: none yet</span>
       <input id="importFile" type="file" accept="application/json" style="display:none" />
     </div>
 
@@ -525,6 +527,33 @@
       return nb || notebooks[0];
     }
 
+    function updateBackupInfo(fromTs) {
+      const infoEl = document.getElementById("backupInfo");
+      if (!infoEl) return;
+
+      let ts = fromTs;
+      if (!ts) {
+        const metaRaw = localStorage.getItem(STORAGE_KEY + "_backup_meta");
+        if (!metaRaw) {
+          infoEl.textContent = "Last auto backup: none yet";
+          return;
+        }
+        try {
+          const meta = JSON.parse(metaRaw);
+          ts = meta.ts;
+        } catch (e) {
+          infoEl.textContent = "Last auto backup: unknown";
+          return;
+        }
+      }
+      if (!ts) {
+        infoEl.textContent = "Last auto backup: unknown";
+        return;
+      }
+      const d = new Date(ts);
+      infoEl.textContent = "Last auto backup: " + d.toLocaleString();
+    }
+
     function saveNotebook() {
       const nb = getCurrentNotebook();
       if (nb) {
@@ -537,23 +566,105 @@
       };
       try {
         const json = JSON.stringify(data);
+        const nowIso = new Date().toISOString();
+        // main storage
         localStorage.setItem(STORAGE_KEY, json);
-        localStorage.setItem(STORAGE_KEY + "_backup", json);  // newest-only backup
-        
+        // newest-only backup
+        localStorage.setItem(STORAGE_KEY + "_backup", json);
+        localStorage.setItem(
+          STORAGE_KEY + "_backup_meta",
+          JSON.stringify({ ts: nowIso })
+        );
+        updateBackupInfo(nowIso);
       } catch (e) {
         console.warn("Could not save notebook:", e);
+      }
+    }
+
+    // Helper to apply parsed data into our runtime structures
+    function applyParsedNotebookData(parsed) {
+      if (parsed.notebooks && Array.isArray(parsed.notebooks)) {
+        notebooks = parsed.notebooks.map((n, idx) => {
+          const rawPages = n.pages || [];
+          const pageArr = rawPages.length
+            ? rawPages.map(p => ({
+                ...createBlankPage(),
+                ...p,
+                audio: p.audio || []
+              }))
+            : [createBlankPage()];
+
+          return {
+            id: n.id || "nb_" + Date.now() + "_" + idx,
+            name: n.name || `Notebook ${idx + 1}`,
+            pages: pageArr,
+            currentPageIndex: Math.min(
+              typeof n.currentPageIndex === "number" ? n.currentPageIndex : 0,
+              pageArr.length - 1
+            )
+          };
+        });
+
+        if (!notebooks.length) {
+          const nb = createNotebook("My Notebook");
+          notebooks = [nb];
+        }
+
+        if (parsed.currentNotebookId &&
+            notebooks.some(n => n.id === parsed.currentNotebookId)) {
+          currentNotebookId = parsed.currentNotebookId;
+        } else {
+          currentNotebookId = notebooks[0].id;
+        }
+      } else if (parsed.pages && Array.isArray(parsed.pages)) {
+        // Legacy single-notebook data -> wrap into one notebook
+        const pageArr = parsed.pages.map(p => ({
+          ...createBlankPage(),
+          ...p,
+          audio: p.audio || []
+        }));
+        const nb = createNotebook("My Notebook");
+        nb.pages = pageArr.length ? pageArr : [createBlankPage()];
+        nb.currentPageIndex = Math.min(
+          typeof parsed.currentPageIndex === "number" ? parsed.currentPageIndex : 0,
+          nb.pages.length - 1
+        );
+        notebooks = [nb];
+        currentNotebookId = nb.id;
+      } else {
+        const nb = createNotebook("My Notebook");
+        notebooks = [nb];
+        currentNotebookId = nb.id;
+      }
+
+      const nb = getCurrentNotebook();
+      if (nb) {
+        pages = nb.pages;
+        currentPageIndex = typeof nb.currentPageIndex === "number" ? nb.currentPageIndex : 0;
+        if (!pages.length) {
+          pages = [createBlankPage()];
+          nb.pages = pages;
+          currentPageIndex = 0;
+          nb.currentPageIndex = 0;
+        }
+      } else {
+        const nbNew = createNotebook("My Notebook");
+        notebooks = [nbNew];
+        currentNotebookId = nbNew.id;
+        pages = nbNew.pages;
+        currentPageIndex = nbNew.currentPageIndex;
       }
     }
 
     function loadNotebooks() {
       // Try primary first
       let raw = localStorage.getItem(STORAGE_KEY);
-    
+
       // If missing, try backup
       if (!raw) {
         raw = localStorage.getItem(STORAGE_KEY + "_backup");
       }
-    
+
       // If still missing → create fresh default notebook
       if (!raw) {
         const nb = createNotebook("My Notebook");
@@ -561,83 +672,14 @@
         currentNotebookId = nb.id;
         pages = nb.pages;
         currentPageIndex = nb.currentPageIndex;
+        updateBackupInfo(); // will show "none yet"
         return;
       }
-      
+
       try {
         const parsed = JSON.parse(raw);
-
-        if (parsed.notebooks && Array.isArray(parsed.notebooks)) {
-          notebooks = parsed.notebooks.map((n, idx) => {
-            const rawPages = n.pages || [];
-            const pageArr = rawPages.length
-              ? rawPages.map(p => ({
-                  ...createBlankPage(),
-                  ...p,
-                  audio: p.audio || []
-                }))
-              : [createBlankPage()];
-
-            return {
-              id: n.id || "nb_" + Date.now() + "_" + idx,
-              name: n.name || `Notebook ${idx + 1}`,
-              pages: pageArr,
-              currentPageIndex: Math.min(
-                typeof n.currentPageIndex === "number" ? n.currentPageIndex : 0,
-                pageArr.length - 1
-              )
-            };
-          });
-
-          if (!notebooks.length) {
-            const nb = createNotebook("My Notebook");
-            notebooks = [nb];
-          }
-
-          if (parsed.currentNotebookId &&
-              notebooks.some(n => n.id === parsed.currentNotebookId)) {
-            currentNotebookId = parsed.currentNotebookId;
-          } else {
-            currentNotebookId = notebooks[0].id;
-          }
-        } else if (parsed.pages && Array.isArray(parsed.pages)) {
-          // Legacy single-notebook data -> wrap into one notebook
-          const pageArr = parsed.pages.map(p => ({
-            ...createBlankPage(),
-            ...p,
-            audio: p.audio || []
-          }));
-          const nb = createNotebook("My Notebook");
-          nb.pages = pageArr.length ? pageArr : [createBlankPage()];
-          nb.currentPageIndex = Math.min(
-            typeof parsed.currentPageIndex === "number" ? parsed.currentPageIndex : 0,
-            nb.pages.length - 1
-          );
-          notebooks = [nb];
-          currentNotebookId = nb.id;
-        } else {
-          const nb = createNotebook("My Notebook");
-          notebooks = [nb];
-          currentNotebookId = nb.id;
-        }
-
-        const nb = getCurrentNotebook();
-        if (nb) {
-          pages = nb.pages;
-          currentPageIndex = typeof nb.currentPageIndex === "number" ? nb.currentPageIndex : 0;
-          if (!pages.length) {
-            pages = [createBlankPage()];
-            nb.pages = pages;
-            currentPageIndex = 0;
-            nb.currentPageIndex = 0;
-          }
-        } else {
-          const nbNew = createNotebook("My Notebook");
-          notebooks = [nbNew];
-          currentNotebookId = nbNew.id;
-          pages = nbNew.pages;
-          currentPageIndex = nbNew.currentPageIndex;
-        }
+        applyParsedNotebookData(parsed);
+        updateBackupInfo(); // load from *_backup_meta if present
       } catch (e) {
         console.warn("Could not load notebook:", e);
         const nb = createNotebook("My Notebook");
@@ -645,6 +687,7 @@
         currentNotebookId = nb.id;
         pages = nb.pages;
         currentPageIndex = nb.currentPageIndex;
+        updateBackupInfo();
       }
     }
 
@@ -1189,6 +1232,7 @@
     const exportBtn = document.getElementById("exportBtn");
     const importBtn = document.getElementById("importBtn");
     const importFileInput = document.getElementById("importFile");
+    const restoreBackupBtn = document.getElementById("restoreBackupBtn");
 
     exportBtn.addEventListener("click", () => {
       const dataStr = JSON.stringify({ pages, currentPageIndex });
@@ -1245,6 +1289,33 @@
         }
       };
       reader.readAsText(file);
+    });
+
+    // Restore from auto-backup stored in localStorage
+    restoreBackupBtn.addEventListener("click", () => {
+      const raw = localStorage.getItem(STORAGE_KEY + "_backup");
+      if (!raw) {
+        alert("No auto backup found in this browser yet.");
+        return;
+      }
+      if (!confirm("Restore from last auto backup? This will overwrite the current notebooks stored in this browser.")) {
+        return;
+      }
+      try {
+        const parsed = JSON.parse(raw);
+        applyParsedNotebookData(parsed);
+        refreshNotebookSelect();
+        updatePageInfo();
+        document.getElementById("pageTitle").value = pages[currentPageIndex].title || "";
+        document.getElementById("pageText").value = pages[currentPageIndex].text || "";
+        resizeCanvasToContainer();
+        renderAudioList();
+        saveNotebook(); // also refreshes backup + timestamp
+        alert("Restored from auto backup.");
+      } catch (e) {
+        console.error(e);
+        alert("Backup data is invalid or corrupted.");
+      }
     });
 
     // ---- Fullscreen (app-level) ----
