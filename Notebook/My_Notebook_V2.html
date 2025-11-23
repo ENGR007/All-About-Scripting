@@ -1235,19 +1235,40 @@
     const restoreBackupBtn = document.getElementById("restoreBackupBtn");
 
     exportBtn.addEventListener("click", () => {
-      const dataStr = JSON.stringify({ pages, currentPageIndex });
-      const blob = new Blob([dataStr], { type: "application/json" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      const dateStr = new Date().toISOString().slice(0, 10);
-      a.download = `handwritten_notebook_${dateStr}.json`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      try {
+        // Save latest state first
+        saveNotebook();
+    
+        // FULL BACKUP: all notebooks, all pages, all strokes, all recordings
+        const fullBackup = {
+          notebooks,
+          currentNotebookId,
+          backupTimestamp: new Date().toISOString()
+        };
+    
+        const json = JSON.stringify(fullBackup);
+        localStorage.setItem(STORAGE_KEY + "_backup", json);
+    
+        const blob = new Blob([json], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+    
+        const dateStr = new Date().toISOString().replace(/[:.]/g, "-");
+        a.download = `handwritten_notebook_FULL_BACKUP_${dateStr}.json`;
+    
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    
+        alert("Full backup exported successfully.");
+      } catch (e) {
+        console.error(e);
+        alert("Export failed.");
+      }
     });
-
+  
     importBtn.addEventListener("click", () => {
       importFileInput.click();
     });
