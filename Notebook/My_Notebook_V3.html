@@ -5,7 +5,9 @@
   <title>Handwritten Notebook</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
-    * { box-sizing: border-box; }
+    * {
+      box-sizing: border-box;
+    }
     body {
       margin: 0;
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -16,192 +18,325 @@
       align-items: center;
       padding: 10px;
     }
-
     h1 {
       font-size: 1.4rem;
       margin: 5px 0 10px;
       text-align: center;
     }
-
-    /* NOTEBOOK ROW */
-    .notebook-row {
-      width: 100%;
-      max-width: 980px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 8px;
-      padding: 4px 6px;
-    }
-
-    .notebook-left {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-
-    .toolbar-label {
-      font-size: 0.8rem;
-      font-weight: 600;
-      text-transform: uppercase;
-      color: #555;
-      letter-spacing: 0.03em;
-    }
-
-    #notebookSelect {
-      padding: 4px 6px;
-      border-radius: 4px;
-      border: 1px solid #ccc;
-      font-size: 0.85rem;
-    }
-
-    #newNotebookBtn {
-      padding: 4px 10px;
-      background: #eaf3ff;
-      border: 1px solid #99b8ff;
-      border-radius: 5px;
-      font-size: 0.85rem;
-      cursor: pointer;
-    }
-
-    #newNotebookBtn:hover {
-      background: #d7e8ff;
-    }
-
-    /* MAIN APP CONTAINER */
     .app-container {
       width: 100%;
       max-width: 980px;
       background: #ffffff;
       border-radius: 10px;
-      padding: 10px;
       box-shadow: 0 4px 14px rgba(0,0,0,0.12);
+      padding: 10px 10px 15px;
       display: flex;
       flex-direction: column;
       gap: 8px;
+      position: relative;
     }
 
-    /* TOOLBAR AREA */
+    .fullscreen-topbar {
+      display: none;
+      text-align: center;
+      font-size: 0.8rem;
+      padding: 4px 6px;
+      background: #333;
+      color: #fff;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    /* Notebook bar (dropdown + New Notebook) */
+    .notebook-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .notebook-select {
+      padding: 4px 6px;
+      border-radius: 4px;
+      border: 1px solid #ccc;
+      font-size: 0.9rem;
+      min-width: 160px;
+    }
+
     .toolbar-row {
       display: flex;
       flex-wrap: wrap;
-      justify-content: space-between;
+      gap: 8px;
       align-items: center;
-      gap: 6px;
+      justify-content: space-between;
     }
-
     .toolbar-group {
       display: flex;
       flex-wrap: wrap;
       gap: 6px;
       align-items: center;
     }
-
+    .toolbar-label {
+      font-size: 0.8rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      color: #555;
+    }
+    button, input, textarea, select {
+      font-family: inherit;
+    }
     button {
+      border: 1px solid #ccc;
+      background: #f8f8f8;
+      border-radius: 5px;
       padding: 4px 8px;
       font-size: 0.85rem;
-      background: #f8f8f8;
-      border: 1px solid #ccc;
-      border-radius: 5px;
       cursor: pointer;
-      display: flex;
+      display: inline-flex;
       align-items: center;
       gap: 4px;
     }
-
-    button:hover { background: #ececec; }
+    button:hover {
+      background: #ececec;
+    }
     button.active {
       border-color: #0052cc;
       background: #e7f0ff;
     }
-
     .color-dot {
       width: 12px;
       height: 12px;
       border-radius: 50%;
       border: 1px solid #999;
     }
-
     .color-black { background: #000; }
     .color-blue { background: #0052cc; }
     .color-red { background: #cc0000; }
     .color-yellow { background: #ffd54f; }
 
-    /* PAGE CONTROLS */
     .page-controls {
       display: flex;
-      justify-content: space-between;
-      align-items: center;
       flex-wrap: wrap;
       gap: 6px;
+      align-items: center;
+      justify-content: space-between;
     }
-
+    .page-info {
+      font-size: 0.85rem;
+      color: #555;
+    }
     .page-title-input {
       flex: 1;
       min-width: 160px;
       padding: 4px 6px;
       border: 1px solid #ccc;
       border-radius: 4px;
+      font-size: 0.9rem;
     }
 
-    /* CANVAS NOTEBOOK PAGE */
     .notebook-wrapper {
-      border: 1px solid #ddd;
+      margin-top: 4px;
       border-radius: 8px;
+      border: 1px solid #ddd;
+      overflow: hidden;
       background: #fdfcf8;
       position: relative;
-      height: min(70vh, 650px);
-      overflow: hidden;
-      user-select: none;
+      height: min(70vh, 640px); /* adapt to screen */
       -webkit-user-select: none;
+      user-select: none;
     }
-
     .page-surface {
+      position: relative;
       width: 100%;
       height: 100%;
-      background-image: linear-gradient(to bottom, rgba(0,0,0,0.06) 1px, transparent 1px);
+      background-image:
+        linear-gradient(to bottom, rgba(0,0,0,0.05) 1px, transparent 1px);
       background-size: 100% 24px;
-      padding-left: 40px;
-      position: relative;
+      background-color: #fffbf3;
+      padding-left: 40px; /* margin like a notebook */
+      -webkit-user-select: none;
+      user-select: none;
+      touch-action: none;
     }
-
     .page-surface::before {
+      /* vertical margin line */
       content: "";
       position: absolute;
-      left: 30px;
       top: 0;
       bottom: 0;
+      left: 30px;
       border-left: 2px solid rgba(255,0,0,0.35);
+      pointer-events: none;
     }
-
     #drawingCanvas {
       position: absolute;
-      left: 0;
       top: 0;
-      touch-action: none;
-      user-select: none;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      touch-action: none; /* prevent scrolling during draw */
       -webkit-user-select: none;
+      user-select: none;
     }
 
-    /* AUDIO + SEARCH + FOOTER WILL CONTINUE IN PART 2 */
+    .note-meta {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      margin-top: 6px;
+    }
+    .note-meta label {
+      font-size: 0.8rem;
+      color: #666;
+    }
+    .note-meta textarea {
+      width: 100%;
+      min-height: 60px;
+      resize: vertical;
+      padding: 5px 6px;
+      border-radius: 4px;
+      border: 1px solid #ccc;
+      font-size: 0.85rem;
+    }
+
+    .audio-section {
+      margin-top: 6px;
+      padding: 6px 4px;
+      border-radius: 6px;
+      border: 1px solid #eee;
+      background: #fafafa;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .audio-section > label {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: #555;
+    }
+    .audio-controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+    }
+    #recordStatus {
+      font-size: 0.8rem;
+      color: #444;
+    }
+    .audio-list {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .audio-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+      font-size: 0.8rem;
+    }
+    .audio-row audio {
+      max-width: 220px;
+    }
+
+    .search-row {
+      margin-top: 4px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .search-input {
+      width: 100%;
+      padding: 4px 6px;
+      border-radius: 4px;
+      border: 1px solid #ccc;
+      font-size: 0.85rem;
+    }
+    .search-results {
+      max-height: 120px;
+      overflow-y: auto;
+      border-radius: 4px;
+      border: 1px solid #eee;
+      padding: 4px;
+      font-size: 0.8rem;
+    }
+    .search-results button {
+      width: 100%;
+      justify-content: flex-start;
+      margin-bottom: 2px;
+      font-size: 0.8rem;
+    }
+    .hint {
+      font-size: 0.75rem;
+      color: #777;
+    }
+
+    .export-import-row {
+      margin-top: 4px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+      justify-content: flex-start;
+    }
+
+    .footer {
+      margin-top: 6px;
+      font-size: 0.75rem;
+      text-align: center;
+      color: #777;
+    }
+
+    /* Fullscreen (app-level) */
+    .fullscreen .toolbar-row,
+    .fullscreen .page-controls,
+    .fullscreen .note-meta,
+    .fullscreen .search-row,
+    .fullscreen .export-import-row,
+    .fullscreen .audio-section,
+    .fullscreen .footer,
+    .fullscreen .notebook-bar {
+      display: none;
+    }
+    .fullscreen .fullscreen-topbar {
+      display: block;
+    }
+    .fullscreen .notebook-wrapper {
+      height: calc(100vh - 60px);
+    }
+
+    @media (max-width: 600px) {
+      .toolbar-row,
+      .page-controls,
+      .notebook-bar {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      button {
+        justify-content: center;
+      }
+    }
   </style>
 </head>
-
 <body>
   <h1>Handwritten Notebook</h1>
-
-  <!-- NOTEBOOK SELECTOR ROW -->
-  <div class="notebook-row">
-    <div class="notebook-left">
-      <span class="toolbar-label">Notebook:</span>
-      <select id="notebookSelect"></select>
-    </div>
-    <button id="newNotebookBtn">+ New Notebook</button>
-  </div>
-
   <div class="app-container">
-    
-    <!-- TOOLS ROW -->
+    <div id="fullscreenTopBar" class="fullscreen-topbar">
+      Tap here to show toolbar / exit full screen
+    </div>
+
+    <!-- Notebook selector -->
+    <div class="notebook-bar">
+      <div class="toolbar-group">
+        <span class="toolbar-label">Notebook</span>
+        <select id="notebookSelect" class="notebook-select"></select>
+      </div>
+      <button id="newNotebookBtn">+ New Notebook</button>
+    </div>
+
+    <!-- Top toolbar: tools + pen size -->
     <div class="toolbar-row">
       <div class="toolbar-group">
         <span class="toolbar-label">Tools</span>
@@ -210,64 +345,105 @@
         <button id="toolEraser">🩹 Eraser</button>
         <button id="undoBtn">↶ Undo</button>
         <button id="redoBtn">↷ Redo</button>
-        <button id="clearPageBtn">🗑 Clear</button>
+        <button id="clearPageBtn">🗑 Clear Page</button>
       </div>
-
       <div class="toolbar-group">
         <span class="toolbar-label">Pen</span>
-        <button class="color-btn active" data-color="black">
+        <button data-color="black" class="color-btn active">
           <span class="color-dot color-black"></span> Black
         </button>
-        <button class="color-btn" data-color="blue">
+        <button data-color="blue" class="color-btn">
           <span class="color-dot color-blue"></span> Blue
         </button>
-        <button class="color-btn" data-color="red">
+        <button data-color="red" class="color-btn">
           <span class="color-dot color-red"></span> Red
         </button>
-        <button class="color-btn" data-color="yellow">
+        <button data-color="yellow" class="color-btn">
           <span class="color-dot color-yellow"></span> Yellow
         </button>
-
         <label class="toolbar-label">Size
-          <input id="sizeSlider" type="range" min="1" max="15" value="1"/>
+          <!-- default pen size now 1 -->
+          <input id="sizeSlider" type="range" min="1" max="15" value="1" />
         </label>
       </div>
     </div>
 
-    <!-- PAGE CONTROLS -->
+    <!-- Page controls -->
     <div class="page-controls">
       <div class="toolbar-group">
         <button id="prevPageBtn">◀ Prev</button>
         <button id="nextPageBtn">Next ▶</button>
         <button id="addPageBtn">➕ Add Page</button>
-        <span id="pageInfo">Page 1 / 1</span>
+        <span class="page-info" id="pageInfo">Page 1 / 1</span>
       </div>
-
       <div class="toolbar-group">
-        <input id="pageTitle" class="page-title-input" placeholder="Page title..."/>
+        <input id="pageTitle" class="page-title-input" placeholder="Page title (optional)" />
         <button id="fullscreenToggleBtn">Full Screen</button>
       </div>
     </div>
 
-    <!-- DRAWING AREA -->
+    <!-- Notebook page -->
     <div class="notebook-wrapper">
       <div class="page-surface">
         <canvas id="drawingCanvas"></canvas>
       </div>
     </div>
-    
+
+    <!-- Text notes (for searchability) -->
+    <div class="note-meta">
+      <label for="pageText">Typed notes / keywords for this page (used for search):</label>
+      <textarea id="pageText" placeholder="Optional: summary, keywords, or typed notes here..."></textarea>
+    </div>
+
+    <!-- Audio notes -->
+    <div class="audio-section">
+      <label>Audio Notes (per page):</label>
+      <div class="audio-controls">
+        <button id="startRecordBtn">Start Recording</button>
+        <button id="stopRecordBtn" disabled>Stop</button>
+        <span id="recordStatus">Recording status: Idle</span>
+      </div>
+      <div id="audioList" class="audio-list"></div>
+      <div id="audioHint" class="hint">
+        🎙 Audio recording uses your microphone. Support depends on your browser/device.
+      </div>
+    </div>
+
+    <!-- Search section -->
+    <div class="search-row">
+      <label for="searchInput">Search pages (by title or typed notes):</label>
+      <input id="searchInput" class="search-input" type="text" placeholder="Type to search..." />
+      <div id="searchResults" class="search-results"></div>
+      <div class="hint">
+        🔍 Search currently works on the page title and typed notes, not on handwritten strokes.
+      </div>
+    </div>
+
+    <!-- Export / Import -->
+    <div class="export-import-row">
+      <button id="exportBtn">⬇️ Export Notebook</button>
+      <button id="importBtn">⬆️ Import Notebook</button>
+      <input id="importFile" type="file" accept="application/json" style="display:none" />
+    </div>
+
+    <div class="footer">
+      Notebook is stored locally in this browser using localStorage. You can close and reopen and continue where you left off.  
+      Use Export/Import to back up or move to another browser.
+    </div>
+  </div>
+
   <script>
-    // =========================
-    //  MULTI-NOTEBOOK SUPPORT
-    // =========================
-    const SINGLE_STORAGE_KEY = "handNotebook_v2";          // old format (pages only)
-    const LIB_STORAGE_KEY    = "handNotebook_library_v1";  // new multi-notebook format
+    // ---- Storage keys ----
+    // Legacy single-notebook key (for migration)
+    const LEGACY_STORAGE_KEY = "handNotebook_v2";
+    // New multi-notebook key
+    const STORAGE_KEY = "handNotebook_multi_v1";
 
-    // library: { [id]: { id, name, pages, currentPageIndex } }
-    let notebooks = {};
-    let currentNotebookId = null;
+    // ---- Data model ----
+    let notebooks = [];
+    let currentNotebookIndex = 0;
 
-    // ---- Data model for pages ----
+    // convenience aliases for the *current* notebook
     let pages = [];
     let currentPageIndex = 0;
 
@@ -292,10 +468,6 @@
     // palm-handling state
     let penActive = false;
 
-    // Notebook UI
-    const notebookSelect  = document.getElementById("notebookSelect");
-    const newNotebookBtn  = document.getElementById("newNotebookBtn");
-
     // Audio state
     let mediaRecorder = null;
     let recordedChunks = [];
@@ -304,20 +476,22 @@
     const audioSupported = !!(navigator.mediaDevices && window.MediaRecorder);
 
     const startRecordBtn = document.getElementById("startRecordBtn");
-    const stopRecordBtn  = document.getElementById("stopRecordBtn");
-    const recordStatus   = document.getElementById("recordStatus");
-    const audioListEl    = document.getElementById("audioList");
-    const audioHintEl    = document.getElementById("audioHint");
+    const stopRecordBtn = document.getElementById("stopRecordBtn");
+    const recordStatus = document.getElementById("recordStatus");
+    const audioListEl = document.getElementById("audioList");
+    const audioHintEl = document.getElementById("audioHint");
 
     // Fullscreen state
-    const appContainer      = document.querySelector(".app-container");
-    const fullscreenTopBar  = document.getElementById("fullscreenTopBar");
+    const appContainer = document.querySelector(".app-container");
+    const fullscreenTopBar = document.getElementById("fullscreenTopBar");
     const fullscreenToggleBtn = document.getElementById("fullscreenToggleBtn");
     let isFullscreenMode = false;
 
-    // -----------------------------
-    //   Helpers – pages & notebooks
-    // -----------------------------
+    // Notebook UI
+    const notebookSelect = document.getElementById("notebookSelect");
+    const newNotebookBtn = document.getElementById("newNotebookBtn");
+
+    // ---- Helpers for notebook pages ----
     function createBlankPage() {
       return {
         id: Date.now() + Math.random(),
@@ -330,146 +504,119 @@
       };
     }
 
-    function createBlankNotebook(name) {
+    function createNotebook(name) {
       return {
-        id: "nb_" + Date.now() + "_" + Math.random().toString(36).slice(2, 8),
-        name: name || "New Notebook",
+        id: Date.now() + Math.random(),
+        name: name || `Notebook ${notebooks.length + 1}`,
         pages: [createBlankPage()],
         currentPageIndex: 0
       };
     }
 
-    function saveLibrary() {
-      if (currentNotebookId && notebooks[currentNotebookId]) {
-        const nb = notebooks[currentNotebookId];
-        nb.pages = pages;
-        nb.currentPageIndex = currentPageIndex;
-      }
-      try {
-        localStorage.setItem(
-          LIB_STORAGE_KEY,
-          JSON.stringify({ notebooks, currentNotebookId })
-        );
-      } catch (e) {
-        console.warn("Could not save notebook library:", e);
-      }
-    }
-
-    // keep old name so existing calls still work
-    function saveNotebook() {
-      saveLibrary();
-    }
-
-    function refreshNotebookSelect() {
-      if (!notebookSelect) return;
-      notebookSelect.innerHTML = "";
-      const ids = Object.keys(notebooks);
-      if (!ids.length) return;
-
-      ids.forEach(id => {
-        const nb = notebooks[id];
-        const opt = document.createElement("option");
-        opt.value = id;
-        opt.textContent = nb.name || "Untitled Notebook";
-        notebookSelect.appendChild(opt);
-      });
-
-      if (currentNotebookId && notebooks[currentNotebookId]) {
-        notebookSelect.value = currentNotebookId;
+    function normalizeNotebook(nb, idx) {
+      const out = {
+        id: typeof nb.id !== "undefined" ? nb.id : Date.now() + Math.random(),
+        name: nb.name || `Notebook ${idx + 1}`,
+        pages: Array.isArray(nb.pages) ? nb.pages : [],
+        currentPageIndex: typeof nb.currentPageIndex === "number" ? nb.currentPageIndex : 0
+      };
+      if (!out.pages.length) {
+        out.pages = [createBlankPage()];
+        out.currentPageIndex = 0;
       } else {
-        currentNotebookId = ids[0];
-        notebookSelect.value = currentNotebookId;
+        out.pages = out.pages.map(p => ({
+          ...createBlankPage(),
+          ...p,
+          audio: p.audio || []
+        }));
+        out.currentPageIndex = Math.min(out.currentPageIndex, out.pages.length - 1);
       }
+      return out;
     }
 
-    function switchNotebook(id) {
-      if (!id || !notebooks[id]) return;
-      // save current first
-      saveLibrary();
+    function syncToCurrentNotebook() {
+      if (!notebooks.length) return;
+      const nb = notebooks[currentNotebookIndex];
+      nb.pages = pages;
+      nb.currentPageIndex = currentPageIndex;
+    }
 
-      currentNotebookId = id;
-      const nb = notebooks[id];
-      pages = nb.pages || [];
-      currentPageIndex = nb.currentPageIndex || 0;
-
-      if (!pages.length) {
-        pages = [createBlankPage()];
-        nb.pages = pages;
-        nb.currentPageIndex = 0;
-        currentPageIndex = 0;
+    function saveNotebook() {
+      if (!notebooks || !notebooks.length) {
+        const nb = createNotebook("Notebook 1");
+        notebooks = [nb];
+        currentNotebookIndex = 0;
+        pages = nb.pages;
+        currentPageIndex = nb.currentPageIndex;
       }
-
-      refreshNotebookSelect();
-      notebookSelect.value = currentNotebookId;
-      goToPage(currentPageIndex);
-      saveLibrary();
+      syncToCurrentNotebook();
+      const currentNb = notebooks[currentNotebookIndex];
+      const data = {
+        notebooks,
+        currentNotebookId: currentNb.id
+      };
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+      } catch (e) {
+        console.warn("Could not save notebook:", e);
+      }
     }
 
     function loadNotebook() {
-      // 1) try new library format
-      const rawLib = localStorage.getItem(LIB_STORAGE_KEY);
-      if (rawLib) {
+      const rawMulti = localStorage.getItem(STORAGE_KEY);
+      const rawLegacy = localStorage.getItem(LEGACY_STORAGE_KEY);
+
+      // Try multi-notebook data first
+      if (rawMulti) {
         try {
-          const parsed = JSON.parse(rawLib);
-          notebooks = parsed.notebooks || {};
-          currentNotebookId = parsed.currentNotebookId || null;
-        } catch (e) {
-          console.warn("Could not parse library; creating default.", e);
-          notebooks = {};
-          currentNotebookId = null;
-        }
-      }
-
-      // 2) if no library, try migrate from old single-notebook format
-      if (!Object.keys(notebooks).length) {
-        let migratedPages = null;
-        let migratedIndex = 0;
-        const rawOld = localStorage.getItem(SINGLE_STORAGE_KEY);
-        if (rawOld) {
-          try {
-            const parsedOld = JSON.parse(rawOld);
-            if (parsedOld && Array.isArray(parsedOld.pages)) {
-              migratedPages = parsedOld.pages.map(p => ({
-                ...createBlankPage(),
-                ...p,
-                audio: p.audio || []
-              }));
-              migratedIndex = Math.min(
-                parsedOld.currentPageIndex || 0,
-                migratedPages.length - 1
-              );
+          const parsed = JSON.parse(rawMulti);
+          if (Array.isArray(parsed.notebooks) && parsed.notebooks.length) {
+            notebooks = parsed.notebooks.map((nb, idx) => normalizeNotebook(nb, idx));
+            let idx = 0;
+            if (parsed.currentNotebookId != null) {
+              const found = notebooks.findIndex(n => n.id === parsed.currentNotebookId);
+              if (found !== -1) idx = found;
             }
-          } catch (e) {
-            console.warn("Could not migrate old notebook:", e);
+            currentNotebookIndex = idx;
+            const nb = notebooks[currentNotebookIndex];
+            pages = nb.pages;
+            currentPageIndex = nb.currentPageIndex;
+            return;
           }
+        } catch (e) {
+          console.warn("Could not load multi-notebook data:", e);
         }
-
-        const defaultNb = {
-          id: "nb_default",
-          name: "Default Notebook",
-          pages: migratedPages || [createBlankPage()],
-          currentPageIndex: migratedPages ? migratedIndex : 0
-        };
-        notebooks = { [defaultNb.id]: defaultNb };
-        currentNotebookId = defaultNb.id;
       }
 
-      if (!currentNotebookId || !notebooks[currentNotebookId]) {
-        const firstId = Object.keys(notebooks)[0];
-        currentNotebookId = firstId;
+      // Fallback: legacy single-notebook data
+      if (rawLegacy) {
+        try {
+          const parsed = JSON.parse(rawLegacy);
+          const nb = createNotebook("Notebook 1");
+          nb.pages = (parsed.pages || []).map(p => ({
+            ...createBlankPage(),
+            ...p,
+            audio: p.audio || []
+          }));
+          if (!nb.pages.length) nb.pages = [createBlankPage()];
+          nb.currentPageIndex = Math.min(parsed.currentPageIndex || 0, nb.pages.length - 1);
+          notebooks = [nb];
+          currentNotebookIndex = 0;
+          pages = nb.pages;
+          currentPageIndex = nb.currentPageIndex;
+          saveNotebook(); // re-save as multi
+          return;
+        } catch (e) {
+          console.warn("Could not migrate legacy notebook:", e);
+        }
       }
 
-      const nb = notebooks[currentNotebookId];
-      pages = nb.pages || [createBlankPage()];
-      currentPageIndex = nb.currentPageIndex || 0;
-      if (!pages.length) {
-        pages = [createBlankPage()];
-        nb.pages = pages;
-        nb.currentPageIndex = 0;
-        currentPageIndex = 0;
-      }
-
-      refreshNotebookSelect();
+      // Nothing found: create default notebook
+      const nb = createNotebook("Notebook 1");
+      notebooks = [nb];
+      currentNotebookIndex = 0;
+      pages = nb.pages;
+      currentPageIndex = nb.currentPageIndex;
     }
 
     function updatePageInfo() {
@@ -488,9 +635,67 @@
       resizeCanvasToContainer();
     });
 
-    // -----------------------------
-    //   Drawing logic (optimised)
-    // -----------------------------
+    // ---- Notebook select UI ----
+    function renderNotebookSelect() {
+      if (!notebookSelect) return;
+      notebookSelect.innerHTML = "";
+      notebooks.forEach((nb, idx) => {
+        const opt = document.createElement("option");
+        opt.value = String(nb.id);
+        opt.textContent = nb.name || `Notebook ${idx + 1}`;
+        if (idx === currentNotebookIndex) opt.selected = true;
+        notebookSelect.appendChild(opt);
+      });
+    }
+
+    function switchToNotebookIndex(idx) {
+      if (idx < 0 || idx >= notebooks.length) return;
+      syncToCurrentNotebook();
+      currentNotebookIndex = idx;
+      const nb = notebooks[currentNotebookIndex];
+      pages = nb.pages;
+      if (!pages.length) pages = [createBlankPage()];
+      currentPageIndex = Math.min(nb.currentPageIndex || 0, pages.length - 1);
+      document.getElementById("pageTitle").value = pages[currentPageIndex].title || "";
+      document.getElementById("pageText").value = pages[currentPageIndex].text || "";
+      updatePageInfo();
+      resizeCanvasToContainer();
+      renderAudioList();
+      renderNotebookSelect();
+      saveNotebook();
+    }
+
+    notebookSelect.addEventListener("change", (e) => {
+      const idStr = e.target.value;
+      const idx = notebooks.findIndex(nb => String(nb.id) === idStr);
+      if (idx === -1 || idx === currentNotebookIndex) return;
+      switchToNotebookIndex(idx);
+    });
+
+    newNotebookBtn.addEventListener("click", () => {
+      const defaultName = `Notebook ${notebooks.length + 1}`;
+      const name = prompt("Name for new notebook:", defaultName);
+      if (name === null) return;
+      const trimmed = name.trim();
+      const finalName = trimmed || defaultName;
+
+      syncToCurrentNotebook();
+      const nb = createNotebook(finalName);
+      notebooks.push(nb);
+      currentNotebookIndex = notebooks.length - 1;
+      pages = nb.pages;
+      currentPageIndex = nb.currentPageIndex;
+
+      document.getElementById("pageTitle").value = "";
+      document.getElementById("pageText").value = "";
+      updatePageInfo();
+      resizeCanvasToContainer();
+      renderAudioList();
+      renderNotebookSelect();
+      saveNotebook();
+    });
+
+    // ---- Drawing logic ----
     function startStroke(x, y) {
       const page = pages[currentPageIndex];
       page.redoStack = []; // new stroke invalidates redo history
@@ -505,48 +710,13 @@
       currentStroke = stroke;
       page.strokes.push(stroke);
       isDrawing = true;
-
-      // draw existing strokes plus single-point stroke once
       redrawCurrentPage();
     }
 
     function addPointToStroke(x, y) {
       if (!isDrawing || !currentStroke) return;
-      const rect = canvas.getBoundingClientRect();
-
-      const lastPoint = currentStroke.points[currentStroke.points.length - 1];
-      const newPoint = {
-        x: x / rect.width,
-        y: y / rect.height
-      };
-      currentStroke.points.push(newPoint);
-
-      // draw only the newest segment for better performance
-      const stroke = currentStroke;
-
-      if (stroke.tool === "eraser") {
-        ctx.globalCompositeOperation = "destination-out";
-        ctx.lineWidth = stroke.size * 3;
-        ctx.strokeStyle = "rgba(0,0,0,1)";
-      } else if (stroke.tool === "highlighter") {
-        ctx.globalCompositeOperation = "source-over";
-        ctx.lineWidth = stroke.size * 3;
-        ctx.strokeStyle = "rgba(255, 235, 59, 0.45)";
-      } else {
-        ctx.globalCompositeOperation = "source-over";
-        ctx.lineWidth = stroke.size * 2;
-        ctx.strokeStyle = getColorValue(stroke.color || "black");
-      }
-
-      ctx.lineCap = "round";
-      ctx.lineJoin = "round";
-
-      const p1 = denormalizePoint(lastPoint);
-      const p2 = denormalizePoint(newPoint);
-      ctx.beginPath();
-      ctx.moveTo(p1.x, p1.y);
-      ctx.lineTo(p2.x, p2.y);
-      ctx.stroke();
+      currentStroke.points.push(normalizePoint(x, y));
+      redrawCurrentPage();
     }
 
     function endStroke() {
@@ -596,10 +766,11 @@
       } else if (stroke.tool === "highlighter") {
         ctx.globalCompositeOperation = "source-over";
         ctx.lineWidth = stroke.size * 3;
+        // highlighter is always yellowish
         ctx.strokeStyle = "rgba(255, 235, 59, 0.45)";
       } else {
         ctx.globalCompositeOperation = "source-over";
-        ctx.lineWidth = stroke.size * 2;
+        ctx.lineWidth = stroke.size * 2; // make pen clearer
         ctx.strokeStyle = getColorValue(stroke.color || "black");
       }
 
@@ -618,16 +789,15 @@
 
     function getColorValue(name) {
       switch (name) {
-        case "blue":   return "#0052cc";
-        case "red":    return "#cc0000";
+        case "blue": return "#0052cc";
+        case "red": return "#cc0000";
         case "yellow": return "#ffd54f";
         case "black":
         default:
           return "#000000";
       }
     }
-
-    // ---- Undo / Redo / Clear ----
+        // ---- Undo / Redo / Clear ----
     function undo() {
       const page = pages[currentPageIndex];
       if (!page || page.strokes.length === 0) return;
@@ -663,9 +833,9 @@
       currentPageIndex = index;
       const page = pages[currentPageIndex];
       document.getElementById("pageTitle").value = page.title || "";
-      document.getElementById("pageText").value  = page.text || "";
+      document.getElementById("pageText").value = page.text || "";
       updatePageInfo();
-      resizeCanvasToContainer(); // also redraws
+      resizeCanvasToContainer(); // this will also redraw
       renderAudioList();
       saveNotebook();
     }
@@ -705,9 +875,9 @@
     function setActiveTool(tool) {
       currentTool = tool;
       Object.values(toolButtons).forEach(btn => btn.classList.remove("active"));
-      if (tool === "pen")        toolButtons.pen.classList.add("active");
+      if (tool === "pen") toolButtons.pen.classList.add("active");
       if (tool === "highlighter") toolButtons.highlighter.classList.add("active");
-      if (tool === "eraser")    toolButtons.eraser.classList.add("active");
+      if (tool === "eraser") toolButtons.eraser.classList.add("active");
     }
 
     function setActiveColor(color) {
@@ -717,7 +887,7 @@
       });
     }
 
-    // ---- Pointer events (palm handling) ----
+    // ---- Pointer events (with palm handling) ----
     function getCanvasCoordinates(evt) {
       const rect = canvas.getBoundingClientRect();
       const x = evt.clientX - rect.left;
@@ -771,9 +941,7 @@
       }
     });
 
-    // -----------------
-    //   Audio helpers
-    // -----------------
+    // ---- Audio helpers ----
     function dataUrlToBlob(dataUrl) {
       const parts = dataUrl.split(",");
       const match = parts[0].match(/:(.*?);/);
@@ -810,7 +978,7 @@
         const labelSpan = document.createElement("span");
         labelSpan.textContent = clip.name || `Audio ${idx + 1}`;
 
-        // Download button
+        // Download button so you can save to phone / device
         const downloadBtn = document.createElement("button");
         downloadBtn.textContent = "Download";
         downloadBtn.addEventListener("click", () => {
@@ -818,8 +986,8 @@
             const blob = dataUrlToBlob(clip.dataUrl);
             const url = URL.createObjectURL(blob);
             const a = document.createElement("a");
-            const safeName = (clip.name || `audio_${idx + 1}`).replace(/[^\w\- ]+/g, "_");
             a.href = url;
+            const safeName = (clip.name || `audio_${idx + 1}`).replace(/[^\w\- ]+/g, "_");
             a.download = safeName + ".webm";
             document.body.appendChild(a);
             a.click();
@@ -935,14 +1103,14 @@
       stopRecordBtn.addEventListener("click", stopRecording);
     }
 
-    // ---- Export / Import (library-aware) ----
-    const exportBtn      = document.getElementById("exportBtn");
-    const importBtn      = document.getElementById("importBtn");
+    // ---- Export / Import (multi-notebook aware) ----
+    const exportBtn = document.getElementById("exportBtn");
+    const importBtn = document.getElementById("importBtn");
     const importFileInput = document.getElementById("importFile");
 
     exportBtn.addEventListener("click", () => {
-      saveLibrary();
-      const dataStr = JSON.stringify({ notebooks, currentNotebookId });
+      syncToCurrentNotebook();
+      const dataStr = JSON.stringify({ notebooks, currentNotebookIndex });
       const blob = new Blob([dataStr], { type: "application/json" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -966,30 +1134,38 @@
       reader.onload = (ev) => {
         try {
           const data = JSON.parse(ev.target.result);
-          if (data.notebooks) {
-            notebooks = data.notebooks;
-            currentNotebookId = data.currentNotebookId || Object.keys(notebooks)[0];
-          } else if (data.pages && Array.isArray(data.pages)) {
-            const nb = {
-              id: "nb_imported",
-              name: "Imported Notebook",
-              pages: data.pages.map(p => ({
-                ...createBlankPage(),
-                ...p,
-                audio: p.audio || []
-              })),
-              currentPageIndex: Math.min(data.currentPageIndex || 0, data.pages.length - 1)
-            };
-            notebooks = { [nb.id]: nb };
-            currentNotebookId = nb.id;
+
+          if (Array.isArray(data.notebooks)) {
+            // New multi-notebook format
+            notebooks = data.notebooks.map((nb, idx) => normalizeNotebook(nb, idx));
+            if (!notebooks.length) notebooks = [createNotebook("Notebook 1")];
+            currentNotebookIndex = Math.min(data.currentNotebookIndex || 0, notebooks.length - 1);
+            const nb = notebooks[currentNotebookIndex];
+            pages = nb.pages;
+            currentPageIndex = nb.currentPageIndex;
+            goToPage(currentPageIndex);
+          } else if (Array.isArray(data.pages)) {
+            // Old single-notebook export
+            const nb = createNotebook("Imported Notebook");
+            nb.pages = data.pages.map(p => ({
+              ...createBlankPage(),
+              ...p,
+              audio: p.audio || []
+            }));
+            if (!nb.pages.length) nb.pages = [createBlankPage()];
+            nb.currentPageIndex = Math.min(data.currentPageIndex || 0, nb.pages.length - 1);
+            notebooks = [nb];
+            currentNotebookIndex = 0;
+            pages = nb.pages;
+            currentPageIndex = nb.currentPageIndex;
+            goToPage(currentPageIndex);
           } else {
-            throw new Error("Invalid notebook format");
+            throw new Error("Unsupported notebook format");
           }
 
-          switchNotebook(currentNotebookId);
-          refreshNotebookSelect();
-          saveLibrary();
-          alert("Notebook library imported successfully.");
+          renderNotebookSelect();
+          saveNotebook();
+          alert("Notebook(s) imported successfully.");
         } catch (err) {
           console.error(err);
           alert("Could not import file. It may not be a valid notebook backup.");
@@ -1070,44 +1246,18 @@
       performSearch(e.target.value);
     });
 
-    // Notebook dropdown / new notebook
-    notebookSelect.addEventListener("change", (e) => {
-      switchNotebook(e.target.value);
-    });
-
-    newNotebookBtn.addEventListener("click", () => {
-      const baseName = "New Notebook";
-      const usedNames = new Set(
-        Object.values(notebooks).map(nb => nb.name || "")
-      );
-      let idx = 1;
-      let name = baseName;
-      while (usedNames.has(name)) {
-        idx += 1;
-        name = `${baseName} ${idx}`;
-      }
-      const nb = createBlankNotebook(name);
-      notebooks[nb.id] = nb;
-      currentNotebookId = nb.id;
-      pages = nb.pages;
-      currentPageIndex = 0;
-      refreshNotebookSelect();
-      notebookSelect.value = currentNotebookId;
-      goToPage(0);
-      saveLibrary();
-    });
-
     // ---- Init ----
     loadNotebook();
-    refreshNotebookSelect();
-    if (currentNotebookId) {
-      switchNotebook(currentNotebookId);
-    } else {
-      goToPage(0);
-    }
+    renderNotebookSelect();
+    updatePageInfo();
+    document.getElementById("pageTitle").value = pages[currentPageIndex].title || "";
+    document.getElementById("pageText").value = pages[currentPageIndex].text || "";
+    resizeCanvasToContainer();
     setActiveTool(currentTool);
     setActiveColor(currentColor);
+    renderAudioList();
     initAudio();
   </script>
 </body>
 </html>
+
