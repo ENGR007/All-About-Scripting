@@ -526,33 +526,33 @@
       return nb || notebooks[0];
     }
 
-function saveNotebook() {
-  const data = {
-    pages,
-    currentPageIndex
-  };
-  const json = JSON.stringify(data);
-  try {
-    // main copy
-    localStorage.setItem(STORAGE_KEY, json);
-    // single rolling backup (Option T + A: keep only newest)
-    localStorage.setItem(BACKUP_KEY, json);
-  } catch (e) {
-    console.warn("Could not save notebook:", e);
-  }
-}
-
-function loadNotebooks() {
-  // ---- Try MAIN first ----
-  let raw = localStorage.getItem(STORAGE_KEY);
-  let loadedFrom = "main";
-
-  // ---- If main missing → try BACKUP ----
-  if (!raw) {
-    raw = localStorage.getItem(BACKUP_KEY);
-    if (raw) loadedFrom = "backup";
-  }
-
+    function saveNotebook() {
+      const data = {
+        pages,
+        currentPageIndex
+      };
+      const json = JSON.stringify(data);
+      try {
+        // main copy
+        localStorage.setItem(STORAGE_KEY, json);
+        // single rolling backup (Option T + A: keep only newest)
+        localStorage.setItem(BACKUP_KEY, json);
+      } catch (e) {
+        console.warn("Could not save notebook:", e);
+      }
+    }
+    
+    function loadNotebooks() {
+      // ---- Try MAIN first ----
+      let raw = localStorage.getItem(STORAGE_KEY);
+      let loadedFrom = "main";
+    
+      // ---- If main missing → try BACKUP ----
+      if (!raw) {
+        raw = localStorage.getItem(BACKUP_KEY);
+        if (raw) loadedFrom = "backup";
+      }
+    
   // ---- If both missing → create 1 blank notebook ----
   if (!raw) {
     const nb = createNotebook("My Notebook");
