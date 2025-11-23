@@ -1,0 +1,1271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Handwritten Notebook v1.0</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<style>
+  :root {
+    --toolbar-height: 62px;
+    --sidebar-width: 260px;
+    --bg: #f5f3e9;
+    --line-color: rgba(120, 150, 200, 0.35);
+    --accent: #0033a0;
+    --accent-soft: #e3ecff;
+    --danger: #c0392b;
+    --text: #333;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  body {
+    margin: 0;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: #e2dfd5;
+    color: var(--text);
+    overflow: hidden;
+  }
+
+  .app {
+    display: flex;
+    height: 100vh;
+    width: 100vw;
+  }
+
+  /* Sidebar (pages / search) */
+  .sidebar {
+    width: var(--sidebar-width);
+    background: #ffffff;
+    border-right: 1px solid #ccc;
+    display: flex;
+    flex-direction: column;
+    padding: 8px;
+    gap: 6px;
+  }
+
+  .sidebar-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .sidebar-header h2 {
+    font-size: 15px;
+    margin: 0;
+  }
+
+  .sidebar-buttons {
+    display: flex;
+    gap: 4px;
+  }
+
+  button {
+    border-radius: 4px;
+    border: 1px solid #ccc;
+    background: #fafafa;
+    padding: 5px 10px;
+    font-size: 12px;
+    cursor: pointer;
+  }
+
+  button:hover {
+    background: #f0f0f0;
+  }
+
+  button.primary {
+    border-color: var(--accent);
+    color: #fff;
+    background: var(--accent);
+  }
+
+  button.primary:hover {
+    background: #002477;
+  }
+
+  button.danger {
+    border-color: var(--danger);
+    color: #fff;
+    background: var(--danger);
+  }
+
+  .search-box {
+    display: flex;
+    gap: 4px;
+    margin-top: 4px;
+  }
+
+  .search-box input {
+    flex: 1;
+    padding: 4px 6px;
+    font-size: 12px;
+  }
+
+  .page-list {
+    flex: 1;
+    overflow-y: auto;
+    margin-top: 6px;
+    border-top: 1px solid #eee;
+    padding-top: 6px;
+  }
+
+  .page-item {
+    padding: 6px 6px;
+    border-radius: 4px;
+    border: 1px solid transparent;
+    margin-bottom: 4px;
+    cursor: pointer;
+    font-size: 12px;
+  }
+
+  .page-item.current {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+  }
+
+  .page-item .title-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 4px;
+  }
+
+  .page-item-title {
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .page-item-meta {
+    font-size: 10px;
+    color: #777;
+    margin-top: 2px;
+  }
+
+  .page-item .match-badge {
+    font-size: 10px;
+    padding: 1px 4px;
+    border-radius: 10px;
+    background: #ffeaa7;
+  }
+
+  input.page-title-input {
+    width: 100%;
+    border-radius: 3px;
+    border: 1px solid #ccc;
+    padding: 2px 4px;
+    font-size: 12px;
+  }
+
+  /* Main area */
+  .main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* Toolbar */
+  .toolbar {
+    height: var(--toolbar-height);
+    border-bottom: 1px solid #ccc;
+    background: #fdfdfd;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 4px 8px;
+    gap: 8px;
+    transition: transform 0.2s ease, opacity 0.2s ease;
+    z-index: 5;
+  }
+
+  .toolbar.hidden-in-fullscreen {
+    transform: translateY(-100%);
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .toolbar-section {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-wrap: wrap;
+  }
+
+  .toolbar-label {
+    font-size: 11px;
+    color: #555;
+    margin-right: 2px;
+  }
+
+  .color-swatch {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    cursor: pointer;
+  }
+
+  .color-swatch.active {
+    border-color: #000;
+  }
+
+  .size-btn {
+    padding: 4px 8px;
+    font-size: 11px;
+  }
+
+  .size-btn.active {
+    background: var(--accent-soft);
+    border-color: var(--accent);
+  }
+
+  .mode-btn.active {
+    background: var(--accent-soft);
+    border-color: var(--accent);
+  }
+
+  .page-info {
+    font-size: 12px;
+  }
+
+  .fullscreen-handle {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 6px;
+    background: linear-gradient(to bottom, rgba(0,0,0,0.18), transparent);
+    z-index: 4;
+    display: none;
+    cursor: pointer;
+  }
+
+  .fullscreen-active .fullscreen-handle {
+    display: block;
+  }
+
+  /* Notebook area */
+  .content {
+    flex: 1;
+    display: flex;
+    gap: 8px;
+    padding: 6px;
+    overflow: hidden;
+  }
+
+  .canvas-wrapper {
+    flex: 2;
+    position: relative;
+    min-width: 0;
+    display: flex;
+    align-items: stretch;
+    justify-content: center;
+  }
+
+  canvas {
+    background: var(--bg);
+    box-shadow: 0 0 6px rgba(0,0,0,0.15);
+    border-radius: 4px;
+    touch-action: none;
+  }
+
+  /* Lined-paper effect (overlay) */
+  .canvas-lines {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background-image: repeating-linear-gradient(
+      to bottom,
+      transparent,
+      transparent 24px,
+      var(--line-color) 24px,
+      var(--line-color) 25px
+    );
+    border-radius: 4px;
+  }
+
+  /* Right panel: text notes + recordings */
+  .right-panel {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+  }
+
+  .notes-section,
+  .record-section {
+    background: #fff;
+    border-radius: 4px;
+    padding: 6px;
+    border: 1px solid #ddd;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .section-title {
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  textarea#text-notes {
+    width: 100%;
+    height: 120px;
+    resize: vertical;
+    font-size: 12px;
+    font-family: inherit;
+    border-radius: 4px;
+    border: 1px solid #ccc;
+    padding: 4px;
+  }
+
+  .record-status {
+    font-size: 11px;
+    color: #555;
+  }
+
+  .recordings-list {
+    max-height: 100px;
+    overflow-y: auto;
+    font-size: 11px;
+    border-top: 1px solid #eee;
+    padding-top: 4px;
+  }
+
+  .record-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 4px;
+    margin-bottom: 4px;
+  }
+
+  .record-item audio {
+    flex: 1;
+  }
+
+  .record-item span {
+    white-space: nowrap;
+  }
+
+  .record-item button {
+    font-size: 10px;
+    padding: 2px 6px;
+  }
+
+  .bottom-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 4px;
+    margin-top: auto;
+  }
+
+  .status-bar {
+    font-size: 11px;
+    padding: 4px 8px;
+    border-top: 1px solid #ccc;
+    background: #fafafa;
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .status-bar span {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* Fullscreen tweaks */
+  .fullscreen-active body {
+    overflow: hidden;
+  }
+
+  .fullscreen-active .app {
+    height: 100vh;
+    width: 100vw;
+  }
+
+  @media (max-width: 900px) {
+    .sidebar {
+      display: none;
+    }
+    .content {
+      flex-direction: column;
+    }
+    .right-panel {
+      order: -1;
+    }
+  }
+</style>
+</head>
+<body>
+<div class="app" id="app">
+
+  <!-- Sidebar: pages / search -->
+  <div class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <h2>Notebook Pages</h2>
+      <div class="sidebar-buttons">
+        <button id="btn-add-page" title="Add new page">+ Page</button>
+        <button id="btn-del-page" class="danger" title="Delete current page">Del</button>
+      </div>
+    </div>
+
+    <div class="search-box">
+      <input type="text" id="search-input" placeholder="Search title / notes..." />
+      <button id="btn-search">Go</button>
+    </div>
+
+    <div class="page-list" id="page-list"></div>
+
+    <div class="bottom-actions">
+      <button id="btn-export">Export</button>
+      <button id="btn-import">Import</button>
+      <input type="file" id="import-file" accept=".json" style="display:none" />
+    </div>
+  </div>
+
+  <!-- Main -->
+  <div class="main" id="main">
+
+    <div class="fullscreen-handle" id="fullscreen-handle" title="Move here/tap to show toolbar again"></div>
+
+    <!-- Toolbar -->
+    <div class="toolbar" id="toolbar">
+      <div class="toolbar-section">
+        <span class="toolbar-label">Pen</span>
+        <div id="color-black" class="color-swatch" style="background:#000;"></div>
+        <div id="color-blue" class="color-swatch" style="background:#0044cc;"></div>
+        <div id="color-red" class="color-swatch" style="background:#c0392b;"></div>
+        <div id="color-highlight" class="color-swatch" style="background:#fff59d;" title="Highlight"></div>
+      </div>
+
+      <div class="toolbar-section">
+        <span class="toolbar-label">Size</span>
+        <button class="size-btn" data-size="2">S</button>
+        <button class="size-btn" data-size="4">M</button>
+        <button class="size-btn" data-size="6">L</button>
+        <button class="size-btn" data-size="10" title="Highlighter width">HL</button>
+      </div>
+
+      <div class="toolbar-section">
+        <button id="btn-pen" class="mode-btn">Pen</button>
+        <button id="btn-eraser" class="mode-btn">Eraser</button>
+        <button id="btn-undo">Undo</button>
+        <button id="btn-redo">Redo</button>
+        <button id="btn-clear">Clear Page</button>
+      </div>
+
+      <div class="toolbar-section">
+        <button id="btn-prev-page">&lt;</button>
+        <span class="page-info" id="page-info">Page 1 / 1</span>
+        <button id="btn-next-page">&gt;</button>
+      </div>
+
+      <div class="toolbar-section">
+        <button id="btn-fullscreen">Full Screen</button>
+      </div>
+    </div>
+
+    <!-- Drawing + Notes -->
+    <div class="content">
+      <div class="canvas-wrapper">
+        <canvas id="notebook-canvas"></canvas>
+        <div class="canvas-lines"></div>
+      </div>
+
+      <div class="right-panel">
+        <div class="notes-section">
+          <div class="section-title">Text Notes (searchable)</div>
+          <textarea id="text-notes" placeholder="Type extra notes or keywords for this page here..."></textarea>
+        </div>
+
+        <div class="record-section">
+          <div class="section-title">Audio Notes (per page)</div>
+          <div class="toolbar-section" style="margin-bottom:4px;">
+            <button id="btn-record">Start Recording</button>
+            <button id="btn-stop-record" disabled>Stop</button>
+          </div>
+          <div class="record-status" id="record-status">
+            Recording status: Idle
+          </div>
+          <div class="recordings-list" id="recordings-list">
+            <!-- audio clips here -->
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="status-bar" id="status-bar">
+      <span id="status-left">Ready.</span>
+      <span id="status-right">Autosave: ON (local browser only)</span>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ==========================================================
+   Handwritten Notebook v1.0
+   Features:
+   - Lined-paper drawing canvas with pen (black, blue, red, yellow Highlight)
+   - Pen sizes (S, M, L, HL)
+   - Eraser (delete specific writing)
+   - Undo / Redo / Clear page
+   - Multiple pages, with titles, add/delete, prev/next
+   - Sidebar page list with search (title + text notes)
+   - Per-page text notes (searchable)
+   - Autosave to localStorage (same browser/device)
+   - Export / Import full notebook (JSON)
+   - Fullscreen mode with auto-hidden toolbar; show by hitting the top area
+   - Per-page audio recording (MediaRecorder) with playback & delete
+   ========================================================== */
+
+const STORAGE_KEY = "handwritten_notebook_v1";
+
+// Model
+let notebook = {
+  pages: [],
+  currentPageIndex: 0
+};
+
+function createNewPage() {
+  const now = new Date();
+  return {
+    id: crypto.randomUUID(),
+    title: "Page " + (notebook.pages.length + 1),
+    createdAt: now.toISOString(),
+    updatedAt: now.toISOString(),
+    strokes: [],
+    undoneStrokes: [],
+    textNotes: "",
+    recordings: [] // {id, name, dataUrl, createdAt}
+  };
+}
+
+// Load from localStorage
+function loadNotebook() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) {
+      notebook.pages.push(createNewPage());
+      return;
+    }
+    const data = JSON.parse(raw);
+    if (!data.pages || !Array.isArray(data.pages) || data.pages.length === 0) {
+      notebook.pages.push(createNewPage());
+      return;
+    }
+    notebook = data;
+    // Ensure fields exist
+    notebook.pages.forEach(p => {
+      p.strokes = p.strokes || [];
+      p.undoneStrokes = p.undoneStrokes || [];
+      p.textNotes = p.textNotes || "";
+      p.recordings = p.recordings || [];
+    });
+    if (typeof notebook.currentPageIndex !== "number" || notebook.currentPageIndex < 0 || notebook.currentPageIndex >= notebook.pages.length) {
+      notebook.currentPageIndex = 0;
+    }
+  } catch (e) {
+    console.error("Failed to load notebook:", e);
+    notebook.pages = [createNewPage()];
+  }
+}
+
+function saveNotebook() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(notebook));
+    setStatusLeft("Saved.");
+  } catch (e) {
+    console.error("Save error:", e);
+    setStatusLeft("Save failed (storage might be full).");
+  }
+}
+
+/* DOM refs */
+const canvas = document.getElementById("notebook-canvas");
+const toolbar = document.getElementById("toolbar");
+const fullscreenHandle = document.getElementById("fullscreen-handle");
+const pageInfoEl = document.getElementById("page-info");
+const pageListEl = document.getElementById("page-list");
+const textNotesEl = document.getElementById("text-notes");
+const statusLeftEl = document.getElementById("status-left");
+const statusRightEl = document.getElementById("status-right");
+const btnRecord = document.getElementById("btn-record");
+const btnStopRecord = document.getElementById("btn-stop-record");
+const recordStatusEl = document.getElementById("record-status");
+const recordingsListEl = document.getElementById("recordings-list");
+const importFileInput = document.getElementById("import-file");
+
+let ctx = canvas.getContext("2d");
+
+// Drawing state
+let isDrawing = false;
+let currentStroke = null;
+
+let currentColor = "#000000";
+let currentSize = 2;
+let currentMode = "pen"; // "pen" or "eraser"
+let isHighlightMode = false;
+
+// Audio recording state
+let mediaRecorder = null;
+let recordedChunks = [];
+let isRecording = false;
+
+/* ---------- Helpers ---------- */
+
+function setStatusLeft(msg) {
+  statusLeftEl.textContent = msg;
+}
+
+function setStatusRight(msg) {
+  statusRightEl.textContent = msg;
+}
+
+/* ---------- Canvas sizing ---------- */
+
+function resizeCanvas() {
+  const wrapper = canvas.parentElement;
+  const rect = wrapper.getBoundingClientRect();
+  const margin = 16;
+  const w = rect.width - margin;
+  const h = rect.height - margin;
+  canvas.width = w;
+  canvas.height = h;
+  redrawPage();
+}
+
+/* ---------- Page / Sidebar rendering ---------- */
+
+function getCurrentPage() {
+  return notebook.pages[notebook.currentPageIndex];
+}
+
+function updatePageMetaTimestamp() {
+  const page = getCurrentPage();
+  page.updatedAt = new Date().toISOString();
+}
+
+function formatDateShort(iso) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  return d.toLocaleString(undefined, { month: "short", day: "2-digit", hour: "2-digit", minute: "2-digit" });
+}
+
+function renderSidebar(searchTerm = "") {
+  const term = searchTerm.trim().toLowerCase();
+  pageListEl.innerHTML = "";
+  notebook.pages.forEach((page, index) => {
+    const div = document.createElement("div");
+    div.className = "page-item" + (index === notebook.currentPageIndex ? " current" : "");
+    div.dataset.index = index;
+
+    const titleRow = document.createElement("div");
+    titleRow.className = "title-row";
+
+    const titleSpan = document.createElement("div");
+    titleSpan.className = "page-item-title";
+    titleSpan.textContent = page.title || "Untitled";
+
+    const badgeSpan = document.createElement("span");
+
+    if (term) {
+      const inTitle = (page.title || "").toLowerCase().includes(term);
+      const inNotes = (page.textNotes || "").toLowerCase().includes(term);
+      if (inTitle && inNotes) {
+        badgeSpan.textContent = "Title+Notes";
+      } else if (inTitle) {
+        badgeSpan.textContent = "Title";
+      } else if (inNotes) {
+        badgeSpan.textContent = "Notes";
+      }
+      if (badgeSpan.textContent) {
+        badgeSpan.className = "match-badge";
+      }
+    }
+
+    titleRow.appendChild(titleSpan);
+    titleRow.appendChild(badgeSpan);
+    div.appendChild(titleRow);
+
+    const meta = document.createElement("div");
+    meta.className = "page-item-meta";
+    meta.textContent = formatDateShort(page.updatedAt || page.createdAt);
+    div.appendChild(meta);
+
+    // Click to select
+    div.addEventListener("click", () => {
+      notebook.currentPageIndex = index;
+      refreshUI();
+    });
+
+    // Double click to rename
+    div.addEventListener("dblclick", (e) => {
+      e.stopPropagation();
+      const input = document.createElement("input");
+      input.type = "text";
+      input.value = page.title || "";
+      input.className = "page-title-input";
+      div.innerHTML = "";
+      div.appendChild(input);
+      input.focus();
+      input.select();
+
+      input.addEventListener("blur", () => {
+        page.title = input.value || "Untitled";
+        updatePageMetaTimestamp();
+        saveNotebook();
+        renderSidebar(term);
+      });
+
+      input.addEventListener("keydown", (ev) => {
+        if (ev.key === "Enter") {
+          input.blur();
+        }
+      });
+    });
+
+    pageListEl.appendChild(div);
+  });
+}
+
+function updatePageInfoLabel() {
+  pageInfoEl.textContent = `Page ${notebook.currentPageIndex + 1} / ${notebook.pages.length}`;
+}
+
+/* ---------- Drawing + strokes ---------- */
+
+function redrawPage() {
+  const page = getCurrentPage();
+  if (!page) return;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  page.strokes.forEach(stroke => {
+    drawStroke(stroke);
+  });
+}
+
+function drawStroke(stroke) {
+  if (!stroke.points || stroke.points.length < 2) return;
+  ctx.save();
+  if (stroke.isEraser) {
+    ctx.globalCompositeOperation = "destination-out";
+  } else if (stroke.isHighlight) {
+    ctx.globalCompositeOperation = "multiply";
+  } else {
+    ctx.globalCompositeOperation = "source-over";
+  }
+
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  ctx.strokeStyle = stroke.color;
+  ctx.lineWidth = stroke.size;
+  if (stroke.isHighlight) {
+    ctx.globalAlpha = 0.5;
+  } else {
+    ctx.globalAlpha = 1.0;
+  }
+
+  ctx.beginPath();
+  const pts = stroke.points;
+  ctx.moveTo(pts[0].x, pts[0].y);
+  for (let i = 1; i < pts.length; i++) {
+    ctx.lineTo(pts[i].x, pts[i].y);
+  }
+  ctx.stroke();
+  ctx.restore();
+}
+
+function pointerPosition(ev) {
+  const rect = canvas.getBoundingClientRect();
+  let clientX, clientY;
+  if (ev.touches && ev.touches[0]) {
+    clientX = ev.touches[0].clientX;
+    clientY = ev.touches[0].clientY;
+  } else {
+    clientX = ev.clientX;
+    clientY = ev.clientY;
+  }
+  return {
+    x: clientX - rect.left,
+    y: clientY - rect.top
+  };
+}
+
+function startDrawing(ev) {
+  ev.preventDefault();
+  const page = getCurrentPage();
+  if (!page) return;
+  isDrawing = true;
+  const pos = pointerPosition(ev);
+  currentStroke = {
+    color: isHighlightMode ? "#fff176" : currentColor,
+    size: currentSize,
+    isEraser: currentMode === "eraser",
+    isHighlight: isHighlightMode,
+    points: [pos]
+  };
+}
+
+function continueDrawing(ev) {
+  if (!isDrawing || !currentStroke) return;
+  ev.preventDefault();
+  const pos = pointerPosition(ev);
+  currentStroke.points.push(pos);
+  drawStroke(currentStroke);
+}
+
+function endDrawing(ev) {
+  if (!isDrawing || !currentStroke) return;
+  ev.preventDefault();
+  isDrawing = false;
+  const page = getCurrentPage();
+  if (!page) return;
+  page.strokes.push(currentStroke);
+  page.undoneStrokes.length = 0; // clear redo stack
+  currentStroke = null;
+  updatePageMetaTimestamp();
+  saveNotebook();
+}
+
+/* ---------- Undo / Redo / Clear ---------- */
+
+function undo() {
+  const page = getCurrentPage();
+  if (!page || page.strokes.length === 0) return;
+  const stroke = page.strokes.pop();
+  page.undoneStrokes.push(stroke);
+  redrawPage();
+  updatePageMetaTimestamp();
+  saveNotebook();
+}
+
+function redo() {
+  const page = getCurrentPage();
+  if (!page || page.undoneStrokes.length === 0) return;
+  const stroke = page.undoneStrokes.pop();
+  page.strokes.push(stroke);
+  redrawPage();
+  updatePageMetaTimestamp();
+  saveNotebook();
+}
+
+function clearPage() {
+  if (!confirm("Clear this page? All drawings will be removed.")) return;
+  const page = getCurrentPage();
+  if (!page) return;
+  page.strokes = [];
+  page.undoneStrokes = [];
+  redrawPage();
+  updatePageMetaTimestamp();
+  saveNotebook();
+}
+
+/* ---------- Notes + search ---------- */
+
+function loadCurrentPageIntoUI() {
+  const page = getCurrentPage();
+  if (!page) return;
+  textNotesEl.value = page.textNotes || "";
+  redrawPage();
+  renderRecordingsList();
+  updatePageInfoLabel();
+}
+
+textNotesEl.addEventListener("input", () => {
+  const page = getCurrentPage();
+  if (!page) return;
+  page.textNotes = textNotesEl.value;
+  updatePageMetaTimestamp();
+  saveNotebook();
+});
+
+document.getElementById("btn-search").addEventListener("click", () => {
+  const val = document.getElementById("search-input").value;
+  renderSidebar(val);
+});
+
+document.getElementById("search-input").addEventListener("keyup", (ev) => {
+  if (ev.key === "Enter") {
+    document.getElementById("btn-search").click();
+  }
+});
+
+/* ---------- Pages add / delete / nav ---------- */
+
+document.getElementById("btn-add-page").addEventListener("click", () => {
+  notebook.pages.push(createNewPage());
+  notebook.currentPageIndex = notebook.pages.length - 1;
+  saveNotebook();
+  refreshUI();
+});
+
+document.getElementById("btn-del-page").addEventListener("click", () => {
+  if (notebook.pages.length === 1) {
+    alert("You must keep at least one page.");
+    return;
+  }
+  if (!confirm("Delete this page? This cannot be undone.")) return;
+  notebook.pages.splice(notebook.currentPageIndex, 1);
+  if (notebook.currentPageIndex >= notebook.pages.length) {
+    notebook.currentPageIndex = notebook.pages.length - 1;
+  }
+  saveNotebook();
+  refreshUI();
+});
+
+document.getElementById("btn-prev-page").addEventListener("click", () => {
+  if (notebook.currentPageIndex > 0) {
+    notebook.currentPageIndex--;
+    refreshUI();
+  }
+});
+
+document.getElementById("btn-next-page").addEventListener("click", () => {
+  if (notebook.currentPageIndex < notebook.pages.length - 1) {
+    notebook.currentPageIndex++;
+    refreshUI();
+  }
+});
+
+/* ---------- Pen / color / size / mode ---------- */
+
+const colorSwatches = {
+  black: document.getElementById("color-black"),
+  blue: document.getElementById("color-blue"),
+  red: document.getElementById("color-red"),
+  highlight: document.getElementById("color-highlight")
+};
+
+function setActiveColor(name) {
+  Object.values(colorSwatches).forEach(el => el.classList.remove("active"));
+  colorSwatches[name].classList.add("active");
+  isHighlightMode = (name === "highlight");
+  if (!isHighlightMode) {
+    if (name === "black") currentColor = "#000000";
+    if (name === "blue") currentColor = "#0044cc";
+    if (name === "red") currentColor = "#c0392b";
+  } else {
+    currentColor = "#fff176"; // Highlight yellow
+  }
+}
+
+colorSwatches.black.addEventListener("click", () => setActiveColor("black"));
+colorSwatches.blue.addEventListener("click", () => setActiveColor("blue"));
+colorSwatches.red.addEventListener("click", () => setActiveColor("red"));
+colorSwatches.highlight.addEventListener("click", () => setActiveColor("highlight"));
+
+const sizeButtons = document.querySelectorAll(".size-btn");
+sizeButtons.forEach(btn => {
+  btn.addEventListener("click", () => {
+    sizeButtons.forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    currentSize = parseInt(btn.dataset.size, 10);
+  });
+});
+
+const btnPen = document.getElementById("btn-pen");
+const btnEraser = document.getElementById("btn-eraser");
+
+function setMode(mode) {
+  currentMode = mode;
+  btnPen.classList.toggle("active", mode === "pen");
+  btnEraser.classList.toggle("active", mode === "eraser");
+}
+
+btnPen.addEventListener("click", () => setMode("pen"));
+btnEraser.addEventListener("click", () => setMode("eraser"));
+
+document.getElementById("btn-undo").addEventListener("click", undo);
+document.getElementById("btn-redo").addEventListener("click", redo);
+document.getElementById("btn-clear").addEventListener("click", clearPage);
+
+/* ---------- Canvas pointer events ---------- */
+
+canvas.addEventListener("mousedown", startDrawing);
+canvas.addEventListener("mousemove", continueDrawing);
+canvas.addEventListener("mouseup", endDrawing);
+canvas.addEventListener("mouseleave", endDrawing);
+
+canvas.addEventListener("touchstart", startDrawing, { passive: false });
+canvas.addEventListener("touchmove", continueDrawing, { passive: false });
+canvas.addEventListener("touchend", endDrawing, { passive: false });
+canvas.addEventListener("touchcancel", endDrawing, { passive: false });
+
+/* ---------- Fullscreen / toolbar auto-hide ---------- */
+
+const btnFullscreen = document.getElementById("btn-fullscreen");
+let isFullscreen = false;
+let toolbarHideTimeout = null;
+
+function enterFullscreen() {
+  const elem = document.documentElement;
+  if (elem.requestFullscreen) {
+    elem.requestFullscreen();
+  } else if (elem.webkitRequestFullscreen) {
+    elem.webkitRequestFullscreen();
+  }
+  document.body.classList.add("fullscreen-active");
+  isFullscreen = true;
+  setStatusRight("Fullscreen: ON (hit top edge to show toolbar).");
+  scheduleToolbarHide();
+}
+
+function exitFullscreen() {
+  if (document.exitFullscreen) {
+    document.exitFullscreen();
+  } else if (document.webkitExitFullscreen) {
+    document.webkitExitFullscreen();
+  }
+  document.body.classList.remove("fullscreen-active");
+  isFullscreen = false;
+  showToolbar();
+  setStatusRight("Autosave: ON (local browser only)");
+}
+
+btnFullscreen.addEventListener("click", () => {
+  if (!isFullscreen) {
+    enterFullscreen();
+  } else {
+    exitFullscreen();
+  }
+});
+
+document.addEventListener("fullscreenchange", () => {
+  if (!document.fullscreenElement) {
+    isFullscreen = false;
+    document.body.classList.remove("fullscreen-active");
+    showToolbar();
+    setStatusRight("Autosave: ON (local browser only)");
+  }
+});
+
+function hideToolbar() {
+  if (!isFullscreen) return;
+  toolbar.classList.add("hidden-in-fullscreen");
+}
+
+function showToolbar() {
+  toolbar.classList.remove("hidden-in-fullscreen");
+}
+
+function scheduleToolbarHide() {
+  if (!isFullscreen) return;
+  clearTimeout(toolbarHideTimeout);
+  toolbarHideTimeout = setTimeout(() => {
+    hideToolbar();
+  }, 2500);
+}
+
+// In fullscreen, moving to the top edge or tapping the top handle shows toolbar again
+fullscreenHandle.addEventListener("mousemove", () => {
+  if (!isFullscreen) return;
+  showToolbar();
+  scheduleToolbarHide();
+});
+
+fullscreenHandle.addEventListener("click", () => {
+  if (!isFullscreen) return;
+  showToolbar();
+  scheduleToolbarHide();
+});
+
+document.addEventListener("mousemove", (ev) => {
+  if (!isFullscreen) return;
+  if (ev.clientY <= 8) {
+    showToolbar();
+    scheduleToolbarHide();
+  }
+});
+
+/* ---------- Export / Import ---------- */
+
+document.getElementById("btn-export").addEventListener("click", () => {
+  saveNotebook(); // ensure latest
+  const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(notebook));
+  const a = document.createElement("a");
+  a.setAttribute("href", dataStr);
+  const ts = new Date().toISOString().replace(/[:.]/g, "-");
+  a.setAttribute("download", "NotebookBackup_" + ts + ".json");
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setStatusLeft("Exported notebook.");
+});
+
+document.getElementById("btn-import").addEventListener("click", () => {
+  importFileInput.value = "";
+  importFileInput.click();
+});
+
+importFileInput.addEventListener("change", (ev) => {
+  const file = ev.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (!data.pages || !Array.isArray(data.pages)) {
+        alert("Invalid notebook file.");
+        return;
+      }
+      notebook = data;
+      // Normalize fields
+      notebook.pages.forEach(p => {
+        p.strokes = p.strokes || [];
+        p.undoneStrokes = p.undoneStrokes || [];
+        p.textNotes = p.textNotes || "";
+        p.recordings = p.recordings || [];
+      });
+      if (typeof notebook.currentPageIndex !== "number" || notebook.currentPageIndex < 0 || notebook.currentPageIndex >= notebook.pages.length) {
+        notebook.currentPageIndex = 0;
+      }
+      saveNotebook();
+      refreshUI();
+      alert("Notebook imported successfully.");
+    } catch (err) {
+      console.error(err);
+      alert("Failed to import notebook.");
+    }
+  };
+  reader.readAsText(file);
+});
+
+/* ---------- Audio Recording (per page) ---------- */
+
+async function startRecording() {
+  if (isRecording) return;
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    mediaRecorder = new MediaRecorder(stream);
+    recordedChunks = [];
+    mediaRecorder.ondataavailable = (e) => {
+      if (e.data.size > 0) recordedChunks.push(e.data);
+    };
+    mediaRecorder.onstop = handleRecordingStop;
+    mediaRecorder.start();
+    isRecording = true;
+    btnRecord.disabled = true;
+    btnStopRecord.disabled = false;
+    recordStatusEl.textContent = "Recording status: Recording... (press Stop when done)";
+    setStatusLeft("Recording audio...");
+  } catch (err) {
+    console.error("Recording error:", err);
+    alert("Unable to start recording. Browser or permissions may not allow it.");
+  }
+}
+
+function stopRecording() {
+  if (!isRecording || !mediaRecorder) return;
+  mediaRecorder.stop();
+  mediaRecorder.stream.getTracks().forEach(t => t.stop());
+  isRecording = false;
+  btnRecord.disabled = false;
+  btnStopRecord.disabled = true;
+  recordStatusEl.textContent = "Recording status: Processing...";
+}
+
+function handleRecordingStop() {
+  const blob = new Blob(recordedChunks, { type: "audio/webm" });
+  const reader = new FileReader();
+  reader.onload = () => {
+    const dataUrl = reader.result;
+    const page = getCurrentPage();
+    if (!page) return;
+    const now = new Date();
+    const clip = {
+      id: crypto.randomUUID(),
+      name: "Audio " + (page.recordings.length + 1) + " (" + now.toLocaleTimeString() + ")",
+      dataUrl,
+      createdAt: now.toISOString()
+    };
+    page.recordings.push(clip);
+    updatePageMetaTimestamp();
+    saveNotebook();
+    renderRecordingsList();
+    recordStatusEl.textContent = "Recording status: Saved.";
+    setStatusLeft("Audio note saved.");
+  };
+  reader.readAsDataURL(blob);
+}
+
+function renderRecordingsList() {
+  const page = getCurrentPage();
+  recordingsListEl.innerHTML = "";
+  if (!page || !page.recordings || page.recordings.length === 0) {
+    const empty = document.createElement("div");
+    empty.textContent = "No recordings on this page yet.";
+    recordingsListEl.appendChild(empty);
+    return;
+  }
+  page.recordings.forEach(rec => {
+    const item = document.createElement("div");
+    item.className = "record-item";
+
+    const audio = document.createElement("audio");
+    audio.controls = true;
+    audio.src = rec.dataUrl;
+
+    const label = document.createElement("span");
+    label.textContent = rec.name;
+
+    const delBtn = document.createElement("button");
+    delBtn.textContent = "Delete";
+    delBtn.className = "danger";
+    delBtn.addEventListener("click", () => {
+      if (!confirm("Delete this recording?")) return;
+      const idx = page.recordings.findIndex(r => r.id === rec.id);
+      if (idx >= 0) {
+        page.recordings.splice(idx, 1);
+        updatePageMetaTimestamp();
+        saveNotebook();
+        renderRecordingsList();
+      }
+    });
+
+    item.appendChild(audio);
+    item.appendChild(label);
+    item.appendChild(delBtn);
+    recordingsListEl.appendChild(item);
+  });
+}
+
+btnRecord.addEventListener("click", startRecording);
+btnStopRecord.addEventListener("click", stopRecording);
+
+/* ---------- Main refresh ---------- */
+
+function refreshUI() {
+  resizeCanvas();
+  renderSidebar(document.getElementById("search-input").value);
+  loadCurrentPageIntoUI();
+}
+
+/* ---------- Init ---------- */
+
+window.addEventListener("resize", () => {
+  resizeCanvas();
+});
+
+window.addEventListener("beforeunload", () => {
+  saveNotebook();
+});
+
+// Initial setup
+loadNotebook();
+setActiveColor("black");
+sizeButtons.forEach(btn => {
+  if (btn.dataset.size === "2") btn.classList.add("active");
+});
+setMode("pen");
+refreshUI();
+setStatusRight("Autosave: ON (local browser only)");
+
+</script>
+</body>
+</html>
