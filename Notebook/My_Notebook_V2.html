@@ -1,19 +1,21 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<title>Handwritten Notebook v1.0</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta charset="UTF-8">
+<title>Browser Notebook</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
   :root {
-    --toolbar-height: 62px;
-    --sidebar-width: 260px;
-    --bg: #f5f3e9;
-    --line-color: rgba(120, 150, 200, 0.35);
-    --accent: #0033a0;
+    --toolbar-height: 64px;
+    --bg: #fdfcf7;
+    --line-color: #e0d7c5;
+    --border: #c0b090;
+    --accent: #3367d6;
     --accent-soft: #e3ecff;
     --danger: #c0392b;
-    --text: #333;
+    --text-main: #333;
+    --highlight-yellow: #fff59d;
+    --sidebar-width: 220px;
   }
 
   * {
@@ -23,1249 +25,1089 @@
   body {
     margin: 0;
     font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    background: #e2dfd5;
-    color: var(--text);
+    background: #f0efe9;
+    color: var(--text-main);
+    display: flex;
+    height: 100vh;
     overflow: hidden;
   }
 
-  .app {
+  /* Full app wrapper */
+  #app {
     display: flex;
-    height: 100vh;
-    width: 100vw;
+    flex: 1;
+    max-width: 1400px;
+    margin: 0 auto;
+    width: 100%;
   }
 
-  /* Sidebar (pages / search) */
-  .sidebar {
+  /* LEFT: Page list (Feature 6: B – richer page list) */
+  #pageSidebar {
     width: var(--sidebar-width);
-    background: #ffffff;
-    border-right: 1px solid #ccc;
+    border-right: 1px solid #d3c8b5;
+    background: #faf7f0;
     display: flex;
     flex-direction: column;
-    padding: 8px;
-    gap: 6px;
   }
 
-  .sidebar-header {
+  #pageSidebarHeader {
+    padding: 8px 10px;
+    border-bottom: 1px solid #e1d7c4;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.9rem;
+    background: #f5efe2;
+  }
+
+  #pageSidebarHeader span {
+    font-weight: 600;
+  }
+
+  #pageList {
+    flex: 1;
+    overflow-y: auto;
+    padding: 6px 4px 8px;
+  }
+
+  .pageListItem {
+    padding: 6px 8px;
+    margin: 2px 4px;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: space-between;
   }
 
-  .sidebar-header h2 {
-    font-size: 15px;
-    margin: 0;
+  .pageListItem span.title {
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
-  .sidebar-buttons {
+  .pageListItem small {
+    opacity: 0.7;
+    margin-left: 6px;
+  }
+
+  .pageListItem.active {
+    background: var(--accent-soft);
+    border: 1px solid var(--accent);
+  }
+
+  .pageListItem:not(.active):hover {
+    background: rgba(0,0,0,0.04);
+  }
+
+  /* RIGHT: Main area */
+  #main {
+    flex: 1;
     display: flex;
-    gap: 4px;
+    flex-direction: column;
+    position: relative;
+  }
+
+  /* Toolbar (top) */
+  #toolbarWrapper {
+    position: relative;
+    z-index: 5;
+  }
+
+  #toolbar {
+    height: var(--toolbar-height);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    border-bottom: 1px solid #d3c8b5;
+    background: linear-gradient(to bottom, #fdfbf6, #f5eee1);
+  }
+
+  #toolbar.hidden {
+    transform: translateY(-100%);
+    transition: transform 0.2s ease-out;
+  }
+
+  #toolbarHandle {
+    height: 6px;
+    background: rgba(0,0,0,0.04);
+    border-bottom: 1px solid #d3c8b5;
+    text-align: center;
+    font-size: 0.7rem;
+    line-height: 6px;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  #toolbarHandle span {
+    opacity: 0.5;
+  }
+
+  .toolbar-group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    border-right: 1px solid #e2d7c4;
+    padding-right: 8px;
+  }
+
+  .toolbar-group:last-child {
+    border-right: none;
+  }
+
+  button, input, select {
+    font-family: inherit;
+    font-size: 0.85rem;
   }
 
   button {
-    border-radius: 4px;
-    border: 1px solid #ccc;
-    background: #fafafa;
-    padding: 5px 10px;
-    font-size: 12px;
+    border-radius: 999px;
+    border: 1px solid #c7b99e;
+    background: #fff;
+    padding: 4px 10px;
     cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
   }
 
-  button:hover {
-    background: #f0f0f0;
-  }
-
-  button.primary {
+  button.active {
     border-color: var(--accent);
-    color: #fff;
-    background: var(--accent);
-  }
-
-  button.primary:hover {
-    background: #002477;
+    background: var(--accent-soft);
   }
 
   button.danger {
     border-color: var(--danger);
-    color: #fff;
-    background: var(--danger);
+    color: var(--danger);
   }
 
-  .search-box {
-    display: flex;
-    gap: 4px;
-    margin-top: 4px;
+  button.small {
+    padding: 2px 6px;
+    font-size: 0.75rem;
   }
 
-  .search-box input {
-    flex: 1;
-    padding: 4px 6px;
-    font-size: 12px;
+  button:hover {
+    background: #fbf7ee;
   }
 
-  .page-list {
-    flex: 1;
-    overflow-y: auto;
-    margin-top: 6px;
-    border-top: 1px solid #eee;
-    padding-top: 6px;
+  #penSize {
+    width: 80px;
   }
 
-  .page-item {
-    padding: 6px 6px;
-    border-radius: 4px;
-    border: 1px solid transparent;
-    margin-bottom: 4px;
-    cursor: pointer;
-    font-size: 12px;
+  #searchInput {
+    width: 160px;
+    padding: 3px 6px;
+    border-radius: 999px;
+    border: 1px solid #ccbda2;
   }
 
-  .page-item.current {
-    border-color: var(--accent);
-    background: var(--accent-soft);
+  #pageInfo {
+    font-size: 0.8rem;
+    opacity: 0.8;
+    margin-left: 4px;
   }
 
-  .page-item .title-row {
-    display: flex;
-    justify-content: space-between;
-    gap: 4px;
-  }
-
-  .page-item-title {
-    font-weight: 600;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .page-item-meta {
-    font-size: 10px;
-    color: #777;
-    margin-top: 2px;
-  }
-
-  .page-item .match-badge {
-    font-size: 10px;
-    padding: 1px 4px;
-    border-radius: 10px;
-    background: #ffeaa7;
-  }
-
-  input.page-title-input {
-    width: 100%;
-    border-radius: 3px;
-    border: 1px solid #ccc;
-    padding: 2px 4px;
-    font-size: 12px;
-  }
-
-  /* Main area */
-  .main {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    position: relative;
-    overflow: hidden;
-  }
-
-  /* Toolbar */
-  .toolbar {
-    height: var(--toolbar-height);
-    border-bottom: 1px solid #ccc;
-    background: #fdfdfd;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 4px 8px;
-    gap: 8px;
-    transition: transform 0.2s ease, opacity 0.2s ease;
-    z-index: 5;
-  }
-
-  .toolbar.hidden-in-fullscreen {
-    transform: translateY(-100%);
-    opacity: 0;
-    pointer-events: none;
-  }
-
-  .toolbar-section {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    flex-wrap: wrap;
-  }
-
-  .toolbar-label {
-    font-size: 11px;
-    color: #555;
-    margin-right: 2px;
-  }
-
-  .color-swatch {
-    width: 18px;
-    height: 18px;
-    border-radius: 50%;
-    border: 2px solid transparent;
-    cursor: pointer;
-  }
-
-  .color-swatch.active {
-    border-color: #000;
-  }
-
-  .size-btn {
-    padding: 4px 8px;
-    font-size: 11px;
-  }
-
-  .size-btn.active {
-    background: var(--accent-soft);
-    border-color: var(--accent);
-  }
-
-  .mode-btn.active {
-    background: var(--accent-soft);
-    border-color: var(--accent);
-  }
-
-  .page-info {
-    font-size: 12px;
-  }
-
-  .fullscreen-handle {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 6px;
-    background: linear-gradient(to bottom, rgba(0,0,0,0.18), transparent);
-    z-index: 4;
-    display: none;
-    cursor: pointer;
-  }
-
-  .fullscreen-active .fullscreen-handle {
-    display: block;
+  #autosaveHint {
+    font-size: 0.75rem;
+    opacity: 0.6;
+    margin-left: 6px;
   }
 
   /* Notebook area */
-  .content {
+  #notebookWrapper {
     flex: 1;
     display: flex;
-    gap: 8px;
-    padding: 6px;
+    justify-content: center;
+    align-items: stretch;
+    padding: 12px;
+    background: radial-gradient(circle at top, #fdfbf5, #e9e2d2);
+  }
+
+  #notebook {
+    position: relative;
+    width: 100%;
+    max-width: 900px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    box-shadow:
+      0 16px 32px rgba(0,0,0,0.16),
+      0 0 0 1px rgba(255,255,255,0.7) inset;
+    display: flex;
+    flex-direction: column;
     overflow: hidden;
   }
 
-  .canvas-wrapper {
-    flex: 2;
-    position: relative;
-    min-width: 0;
+  /* Page header (per-page meta) */
+  #pageHeader {
+    padding: 6px 12px 6px;
+    border-bottom: 1px solid #e0d4c0;
     display: flex;
-    align-items: stretch;
-    justify-content: center;
-  }
-
-  canvas {
-    background: var(--bg);
-    box-shadow: 0 0 6px rgba(0,0,0,0.15);
-    border-radius: 4px;
-    touch-action: none;
-  }
-
-  /* Lined-paper effect (overlay) */
-  .canvas-lines {
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    background-image: repeating-linear-gradient(
-      to bottom,
-      transparent,
-      transparent 24px,
-      var(--line-color) 24px,
-      var(--line-color) 25px
-    );
-    border-radius: 4px;
-  }
-
-  /* Right panel: text notes + recordings */
-  .right-panel {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
+    flex-wrap: wrap;
     gap: 6px;
-    min-width: 0;
+    align-items: center;
+    background: linear-gradient(to right, #fdfbf7, #f7efe3);
+    font-size: 0.8rem;
   }
 
-  .notes-section,
-  .record-section {
-    background: #fff;
-    border-radius: 4px;
-    padding: 6px;
-    border: 1px solid #ddd;
+  #pageTitleInput, #pageTagsInput {
+    border-radius: 999px;
+    border: 1px solid #d3c4a9;
+    padding: 3px 10px;
+    font-size: 0.8rem;
+    min-width: 130px;
+  }
+
+  #pageHeader label {
+    opacity: 0.8;
+    margin-right: 2px;
+  }
+
+  #pageNotesInput {
+    flex: 1;
+    min-width: 160px;
+    border-radius: 999px;
+    border: 1px dashed #ccbda5;
+    padding: 3px 10px;
+    font-size: 0.8rem;
+  }
+
+  /* Canvas container with lined background */
+  #pageCanvasWrapper {
+    position: relative;
+    flex: 1;
+    margin: 8px 10px 10px;
+    border-radius: 8px;
+    overflow: hidden;
+    background:
+      repeating-linear-gradient(
+        to bottom,
+        transparent 0,
+        transparent 26px,
+        var(--line-color) 26px,
+        var(--line-color) 27px
+      );
+  }
+
+  #pageCanvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    cursor: crosshair;
+  }
+
+  /* Search results (Feature 3: B – richer search) */
+  #searchResults {
+    position: absolute;
+    right: 14px;
+    top: calc(var(--toolbar-height) + 16px);
+    max-height: 260px;
+    width: 260px;
+    background: rgba(253, 251, 246, 0.98);
+    border-radius: 10px;
+    border: 1px solid #d6c8b4;
+    box-shadow: 0 12px 24px rgba(0,0,0,0.18);
+    font-size: 0.8rem;
+    overflow: hidden;
+    display: none;
+    z-index: 6;
+  }
+
+  #searchResultsHeader {
+    padding: 6px 10px;
+    border-bottom: 1px solid #e0d4c0;
+    background: #f6efe2;
     display: flex;
-    flex-direction: column;
-    gap: 4px;
+    justify-content: space-between;
+    align-items: center;
   }
 
-  .section-title {
-    font-size: 13px;
+  #searchResultsList {
+    max-height: 210px;
+    overflow-y: auto;
+  }
+
+  .searchResultItem {
+    padding: 6px 10px;
+    border-bottom: 1px solid #f0e5d2;
+    cursor: pointer;
+  }
+
+  .searchResultItem:last-child {
+    border-bottom: none;
+  }
+
+  .searchResultItem:hover {
+    background: #f3ebde;
+  }
+
+  .searchResultItem strong {
     font-weight: 600;
   }
 
-  textarea#text-notes {
-    width: 100%;
-    height: 120px;
-    resize: vertical;
-    font-size: 12px;
-    font-family: inherit;
-    border-radius: 4px;
-    border: 1px solid #ccc;
+  /* Fullscreen mode */
+  .fullscreen #app {
+    max-width: none;
+  }
+
+  .fullscreen #notebookWrapper {
     padding: 4px;
   }
 
-  .record-status {
-    font-size: 11px;
-    color: #555;
+  .fullscreen #notebook {
+    max-width: none;
+    border-radius: 0;
   }
 
-  .recordings-list {
-    max-height: 100px;
-    overflow-y: auto;
-    font-size: 11px;
-    border-top: 1px solid #eee;
-    padding-top: 4px;
+  .fullscreen #toolbarHandle {
+    background: rgba(0,0,0,0.25);
+    color: #fff;
+    border-bottom-color: rgba(255,255,255,0.3);
   }
 
-  .record-item {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 4px;
-    margin-bottom: 4px;
+  .fullscreen #toolbarHandle span {
+    opacity: 0.9;
   }
 
-  .record-item audio {
-    flex: 1;
+  /* Export / import controls (Feature 8: C – file + text import) */
+  #exportImportPanel {
+    position: absolute;
+    left: 50%;
+    top: 52%;
+    transform: translate(-50%, -50%);
+    width: min(480px, 96vw);
+    max-height: 70vh;
+    background: #fffaf1;
+    border-radius: 12px;
+    border: 1px solid #d6c8b4;
+    box-shadow: 0 18px 36px rgba(0,0,0,0.26);
+    padding: 12px;
+    font-size: 0.85rem;
+    display: none;
+    flex-direction: column;
+    z-index: 20;
   }
 
-  .record-item span {
-    white-space: nowrap;
+  #exportImportPanel h3 {
+    margin: 0 0 4px;
   }
 
-  .record-item button {
-    font-size: 10px;
-    padding: 2px 6px;
+  #exportImportPanel small {
+    opacity: 0.7;
   }
 
-  .bottom-actions {
+  #exportArea {
+    width: 100%;
+    height: 80px;
+    margin-top: 6px;
+    font-family: monospace;
+    font-size: 0.75rem;
+    border-radius: 6px;
+    border: 1px solid #d1c4aa;
+    padding: 6px;
+    background: #fffdf7;
+  }
+
+  #importFileInput {
+    margin: 6px 0;
+  }
+
+  #exportImportButtons {
     display: flex;
     justify-content: flex-end;
-    gap: 4px;
-    margin-top: auto;
-  }
-
-  .status-bar {
-    font-size: 11px;
-    padding: 4px 8px;
-    border-top: 1px solid #ccc;
-    background: #fafafa;
-    display: flex;
-    justify-content: space-between;
     gap: 8px;
+    margin-top: 8px;
   }
 
-  .status-bar span {
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  /* Fullscreen tweaks */
-  .fullscreen-active body {
-    overflow: hidden;
-  }
-
-  .fullscreen-active .app {
-    height: 100vh;
-    width: 100vw;
-  }
-
+  /* Small screens */
   @media (max-width: 900px) {
-    .sidebar {
+    #pageSidebar {
       display: none;
     }
-    .content {
-      flex-direction: column;
+    #toolbar {
+      flex-wrap: wrap;
+      height: auto;
+      padding-bottom: 8px;
     }
-    .right-panel {
-      order: -1;
+    #searchResults {
+      right: 6px;
+      top: 90px;
+      width: 230px;
+    }
+  }
+
+  @media (max-width: 640px) {
+    #pageHeader {
+      flex-direction: column;
+      align-items: stretch;
+    }
+    #pageTitleInput, #pageTagsInput, #pageNotesInput {
+      width: 100%;
     }
   }
 </style>
 </head>
 <body>
-<div class="app" id="app">
-
-  <!-- Sidebar: pages / search -->
-  <div class="sidebar" id="sidebar">
-    <div class="sidebar-header">
-      <h2>Notebook Pages</h2>
-      <div class="sidebar-buttons">
-        <button id="btn-add-page" title="Add new page">+ Page</button>
-        <button id="btn-del-page" class="danger" title="Delete current page">Del</button>
-      </div>
+<div id="app">
+  <!-- Sidebar: page list -->
+  <aside id="pageSidebar">
+    <div id="pageSidebarHeader">
+      <span>Pages</span>
+      <button id="addPageFromSidebar" class="small" title="Add new page">+ New</button>
     </div>
+    <div id="pageList"></div>
+  </aside>
 
-    <div class="search-box">
-      <input type="text" id="search-input" placeholder="Search title / notes..." />
-      <button id="btn-search">Go</button>
-    </div>
-
-    <div class="page-list" id="page-list"></div>
-
-    <div class="bottom-actions">
-      <button id="btn-export">Export</button>
-      <button id="btn-import">Import</button>
-      <input type="file" id="import-file" accept=".json" style="display:none" />
-    </div>
-  </div>
-
-  <!-- Main -->
-  <div class="main" id="main">
-
-    <div class="fullscreen-handle" id="fullscreen-handle" title="Move here/tap to show toolbar again"></div>
-
-    <!-- Toolbar -->
-    <div class="toolbar" id="toolbar">
-      <div class="toolbar-section">
-        <span class="toolbar-label">Pen</span>
-        <div id="color-black" class="color-swatch" style="background:#000;"></div>
-        <div id="color-blue" class="color-swatch" style="background:#0044cc;"></div>
-        <div id="color-red" class="color-swatch" style="background:#c0392b;"></div>
-        <div id="color-highlight" class="color-swatch" style="background:#fff59d;" title="Highlight"></div>
-      </div>
-
-      <div class="toolbar-section">
-        <span class="toolbar-label">Size</span>
-        <button class="size-btn" data-size="2">S</button>
-        <button class="size-btn" data-size="4">M</button>
-        <button class="size-btn" data-size="6">L</button>
-        <button class="size-btn" data-size="10" title="Highlighter width">HL</button>
-      </div>
-
-      <div class="toolbar-section">
-        <button id="btn-pen" class="mode-btn">Pen</button>
-        <button id="btn-eraser" class="mode-btn">Eraser</button>
-        <button id="btn-undo">Undo</button>
-        <button id="btn-redo">Redo</button>
-        <button id="btn-clear">Clear Page</button>
-      </div>
-
-      <div class="toolbar-section">
-        <button id="btn-prev-page">&lt;</button>
-        <span class="page-info" id="page-info">Page 1 / 1</span>
-        <button id="btn-next-page">&gt;</button>
-      </div>
-
-      <div class="toolbar-section">
-        <button id="btn-fullscreen">Full Screen</button>
-      </div>
-    </div>
-
-    <!-- Drawing + Notes -->
-    <div class="content">
-      <div class="canvas-wrapper">
-        <canvas id="notebook-canvas"></canvas>
-        <div class="canvas-lines"></div>
-      </div>
-
-      <div class="right-panel">
-        <div class="notes-section">
-          <div class="section-title">Text Notes (searchable)</div>
-          <textarea id="text-notes" placeholder="Type extra notes or keywords for this page here..."></textarea>
+  <!-- Main area -->
+  <div id="main">
+    <div id="toolbarWrapper">
+      <div id="toolbar">
+        <div class="toolbar-group">
+          <button id="penToolBtn" class="active" title="Pen">✏️ Pen</button>
+          <button id="highlighterToolBtn" title="Highlight">🖍 Highlight</button>
+          <button id="eraserToolBtn" title="Eraser">🧽 Eraser</button>
         </div>
 
-        <div class="record-section">
-          <div class="section-title">Audio Notes (per page)</div>
-          <div class="toolbar-section" style="margin-bottom:4px;">
-            <button id="btn-record">Start Recording</button>
-            <button id="btn-stop-record" disabled>Stop</button>
+        <div class="toolbar-group">
+          <button class="color-btn active" data-color="#000000" title="Black">⚫</button>
+          <button class="color-btn" data-color="#0c4ab8" title="Blue">🔵</button>
+          <button class="color-btn" data-color="#c62828" title="Red">🔴</button>
+          <button class="color-btn" data-color="#fff59d" title="Highlight">✨ Highlight</button>
+          <label style="font-size:0.75rem;">Size
+            <input type="range" id="penSize" min="1" max="24" value="3">
+          </label>
+        </div>
+
+        <div class="toolbar-group">
+          <button id="undoBtn" title="Undo">⮨ Undo</button>
+          <button id="redoBtn" title="Redo">⮪ Redo</button>
+          <button id="clearPageBtn" class="small danger" title="Clear current page">Clear Page</button>
+        </div>
+
+        <div class="toolbar-group">
+          <button id="prevPageBtn" title="Previous page">◀</button>
+          <button id="nextPageBtn" title="Next page">▶</button>
+          <span id="pageInfo">Page 1 / 1</span>
+          <button id="addPageBtn" class="small" title="Add new page">+ Page</button>
+        </div>
+
+        <div class="toolbar-group">
+          <input id="searchInput" type="text" placeholder="Search notes..." />
+          <button id="searchBtn" class="small">Search</button>
+          <span id="autosaveHint">Autosave: On (this browser)</span>
+        </div>
+
+        <div class="toolbar-group">
+          <button id="exportImportBtn" class="small">Export / Import</button>
+          <button id="fullscreenBtn" class="small" title="Toggle full screen">⛶ Full</button>
+        </div>
+      </div>
+      <div id="toolbarHandle">
+        <span>Tap/click here to show/hide toolbar in full screen</span>
+      </div>
+    </div>
+
+    <div id="notebookWrapper">
+      <div id="notebook">
+        <div id="pageHeader">
+          <div>
+            <label for="pageTitleInput">Title:</label>
+            <input id="pageTitleInput" type="text" placeholder="Page title (for search)"/>
           </div>
-          <div class="record-status" id="record-status">
-            Recording status: Idle
+          <div>
+            <label for="pageTagsInput">Tags:</label>
+            <input id="pageTagsInput" type="text" placeholder="e.g. work, ideas, meeting"/>
           </div>
-          <div class="recordings-list" id="recordings-list">
-            <!-- audio clips here -->
-          </div>
+          <input id="pageNotesInput" type="text" placeholder="Optional text notes for this page (searchable)" />
+        </div>
+        <div id="pageCanvasWrapper">
+          <canvas id="pageCanvas"></canvas>
         </div>
       </div>
     </div>
 
-    <div class="status-bar" id="status-bar">
-      <span id="status-left">Ready.</span>
-      <span id="status-right">Autosave: ON (local browser only)</span>
+    <!-- Search results panel -->
+    <div id="searchResults">
+      <div id="searchResultsHeader">
+        <span>Search results</span>
+        <button id="closeSearchBtn" class="small">✕</button>
+      </div>
+      <div id="searchResultsList"></div>
+    </div>
+
+    <!-- Export / Import panel -->
+    <div id="exportImportPanel">
+      <h3>Export / Import Notebook</h3>
+      <small>
+        You can download your notebook as a JSON file, or copy/paste the JSON below to backup/restore.
+      </small>
+
+      <h4>Export</h4>
+      <button id="downloadExportBtn" class="small">⬇ Download JSON</button>
+      <textarea id="exportArea" readonly></textarea>
+
+      <h4>Import</h4>
+      <small>Import will replace the current notebook. Only use trusted JSON you exported.</small>
+      <input type="file" id="importFileInput" accept="application/json">
+      <textarea id="importTextArea" placeholder="Or paste JSON here..." style="width:100%;height:80px;margin-top:4px;font-family:monospace;font-size:0.75rem;border-radius:6px;border:1px solid #d1c4aa;padding:6px;background:#fffdf7;"></textarea>
+
+      <div id="exportImportButtons">
+        <button id="importFromTextBtn" class="small">Import from Text</button>
+        <button id="importFromFileBtn" class="small">Import from File</button>
+        <button id="closeExportImportBtn" class="small">Close</button>
+      </div>
     </div>
   </div>
 </div>
 
 <script>
-/* ==========================================================
-   Handwritten Notebook v1.0
-   Features:
-   - Lined-paper drawing canvas with pen (black, blue, red, yellow Highlight)
-   - Pen sizes (S, M, L, HL)
-   - Eraser (delete specific writing)
-   - Undo / Redo / Clear page
-   - Multiple pages, with titles, add/delete, prev/next
-   - Sidebar page list with search (title + text notes)
-   - Per-page text notes (searchable)
-   - Autosave to localStorage (same browser/device)
-   - Export / Import full notebook (JSON)
-   - Fullscreen mode with auto-hidden toolbar; show by hitting the top area
-   - Per-page audio recording (MediaRecorder) with playback & delete
-   ========================================================== */
+(function() {
+  const STORAGE_KEY = "browserNotebook_v1";
 
-const STORAGE_KEY = "handwritten_notebook_v1";
+  const canvas = document.getElementById("pageCanvas");
+  const ctx = canvas.getContext("2d");
+  const notebookWrapper = document.getElementById("pageCanvasWrapper");
 
-// Model
-let notebook = {
-  pages: [],
-  currentPageIndex: 0
-};
+  // Toolbar elements
+  const penToolBtn = document.getElementById("penToolBtn");
+  const highlighterToolBtn = document.getElementById("highlighterToolBtn");
+  const eraserToolBtn = document.getElementById("eraserToolBtn");
+  const colorBtns = document.querySelectorAll(".color-btn");
+  const penSizeInput = document.getElementById("penSize");
+  const undoBtn = document.getElementById("undoBtn");
+  const redoBtn = document.getElementById("redoBtn");
+  const clearPageBtn = document.getElementById("clearPageBtn");
+  const prevPageBtn = document.getElementById("prevPageBtn");
+  const nextPageBtn = document.getElementById("nextPageBtn");
+  const addPageBtn = document.getElementById("addPageBtn");
+  const addPageFromSidebarBtn = document.getElementById("addPageFromSidebar");
+  const pageInfoSpan = document.getElementById("pageInfo");
+  const fullscreenBtn = document.getElementById("fullscreenBtn");
+  const toolbar = document.getElementById("toolbar");
+  const toolbarHandle = document.getElementById("toolbarHandle");
 
-function createNewPage() {
-  const now = new Date();
-  return {
-    id: crypto.randomUUID(),
-    title: "Page " + (notebook.pages.length + 1),
-    createdAt: now.toISOString(),
-    updatedAt: now.toISOString(),
-    strokes: [],
-    undoneStrokes: [],
-    textNotes: "",
-    recordings: [] // {id, name, dataUrl, createdAt}
+  // Sidebar and search
+  const pageListEl = document.getElementById("pageList");
+  const searchInput = document.getElementById("searchInput");
+  const searchBtn = document.getElementById("searchBtn");
+  const searchResults = document.getElementById("searchResults");
+  const searchResultsList = document.getElementById("searchResultsList");
+  const closeSearchBtn = document.getElementById("closeSearchBtn");
+
+  // Page meta
+  const pageTitleInput = document.getElementById("pageTitleInput");
+  const pageTagsInput = document.getElementById("pageTagsInput");
+  const pageNotesInput = document.getElementById("pageNotesInput");
+
+  // Export / Import
+  const exportImportBtn = document.getElementById("exportImportBtn");
+  const exportImportPanel = document.getElementById("exportImportPanel");
+  const exportArea = document.getElementById("exportArea");
+  const downloadExportBtn = document.getElementById("downloadExportBtn");
+  const closeExportImportBtn = document.getElementById("closeExportImportBtn");
+  const importFileInput = document.getElementById("importFileInput");
+  const importTextArea = document.getElementById("importTextArea");
+  const importFromFileBtn = document.getElementById("importFromFileBtn");
+  const importFromTextBtn = document.getElementById("importFromTextBtn");
+
+  // State
+  let notebook = {
+    pages: [],
+    currentPageIndex: 0
   };
-}
 
-// Load from localStorage
-function loadNotebook() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) {
-      notebook.pages.push(createNewPage());
-      return;
-    }
-    const data = JSON.parse(raw);
-    if (!data.pages || !Array.isArray(data.pages) || data.pages.length === 0) {
-      notebook.pages.push(createNewPage());
-      return;
-    }
-    notebook = data;
-    // Ensure fields exist
-    notebook.pages.forEach(p => {
-      p.strokes = p.strokes || [];
-      p.undoneStrokes = p.undoneStrokes || [];
-      p.textNotes = p.textNotes || "";
-      p.recordings = p.recordings || [];
-    });
-    if (typeof notebook.currentPageIndex !== "number" || notebook.currentPageIndex < 0 || notebook.currentPageIndex >= notebook.pages.length) {
+  // Each page: { id, title, tags, notesText, strokes: [], undoStack: [], redoStack: [] }
+  // stroke: { color, size, points:[{x,y}], isEraser, isHighlight }
+
+  let currentTool = "pen"; // pen | highlighter | eraser
+  let currentColor = "#000000";
+  let isDrawing = false;
+  let currentStroke = null;
+
+  // ========= INIT =========
+  function init() {
+    loadFromStorage();
+    if (!notebook.pages || notebook.pages.length === 0) {
+      notebook.pages = [createEmptyPage(1)];
       notebook.currentPageIndex = 0;
     }
-  } catch (e) {
-    console.error("Failed to load notebook:", e);
-    notebook.pages = [createNewPage()];
+    resizeCanvas();
+    attachEvents();
+    renderCurrentPage();
+    renderPageList();
+    updatePageInfo();
   }
-}
 
-function saveNotebook() {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(notebook));
-    setStatusLeft("Saved.");
-  } catch (e) {
-    console.error("Save error:", e);
-    setStatusLeft("Save failed (storage might be full).");
+  function createEmptyPage(id) {
+    return {
+      id,
+      title: "",
+      tags: "",
+      notesText: "",
+      strokes: [],
+      undoStack: [],
+      redoStack: []
+    };
   }
-}
 
-/* DOM refs */
-const canvas = document.getElementById("notebook-canvas");
-const toolbar = document.getElementById("toolbar");
-const fullscreenHandle = document.getElementById("fullscreen-handle");
-const pageInfoEl = document.getElementById("page-info");
-const pageListEl = document.getElementById("page-list");
-const textNotesEl = document.getElementById("text-notes");
-const statusLeftEl = document.getElementById("status-left");
-const statusRightEl = document.getElementById("status-right");
-const btnRecord = document.getElementById("btn-record");
-const btnStopRecord = document.getElementById("btn-stop-record");
-const recordStatusEl = document.getElementById("record-status");
-const recordingsListEl = document.getElementById("recordings-list");
-const importFileInput = document.getElementById("import-file");
+  function resizeCanvas() {
+    const rect = notebookWrapper.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = rect.width * dpr;
+    canvas.height = rect.height * dpr;
+    canvas.style.width = rect.width + "px";
+    canvas.style.height = rect.height + "px";
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    redrawPage();
+  }
 
-let ctx = canvas.getContext("2d");
+  window.addEventListener("resize", () => {
+    resizeCanvas();
+  });
 
-// Drawing state
-let isDrawing = false;
-let currentStroke = null;
-
-let currentColor = "#000000";
-let currentSize = 2;
-let currentMode = "pen"; // "pen" or "eraser"
-let isHighlightMode = false;
-
-// Audio recording state
-let mediaRecorder = null;
-let recordedChunks = [];
-let isRecording = false;
-
-/* ---------- Helpers ---------- */
-
-function setStatusLeft(msg) {
-  statusLeftEl.textContent = msg;
-}
-
-function setStatusRight(msg) {
-  statusRightEl.textContent = msg;
-}
-
-/* ---------- Canvas sizing ---------- */
-
-function resizeCanvas() {
-  const wrapper = canvas.parentElement;
-  const rect = wrapper.getBoundingClientRect();
-  const margin = 16;
-  const w = rect.width - margin;
-  const h = rect.height - margin;
-  canvas.width = w;
-  canvas.height = h;
-  redrawPage();
-}
-
-/* ---------- Page / Sidebar rendering ---------- */
-
-function getCurrentPage() {
-  return notebook.pages[notebook.currentPageIndex];
-}
-
-function updatePageMetaTimestamp() {
-  const page = getCurrentPage();
-  page.updatedAt = new Date().toISOString();
-}
-
-function formatDateShort(iso) {
-  if (!iso) return "";
-  const d = new Date(iso);
-  return d.toLocaleString(undefined, { month: "short", day: "2-digit", hour: "2-digit", minute: "2-digit" });
-}
-
-function renderSidebar(searchTerm = "") {
-  const term = searchTerm.trim().toLowerCase();
-  pageListEl.innerHTML = "";
-  notebook.pages.forEach((page, index) => {
-    const div = document.createElement("div");
-    div.className = "page-item" + (index === notebook.currentPageIndex ? " current" : "");
-    div.dataset.index = index;
-
-    const titleRow = document.createElement("div");
-    titleRow.className = "title-row";
-
-    const titleSpan = document.createElement("div");
-    titleSpan.className = "page-item-title";
-    titleSpan.textContent = page.title || "Untitled";
-
-    const badgeSpan = document.createElement("span");
-
-    if (term) {
-      const inTitle = (page.title || "").toLowerCase().includes(term);
-      const inNotes = (page.textNotes || "").toLowerCase().includes(term);
-      if (inTitle && inNotes) {
-        badgeSpan.textContent = "Title+Notes";
-      } else if (inTitle) {
-        badgeSpan.textContent = "Title";
-      } else if (inNotes) {
-        badgeSpan.textContent = "Notes";
-      }
-      if (badgeSpan.textContent) {
-        badgeSpan.className = "match-badge";
-      }
+  // ========= STORAGE =========
+  function saveToStorage() {
+    try {
+      const data = JSON.stringify(notebook);
+      localStorage.setItem(STORAGE_KEY, data);
+    } catch (err) {
+      console.error("Error saving notebook:", err);
     }
+  }
 
-    titleRow.appendChild(titleSpan);
-    titleRow.appendChild(badgeSpan);
-    div.appendChild(titleRow);
+  function loadFromStorage() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (parsed && Array.isArray(parsed.pages)) {
+        notebook = parsed;
+      }
+    } catch (err) {
+      console.error("Error loading notebook:", err);
+    }
+  }
 
-    const meta = document.createElement("div");
-    meta.className = "page-item-meta";
-    meta.textContent = formatDateShort(page.updatedAt || page.createdAt);
-    div.appendChild(meta);
+  // ========= PAGE RENDERING =========
+  function getCurrentPage() {
+    return notebook.pages[notebook.currentPageIndex];
+  }
 
-    // Click to select
-    div.addEventListener("click", () => {
-      notebook.currentPageIndex = index;
-      refreshUI();
+  function redrawPage() {
+    const page = getCurrentPage();
+    if (!page) return;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    // Draw strokes
+    for (const s of page.strokes) {
+      drawStroke(s);
+    }
+  }
+
+  function drawStroke(stroke) {
+    if (!stroke.points || stroke.points.length === 0) return;
+    ctx.save();
+    if (stroke.isEraser) {
+      ctx.globalCompositeOperation = "destination-out";
+      ctx.lineWidth = stroke.size;
+      ctx.strokeStyle = "rgba(0,0,0,1)";
+    } else if (stroke.isHighlight) {
+      ctx.globalCompositeOperation = "multiply";
+      ctx.lineWidth = stroke.size;
+      ctx.strokeStyle = stroke.color || "#fff59d";
+    } else {
+      ctx.globalCompositeOperation = "source-over";
+      ctx.lineWidth = stroke.size;
+      ctx.strokeStyle = stroke.color || "#000";
+    }
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+
+    ctx.beginPath();
+    const pts = stroke.points;
+    ctx.moveTo(pts[0].x, pts[0].y);
+    for (let i = 1; i < pts.length; i++) {
+      ctx.lineTo(pts[i].x, pts[i].y);
+    }
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function renderCurrentPage() {
+    const page = getCurrentPage();
+    if (!page) return;
+    pageTitleInput.value = page.title || "";
+    pageTagsInput.value = page.tags || "";
+    pageNotesInput.value = page.notesText || "";
+    redrawPage();
+  }
+
+  function updatePageInfo() {
+    const total = notebook.pages.length || 1;
+    const current = notebook.currentPageIndex + 1;
+    pageInfoSpan.textContent = `Page ${current} / ${total}`;
+  }
+
+  function renderPageList() {
+    pageListEl.innerHTML = "";
+    notebook.pages.forEach((page, index) => {
+      const div = document.createElement("div");
+      div.className = "pageListItem" + (index === notebook.currentPageIndex ? " active" : "");
+      const title = page.title?.trim() || `Page ${index + 1}`;
+      const firstWord = page.notesText?.trim().split(/\s+/)[0] || "";
+      div.innerHTML = `<span class="title">${title}</span><small>#${page.id}${firstWord ? " · " + firstWord : ""}</small>`;
+      div.addEventListener("click", () => {
+        notebook.currentPageIndex = index;
+        renderCurrentPage();
+        renderPageList();
+        updatePageInfo();
+        saveToStorage();
+      });
+      pageListEl.appendChild(div);
+    });
+  }
+
+  // ========= DRAWING HANDLING =========
+  function getCanvasPos(evt) {
+    const rect = canvas.getBoundingClientRect();
+    const clientX = evt.touches ? evt.touches[0].clientX : evt.clientX;
+    const clientY = evt.touches ? evt.touches[0].clientY : evt.clientY;
+    return {
+      x: clientX - rect.left,
+      y: clientY - rect.top
+    };
+  }
+
+  function startStroke(evt) {
+    evt.preventDefault();
+    const page = getCurrentPage();
+    if (!page) return;
+    isDrawing = true;
+    const pos = getCanvasPos(evt);
+    currentStroke = {
+      color: currentColor,
+      size: parseInt(penSizeInput.value, 10) || 3,
+      points: [pos],
+      isEraser: currentTool === "eraser",
+      isHighlight: currentTool === "highlighter"
+    };
+    // new stroke => clear redo stack
+    page.redoStack = [];
+    page.strokes.push(currentStroke);
+    page.undoStack.push({ type: "add", stroke: currentStroke });
+    drawStroke(currentStroke);
+  }
+
+  function moveStroke(evt) {
+    if (!isDrawing || !currentStroke) return;
+    evt.preventDefault();
+    const pos = getCanvasPos(evt);
+    currentStroke.points.push(pos);
+    redrawPage();
+  }
+
+  function endStroke(evt) {
+    if (!isDrawing) return;
+    evt.preventDefault();
+    isDrawing = false;
+    currentStroke = null;
+    saveToStorage();
+  }
+
+  canvas.addEventListener("mousedown", startStroke);
+  canvas.addEventListener("mousemove", moveStroke);
+  canvas.addEventListener("mouseup", endStroke);
+  canvas.addEventListener("mouseleave", endStroke);
+  canvas.addEventListener("touchstart", startStroke, { passive: false });
+  canvas.addEventListener("touchmove", moveStroke, { passive: false });
+  canvas.addEventListener("touchend", endStroke, { passive: false });
+  canvas.addEventListener("touchcancel", endStroke, { passive: false });
+
+  // ========= UNDO / REDO =========
+  function undo() {
+    const page = getCurrentPage();
+    if (!page || page.strokes.length === 0) return;
+    const stroke = page.strokes.pop();
+    page.redoStack.push(stroke);
+    redrawPage();
+    saveToStorage();
+  }
+
+  function redo() {
+    const page = getCurrentPage();
+    if (!page || page.redoStack.length === 0) return;
+    const stroke = page.redoStack.pop();
+    page.strokes.push(stroke);
+    redrawPage();
+    saveToStorage();
+  }
+
+  // ========= PAGE ACTIONS =========
+  function addPage() {
+    const newId = notebook.pages.length
+      ? Math.max(...notebook.pages.map(p => p.id)) + 1
+      : 1;
+    notebook.pages.push(createEmptyPage(newId));
+    notebook.currentPageIndex = notebook.pages.length - 1;
+    renderCurrentPage();
+    renderPageList();
+    updatePageInfo();
+    saveToStorage();
+  }
+
+  function goToPrevPage() {
+    if (notebook.currentPageIndex > 0) {
+      notebook.currentPageIndex--;
+      renderCurrentPage();
+      renderPageList();
+      updatePageInfo();
+      saveToStorage();
+    }
+  }
+
+  function goToNextPage() {
+    if (notebook.currentPageIndex < notebook.pages.length - 1) {
+      notebook.currentPageIndex++;
+      renderCurrentPage();
+      renderPageList();
+      updatePageInfo();
+      saveToStorage();
+    }
+  }
+
+  function clearPage() {
+    if (!confirm("Clear all handwriting on this page?")) return;
+    const page = getCurrentPage();
+    if (!page) return;
+    page.strokes = [];
+    page.undoStack = [];
+    page.redoStack = [];
+    redrawPage();
+    saveToStorage();
+  }
+
+  // ========= TOOLS & COLORS =========
+  function setTool(tool) {
+    currentTool = tool; // "pen" | "highlighter" | "eraser"
+    penToolBtn.classList.toggle("active", tool === "pen");
+    highlighterToolBtn.classList.toggle("active", tool === "highlighter");
+    eraserToolBtn.classList.toggle("active", tool === "eraser");
+  }
+
+  function setColor(color) {
+    currentColor = color;
+    colorBtns.forEach(btn => {
+      btn.classList.toggle("active", btn.dataset.color === color);
+    });
+    if (currentTool === "highlighter") {
+      // keep highlight mode but update base color
+      currentTool = "highlighter";
+    } else if (currentTool === "eraser") {
+      // eraser doesn't use color
+    } else {
+      currentTool = "pen";
+    }
+  }
+
+  // ========= SEARCH (Feature 3: B – results panel) =========
+  function searchPages() {
+    const query = searchInput.value.trim().toLowerCase();
+    if (!query) {
+      searchResults.style.display = "none";
+      return;
+    }
+    const results = [];
+    notebook.pages.forEach((page, index) => {
+      const haystack = [
+        page.title || "",
+        page.tags || "",
+        page.notesText || ""
+      ].join(" ").toLowerCase();
+      if (haystack.includes(query)) {
+        results.push({ page, index });
+      }
     });
 
-    // Double click to rename
-    div.addEventListener("dblclick", (e) => {
-      e.stopPropagation();
-      const input = document.createElement("input");
-      input.type = "text";
-      input.value = page.title || "";
-      input.className = "page-title-input";
-      div.innerHTML = "";
-      div.appendChild(input);
-      input.focus();
-      input.select();
-
-      input.addEventListener("blur", () => {
-        page.title = input.value || "Untitled";
-        updatePageMetaTimestamp();
-        saveNotebook();
-        renderSidebar(term);
+    searchResultsList.innerHTML = "";
+    if (results.length === 0) {
+      const div = document.createElement("div");
+      div.className = "searchResultItem";
+      div.textContent = "No matches.";
+      searchResultsList.appendChild(div);
+    } else {
+      results.forEach(result => {
+        const div = document.createElement("div");
+        div.className = "searchResultItem";
+        const title = result.page.title?.trim() || `Page ${result.index + 1}`;
+        const snippet = (result.page.notesText || "").split(/\s+/).slice(0, 12).join(" ");
+        div.innerHTML = `<strong>Page ${result.index + 1}:</strong> ${title}<br><small>${snippet}</small>`;
+        div.addEventListener("click", () => {
+          notebook.currentPageIndex = result.index;
+          renderCurrentPage();
+          renderPageList();
+          updatePageInfo();
+          searchResults.style.display = "none";
+          saveToStorage();
+        });
+        searchResultsList.appendChild(div);
       });
+    }
+    searchResults.style.display = "block";
+  }
 
-      input.addEventListener("keydown", (ev) => {
-        if (ev.key === "Enter") {
-          input.blur();
+  // ========= EXPORT / IMPORT (Feature 8: C) =========
+  function openExportImportPanel() {
+    const json = JSON.stringify(notebook, null, 2);
+    exportArea.value = json;
+    exportImportPanel.style.display = "flex";
+  }
+
+  function closeExportImportPanel() {
+    exportImportPanel.style.display = "none";
+  }
+
+  function downloadJSON() {
+    const blob = new Blob([JSON.stringify(notebook, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+    a.href = url;
+    a.download = `notebook-export-${timestamp}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  function applyImportedNotebook(obj) {
+    if (!obj || !Array.isArray(obj.pages)) {
+      alert("Invalid notebook JSON.");
+      return;
+    }
+    notebook = obj;
+    if (!notebook.pages.length) {
+      notebook.pages = [createEmptyPage(1)];
+      notebook.currentPageIndex = 0;
+    } else if (notebook.currentPageIndex == null || notebook.currentPageIndex >= notebook.pages.length) {
+      notebook.currentPageIndex = 0;
+    }
+    renderCurrentPage();
+    renderPageList();
+    updatePageInfo();
+    saveToStorage();
+    alert("Notebook imported successfully.");
+  }
+
+  function importFromFile() {
+    const file = importFileInput.files[0];
+    if (!file) {
+      alert("Select a JSON file first.");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const obj = JSON.parse(e.target.result);
+        applyImportedNotebook(obj);
+      } catch (err) {
+        alert("Invalid JSON file.");
+      }
+    };
+    reader.readAsText(file);
+  }
+
+  function importFromText() {
+    const text = importTextArea.value.trim();
+    if (!text) {
+      alert("Paste notebook JSON first.");
+      return;
+    }
+    try {
+      const obj = JSON.parse(text);
+      applyImportedNotebook(obj);
+    } catch (err) {
+      alert("Invalid JSON text.");
+    }
+  }
+
+  // ========= FULLSCREEN & TOOLBAR HANDLE =========
+  function toggleFullscreenMode() {
+    document.body.classList.toggle("fullscreen");
+  }
+
+  function toggleToolbarVisibility() {
+    toolbar.classList.toggle("hidden");
+  }
+
+  // ========= EVENT BINDINGS =========
+  function attachEvents() {
+    penToolBtn.addEventListener("click", () => setTool("pen"));
+    highlighterToolBtn.addEventListener("click", () => setTool("highlighter"));
+    eraserToolBtn.addEventListener("click", () => setTool("eraser"));
+
+    colorBtns.forEach(btn => {
+      btn.addEventListener("click", () => {
+        const color = btn.dataset.color;
+        setColor(color);
+        if (color === "#fff59d") {
+          setTool("highlighter");
+        } else if (currentTool === "highlighter") {
+          setTool("pen");
         }
       });
     });
 
-    pageListEl.appendChild(div);
-  });
-}
+    undoBtn.addEventListener("click", undo);
+    redoBtn.addEventListener("click", redo);
+    clearPageBtn.addEventListener("click", clearPage);
 
-function updatePageInfoLabel() {
-  pageInfoEl.textContent = `Page ${notebook.currentPageIndex + 1} / ${notebook.pages.length}`;
-}
+    prevPageBtn.addEventListener("click", goToPrevPage);
+    nextPageBtn.addEventListener("click", goToNextPage);
+    addPageBtn.addEventListener("click", addPage);
+    addPageFromSidebarBtn.addEventListener("click", addPage);
 
-/* ---------- Drawing + strokes ---------- */
-
-function redrawPage() {
-  const page = getCurrentPage();
-  if (!page) return;
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  page.strokes.forEach(stroke => {
-    drawStroke(stroke);
-  });
-}
-
-function drawStroke(stroke) {
-  if (!stroke.points || stroke.points.length < 2) return;
-  ctx.save();
-  if (stroke.isEraser) {
-    ctx.globalCompositeOperation = "destination-out";
-  } else if (stroke.isHighlight) {
-    ctx.globalCompositeOperation = "multiply";
-  } else {
-    ctx.globalCompositeOperation = "source-over";
-  }
-
-  ctx.lineCap = "round";
-  ctx.lineJoin = "round";
-  ctx.strokeStyle = stroke.color;
-  ctx.lineWidth = stroke.size;
-  if (stroke.isHighlight) {
-    ctx.globalAlpha = 0.5;
-  } else {
-    ctx.globalAlpha = 1.0;
-  }
-
-  ctx.beginPath();
-  const pts = stroke.points;
-  ctx.moveTo(pts[0].x, pts[0].y);
-  for (let i = 1; i < pts.length; i++) {
-    ctx.lineTo(pts[i].x, pts[i].y);
-  }
-  ctx.stroke();
-  ctx.restore();
-}
-
-function pointerPosition(ev) {
-  const rect = canvas.getBoundingClientRect();
-  let clientX, clientY;
-  if (ev.touches && ev.touches[0]) {
-    clientX = ev.touches[0].clientX;
-    clientY = ev.touches[0].clientY;
-  } else {
-    clientX = ev.clientX;
-    clientY = ev.clientY;
-  }
-  return {
-    x: clientX - rect.left,
-    y: clientY - rect.top
-  };
-}
-
-function startDrawing(ev) {
-  ev.preventDefault();
-  const page = getCurrentPage();
-  if (!page) return;
-  isDrawing = true;
-  const pos = pointerPosition(ev);
-  currentStroke = {
-    color: isHighlightMode ? "#fff176" : currentColor,
-    size: currentSize,
-    isEraser: currentMode === "eraser",
-    isHighlight: isHighlightMode,
-    points: [pos]
-  };
-}
-
-function continueDrawing(ev) {
-  if (!isDrawing || !currentStroke) return;
-  ev.preventDefault();
-  const pos = pointerPosition(ev);
-  currentStroke.points.push(pos);
-  drawStroke(currentStroke);
-}
-
-function endDrawing(ev) {
-  if (!isDrawing || !currentStroke) return;
-  ev.preventDefault();
-  isDrawing = false;
-  const page = getCurrentPage();
-  if (!page) return;
-  page.strokes.push(currentStroke);
-  page.undoneStrokes.length = 0; // clear redo stack
-  currentStroke = null;
-  updatePageMetaTimestamp();
-  saveNotebook();
-}
-
-/* ---------- Undo / Redo / Clear ---------- */
-
-function undo() {
-  const page = getCurrentPage();
-  if (!page || page.strokes.length === 0) return;
-  const stroke = page.strokes.pop();
-  page.undoneStrokes.push(stroke);
-  redrawPage();
-  updatePageMetaTimestamp();
-  saveNotebook();
-}
-
-function redo() {
-  const page = getCurrentPage();
-  if (!page || page.undoneStrokes.length === 0) return;
-  const stroke = page.undoneStrokes.pop();
-  page.strokes.push(stroke);
-  redrawPage();
-  updatePageMetaTimestamp();
-  saveNotebook();
-}
-
-function clearPage() {
-  if (!confirm("Clear this page? All drawings will be removed.")) return;
-  const page = getCurrentPage();
-  if (!page) return;
-  page.strokes = [];
-  page.undoneStrokes = [];
-  redrawPage();
-  updatePageMetaTimestamp();
-  saveNotebook();
-}
-
-/* ---------- Notes + search ---------- */
-
-function loadCurrentPageIntoUI() {
-  const page = getCurrentPage();
-  if (!page) return;
-  textNotesEl.value = page.textNotes || "";
-  redrawPage();
-  renderRecordingsList();
-  updatePageInfoLabel();
-}
-
-textNotesEl.addEventListener("input", () => {
-  const page = getCurrentPage();
-  if (!page) return;
-  page.textNotes = textNotesEl.value;
-  updatePageMetaTimestamp();
-  saveNotebook();
-});
-
-document.getElementById("btn-search").addEventListener("click", () => {
-  const val = document.getElementById("search-input").value;
-  renderSidebar(val);
-});
-
-document.getElementById("search-input").addEventListener("keyup", (ev) => {
-  if (ev.key === "Enter") {
-    document.getElementById("btn-search").click();
-  }
-});
-
-/* ---------- Pages add / delete / nav ---------- */
-
-document.getElementById("btn-add-page").addEventListener("click", () => {
-  notebook.pages.push(createNewPage());
-  notebook.currentPageIndex = notebook.pages.length - 1;
-  saveNotebook();
-  refreshUI();
-});
-
-document.getElementById("btn-del-page").addEventListener("click", () => {
-  if (notebook.pages.length === 1) {
-    alert("You must keep at least one page.");
-    return;
-  }
-  if (!confirm("Delete this page? This cannot be undone.")) return;
-  notebook.pages.splice(notebook.currentPageIndex, 1);
-  if (notebook.currentPageIndex >= notebook.pages.length) {
-    notebook.currentPageIndex = notebook.pages.length - 1;
-  }
-  saveNotebook();
-  refreshUI();
-});
-
-document.getElementById("btn-prev-page").addEventListener("click", () => {
-  if (notebook.currentPageIndex > 0) {
-    notebook.currentPageIndex--;
-    refreshUI();
-  }
-});
-
-document.getElementById("btn-next-page").addEventListener("click", () => {
-  if (notebook.currentPageIndex < notebook.pages.length - 1) {
-    notebook.currentPageIndex++;
-    refreshUI();
-  }
-});
-
-/* ---------- Pen / color / size / mode ---------- */
-
-const colorSwatches = {
-  black: document.getElementById("color-black"),
-  blue: document.getElementById("color-blue"),
-  red: document.getElementById("color-red"),
-  highlight: document.getElementById("color-highlight")
-};
-
-function setActiveColor(name) {
-  Object.values(colorSwatches).forEach(el => el.classList.remove("active"));
-  colorSwatches[name].classList.add("active");
-  isHighlightMode = (name === "highlight");
-  if (!isHighlightMode) {
-    if (name === "black") currentColor = "#000000";
-    if (name === "blue") currentColor = "#0044cc";
-    if (name === "red") currentColor = "#c0392b";
-  } else {
-    currentColor = "#fff176"; // Highlight yellow
-  }
-}
-
-colorSwatches.black.addEventListener("click", () => setActiveColor("black"));
-colorSwatches.blue.addEventListener("click", () => setActiveColor("blue"));
-colorSwatches.red.addEventListener("click", () => setActiveColor("red"));
-colorSwatches.highlight.addEventListener("click", () => setActiveColor("highlight"));
-
-const sizeButtons = document.querySelectorAll(".size-btn");
-sizeButtons.forEach(btn => {
-  btn.addEventListener("click", () => {
-    sizeButtons.forEach(b => b.classList.remove("active"));
-    btn.classList.add("active");
-    currentSize = parseInt(btn.dataset.size, 10);
-  });
-});
-
-const btnPen = document.getElementById("btn-pen");
-const btnEraser = document.getElementById("btn-eraser");
-
-function setMode(mode) {
-  currentMode = mode;
-  btnPen.classList.toggle("active", mode === "pen");
-  btnEraser.classList.toggle("active", mode === "eraser");
-}
-
-btnPen.addEventListener("click", () => setMode("pen"));
-btnEraser.addEventListener("click", () => setMode("eraser"));
-
-document.getElementById("btn-undo").addEventListener("click", undo);
-document.getElementById("btn-redo").addEventListener("click", redo);
-document.getElementById("btn-clear").addEventListener("click", clearPage);
-
-/* ---------- Canvas pointer events ---------- */
-
-canvas.addEventListener("mousedown", startDrawing);
-canvas.addEventListener("mousemove", continueDrawing);
-canvas.addEventListener("mouseup", endDrawing);
-canvas.addEventListener("mouseleave", endDrawing);
-
-canvas.addEventListener("touchstart", startDrawing, { passive: false });
-canvas.addEventListener("touchmove", continueDrawing, { passive: false });
-canvas.addEventListener("touchend", endDrawing, { passive: false });
-canvas.addEventListener("touchcancel", endDrawing, { passive: false });
-
-/* ---------- Fullscreen / toolbar auto-hide ---------- */
-
-const btnFullscreen = document.getElementById("btn-fullscreen");
-let isFullscreen = false;
-let toolbarHideTimeout = null;
-
-function enterFullscreen() {
-  const elem = document.documentElement;
-  if (elem.requestFullscreen) {
-    elem.requestFullscreen();
-  } else if (elem.webkitRequestFullscreen) {
-    elem.webkitRequestFullscreen();
-  }
-  document.body.classList.add("fullscreen-active");
-  isFullscreen = true;
-  setStatusRight("Fullscreen: ON (hit top edge to show toolbar).");
-  scheduleToolbarHide();
-}
-
-function exitFullscreen() {
-  if (document.exitFullscreen) {
-    document.exitFullscreen();
-  } else if (document.webkitExitFullscreen) {
-    document.webkitExitFullscreen();
-  }
-  document.body.classList.remove("fullscreen-active");
-  isFullscreen = false;
-  showToolbar();
-  setStatusRight("Autosave: ON (local browser only)");
-}
-
-btnFullscreen.addEventListener("click", () => {
-  if (!isFullscreen) {
-    enterFullscreen();
-  } else {
-    exitFullscreen();
-  }
-});
-
-document.addEventListener("fullscreenchange", () => {
-  if (!document.fullscreenElement) {
-    isFullscreen = false;
-    document.body.classList.remove("fullscreen-active");
-    showToolbar();
-    setStatusRight("Autosave: ON (local browser only)");
-  }
-});
-
-function hideToolbar() {
-  if (!isFullscreen) return;
-  toolbar.classList.add("hidden-in-fullscreen");
-}
-
-function showToolbar() {
-  toolbar.classList.remove("hidden-in-fullscreen");
-}
-
-function scheduleToolbarHide() {
-  if (!isFullscreen) return;
-  clearTimeout(toolbarHideTimeout);
-  toolbarHideTimeout = setTimeout(() => {
-    hideToolbar();
-  }, 2500);
-}
-
-// In fullscreen, moving to the top edge or tapping the top handle shows toolbar again
-fullscreenHandle.addEventListener("mousemove", () => {
-  if (!isFullscreen) return;
-  showToolbar();
-  scheduleToolbarHide();
-});
-
-fullscreenHandle.addEventListener("click", () => {
-  if (!isFullscreen) return;
-  showToolbar();
-  scheduleToolbarHide();
-});
-
-document.addEventListener("mousemove", (ev) => {
-  if (!isFullscreen) return;
-  if (ev.clientY <= 8) {
-    showToolbar();
-    scheduleToolbarHide();
-  }
-});
-
-/* ---------- Export / Import ---------- */
-
-document.getElementById("btn-export").addEventListener("click", () => {
-  saveNotebook(); // ensure latest
-  const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(notebook));
-  const a = document.createElement("a");
-  a.setAttribute("href", dataStr);
-  const ts = new Date().toISOString().replace(/[:.]/g, "-");
-  a.setAttribute("download", "NotebookBackup_" + ts + ".json");
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  setStatusLeft("Exported notebook.");
-});
-
-document.getElementById("btn-import").addEventListener("click", () => {
-  importFileInput.value = "";
-  importFileInput.click();
-});
-
-importFileInput.addEventListener("change", (ev) => {
-  const file = ev.target.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = (e) => {
-    try {
-      const data = JSON.parse(e.target.result);
-      if (!data.pages || !Array.isArray(data.pages)) {
-        alert("Invalid notebook file.");
-        return;
-      }
-      notebook = data;
-      // Normalize fields
-      notebook.pages.forEach(p => {
-        p.strokes = p.strokes || [];
-        p.undoneStrokes = p.undoneStrokes || [];
-        p.textNotes = p.textNotes || "";
-        p.recordings = p.recordings || [];
-      });
-      if (typeof notebook.currentPageIndex !== "number" || notebook.currentPageIndex < 0 || notebook.currentPageIndex >= notebook.pages.length) {
-        notebook.currentPageIndex = 0;
-      }
-      saveNotebook();
-      refreshUI();
-      alert("Notebook imported successfully.");
-    } catch (err) {
-      console.error(err);
-      alert("Failed to import notebook.");
+    // Page meta inputs autosave
+    function updatePageMeta() {
+      const page = getCurrentPage();
+      if (!page) return;
+      page.title = pageTitleInput.value;
+      page.tags = pageTagsInput.value;
+      page.notesText = pageNotesInput.value;
+      renderPageList();
+      saveToStorage();
     }
-  };
-  reader.readAsText(file);
-});
+    pageTitleInput.addEventListener("input", updatePageMeta);
+    pageTagsInput.addEventListener("input", updatePageMeta);
+    pageNotesInput.addEventListener("input", updatePageMeta);
 
-/* ---------- Audio Recording (per page) ---------- */
-
-async function startRecording() {
-  if (isRecording) return;
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    mediaRecorder = new MediaRecorder(stream);
-    recordedChunks = [];
-    mediaRecorder.ondataavailable = (e) => {
-      if (e.data.size > 0) recordedChunks.push(e.data);
-    };
-    mediaRecorder.onstop = handleRecordingStop;
-    mediaRecorder.start();
-    isRecording = true;
-    btnRecord.disabled = true;
-    btnStopRecord.disabled = false;
-    recordStatusEl.textContent = "Recording status: Recording... (press Stop when done)";
-    setStatusLeft("Recording audio...");
-  } catch (err) {
-    console.error("Recording error:", err);
-    alert("Unable to start recording. Browser or permissions may not allow it.");
-  }
-}
-
-function stopRecording() {
-  if (!isRecording || !mediaRecorder) return;
-  mediaRecorder.stop();
-  mediaRecorder.stream.getTracks().forEach(t => t.stop());
-  isRecording = false;
-  btnRecord.disabled = false;
-  btnStopRecord.disabled = true;
-  recordStatusEl.textContent = "Recording status: Processing...";
-}
-
-function handleRecordingStop() {
-  const blob = new Blob(recordedChunks, { type: "audio/webm" });
-  const reader = new FileReader();
-  reader.onload = () => {
-    const dataUrl = reader.result;
-    const page = getCurrentPage();
-    if (!page) return;
-    const now = new Date();
-    const clip = {
-      id: crypto.randomUUID(),
-      name: "Audio " + (page.recordings.length + 1) + " (" + now.toLocaleTimeString() + ")",
-      dataUrl,
-      createdAt: now.toISOString()
-    };
-    page.recordings.push(clip);
-    updatePageMetaTimestamp();
-    saveNotebook();
-    renderRecordingsList();
-    recordStatusEl.textContent = "Recording status: Saved.";
-    setStatusLeft("Audio note saved.");
-  };
-  reader.readAsDataURL(blob);
-}
-
-function renderRecordingsList() {
-  const page = getCurrentPage();
-  recordingsListEl.innerHTML = "";
-  if (!page || !page.recordings || page.recordings.length === 0) {
-    const empty = document.createElement("div");
-    empty.textContent = "No recordings on this page yet.";
-    recordingsListEl.appendChild(empty);
-    return;
-  }
-  page.recordings.forEach(rec => {
-    const item = document.createElement("div");
-    item.className = "record-item";
-
-    const audio = document.createElement("audio");
-    audio.controls = true;
-    audio.src = rec.dataUrl;
-
-    const label = document.createElement("span");
-    label.textContent = rec.name;
-
-    const delBtn = document.createElement("button");
-    delBtn.textContent = "Delete";
-    delBtn.className = "danger";
-    delBtn.addEventListener("click", () => {
-      if (!confirm("Delete this recording?")) return;
-      const idx = page.recordings.findIndex(r => r.id === rec.id);
-      if (idx >= 0) {
-        page.recordings.splice(idx, 1);
-        updatePageMetaTimestamp();
-        saveNotebook();
-        renderRecordingsList();
-      }
+    // Search
+    searchBtn.addEventListener("click", searchPages);
+    searchInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") searchPages();
+    });
+    closeSearchBtn.addEventListener("click", () => {
+      searchResults.style.display = "none";
     });
 
-    item.appendChild(audio);
-    item.appendChild(label);
-    item.appendChild(delBtn);
-    recordingsListEl.appendChild(item);
-  });
-}
+    // Export / Import
+    exportImportBtn.addEventListener("click", openExportImportPanel);
+    closeExportImportBtn.addEventListener("click", closeExportImportPanel);
+    downloadExportBtn.addEventListener("click", downloadJSON);
+    importFromFileBtn.addEventListener("click", importFromFile);
+    importFromTextBtn.addEventListener("click", importFromText);
 
-btnRecord.addEventListener("click", startRecording);
-btnStopRecord.addEventListener("click", stopRecording);
+    // Fullscreen
+    fullscreenBtn.addEventListener("click", toggleFullscreenMode);
 
-/* ---------- Main refresh ---------- */
+    // Toolbar handle (for full screen)
+    toolbarHandle.addEventListener("click", toggleToolbarVisibility);
+  }
 
-function refreshUI() {
-  resizeCanvas();
-  renderSidebar(document.getElementById("search-input").value);
-  loadCurrentPageIntoUI();
-}
-
-/* ---------- Init ---------- */
-
-window.addEventListener("resize", () => {
-  resizeCanvas();
-});
-
-window.addEventListener("beforeunload", () => {
-  saveNotebook();
-});
-
-// Initial setup
-loadNotebook();
-setActiveColor("black");
-sizeButtons.forEach(btn => {
-  if (btn.dataset.size === "2") btn.classList.add("active");
-});
-setMode("pen");
-refreshUI();
-setStatusRight("Autosave: ON (local browser only)");
-
+  // Kick off
+  init();
+})();
 </script>
 </body>
 </html>
