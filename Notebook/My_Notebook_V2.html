@@ -1236,10 +1236,10 @@
 
     exportBtn.addEventListener("click", () => {
       try {
-        // Save latest state first
+        // Always save latest first
         saveNotebook();
     
-        // FULL BACKUP: all notebooks, all pages, all strokes, all recordings
+        // Build full backup package
         const fullBackup = {
           notebooks,
           currentNotebookId,
@@ -1247,15 +1247,24 @@
         };
     
         const json = JSON.stringify(fullBackup);
-        localStorage.setItem(STORAGE_KEY + "_backup", json);
     
+        // Save to local newest-backup slot
+        localStorage.setItem(STORAGE_KEY + "_backup", json);
+        localStorage.setItem(
+          STORAGE_KEY + "_backup_meta",
+          JSON.stringify({ ts: fullBackup.backupTimestamp })
+        );
+        updateBackupInfo(fullBackup.backupTimestamp);
+    
+        // Create download file
         const blob = new Blob([json], { type: "application/json" });
         const url = URL.createObjectURL(blob);
+    
         const a = document.createElement("a");
         a.href = url;
     
-        const dateStr = new Date().toISOString().replace(/[:.]/g, "-");
-        a.download = `handwritten_notebook_FULL_BACKUP_${dateStr}.json`;
+        const dateStr = fullBackup.backupTimestamp.replace(/[:.]/g, "-");
+        a.download = `handwritten_notebook_FULL_${dateStr}.json`;
     
         document.body.appendChild(a);
         a.click();
@@ -1276,42 +1285,41 @@
     importFileInput.addEventListener("change", (e) => {
       const file = e.target.files[0];
       if (!file) return;
+    
       const reader = new FileReader();
       reader.onload = (ev) => {
         try {
-          const data = JSON.parse(ev.target.result);
-          if (!data.pages || !Array.isArray(data.pages)) {
-            throw new Error("Invalid notebook format");
+          const loaded = JSON.parse(ev.target.result);
+    
+          // must have full structure
+          if (!loaded.notebooks || !Array.isArray(loaded.notebooks)) {
+            throw new Error("Invalid full backup format");
           }
-          const mapped = data.pages.map(p => ({
-            ...createBlankPage(),
-            ...p,
-            audio: p.audio || []
-          }));
-          pages = mapped.length ? mapped : [createBlankPage()];
-          currentPageIndex = Math.min(
-            typeof data.currentPageIndex === "number" ? data.currentPageIndex : 0,
-            pages.length - 1
-          );
+    
+          notebooks = loaded.notebooks;
+          currentNotebookId = loaded.currentNotebookId || notebooks[0].id;
+    
           const nb = getCurrentNotebook();
-          if (nb) {
-            nb.pages = pages;
-            nb.currentPageIndex = currentPageIndex;
-          }
+          pages = nb.pages;
+          currentPageIndex = nb.currentPageIndex ?? 0;
+    
+          refreshNotebookSelect();
           goToPage(currentPageIndex);
-          updatePageInfo();
           saveNotebook();
-          alert("Notebook imported into current notebook successfully.");
-        } catch (err) {
+    
+          alert("✔ Full backup restored successfully!");
+        }
+        catch (err) {
           console.error(err);
-          alert("Could not import file. It may not be a valid notebook backup.");
-        } finally {
+          alert("Could not import file. It may not be a valid FULL backup.");
+        }
+        finally {
           importFileInput.value = "";
         }
       };
+    
       reader.readAsText(file);
     });
-
     // Restore from auto-backup stored in localStorage
     restoreBackupBtn.addEventListener("click", () => {
       const raw = localStorage.getItem(STORAGE_KEY + "_backup");
