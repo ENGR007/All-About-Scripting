@@ -409,6 +409,15 @@
         <button id="startRecordBtn">Start Recording</button>
         <button id="stopRecordBtn" disabled>Stop</button>
         <span id="recordStatus">Recording status: Idle</span>
+
+        <!-- NEW: Audio mode selector -->
+        <label class="toolbar-label" style="margin-left:8px;">
+          Mode
+          <select id="audioMode" style="margin-left:4px; font-size:0.8rem; padding:2px 4px;">
+            <option value="standard">Standard</option>
+            <option value="enhanced">Enhanced (noise-reduced)</option>
+          </select>
+        </label>
       </div>
       <div id="audioList" class="audio-list"></div>
       <div id="audioHint" class="hint">
@@ -440,7 +449,7 @@
       Use Export/Import to back up or move to another browser.
     </div>
   </div>
-    <script>
+  <script>
     // ---- Data model ----
     const STORAGE_KEY = "handNotebook_v2";
 
@@ -485,6 +494,7 @@
     const recordStatus = document.getElementById("recordStatus");
     const audioListEl = document.getElementById("audioList");
     const audioHintEl = document.getElementById("audioHint");
+    const audioModeSelect = document.getElementById("audioMode"); // NEW
 
     // Notebook UI
     const notebookSelect = document.getElementById("notebookSelect");
@@ -1109,20 +1119,17 @@
         downloadBtn.addEventListener("click", () => {
           try {
             const safeName = (clip.name || `audio_${idx + 1}`).replace(/[^\w\- ]+/g, "_");
-        
-            // Convert existing DataURL to valid iOS download
+
+            // Use existing DataURL for iOS-friendly download
             const a = document.createElement("a");
-            a.href = clip.dataUrl; // Already base64 from recorder
+            a.href = clip.dataUrl;
             a.download = safeName + ".webm";
-        
+
             document.body.appendChild(a);
-        
-            // Must delay for Safari to allow the click
             setTimeout(() => {
               a.click();
               document.body.removeChild(a);
             }, 100);
-        
           } catch (e) {
             console.error(e);
             alert("Unable to download this audio clip.");
@@ -1146,18 +1153,40 @@
       });
     }
 
+    // ---- Enhanced recording ----
     async function startRecording() {
       if (!audioSupported || isRecordingAudio) return;
       try {
-        const constraints = { audio: true };
+        // Choose constraints based on audio mode
+        const mode = audioModeSelect ? audioModeSelect.value : "standard";
+
+        let constraints;
+        if (mode === "enhanced") {
+          // Ask the browser for better-quality, speech-focused input
+          constraints = {
+            audio: {
+              channelCount: 1,
+              echoCancellation: true,
+              noiseSuppression: true,
+              autoGainControl: true
+              // sampleRate / sampleSize are often ignored, so we skip them
+            }
+          };
+        } else {
+          constraints = { audio: true };
+        }
+
         currentStream = await navigator.mediaDevices.getUserMedia(constraints);
 
+        // Prefer high-quality Opus where supported
         let options = {};
         if (window.MediaRecorder && MediaRecorder.isTypeSupported) {
-          if (MediaRecorder.isTypeSupported("audio/mp4")) {
-            options.mimeType = "audio/mp4";
+          if (MediaRecorder.isTypeSupported("audio/webm;codecs=opus")) {
+            options.mimeType = "audio/webm;codecs=opus";
           } else if (MediaRecorder.isTypeSupported("audio/webm")) {
             options.mimeType = "audio/webm";
+          } else if (MediaRecorder.isTypeSupported("audio/mp4")) {
+            options.mimeType = "audio/mp4";
           }
         }
 
@@ -1185,7 +1214,10 @@
             return;
           }
 
-          const blob = new Blob(recordedChunks, { type: mediaRecorder.mimeType || "audio/webm" });
+          const blob = new Blob(
+            recordedChunks,
+            { type: mediaRecorder.mimeType || "audio/webm" }
+          );
           const reader = new FileReader();
           reader.onloadend = () => {
             const dataUrl = reader.result;
@@ -1208,7 +1240,10 @@
         isRecordingAudio = true;
         startRecordBtn.disabled = true;
         stopRecordBtn.disabled = false;
-        recordStatus.textContent = "Recording status: Recording...";
+        recordStatus.textContent =
+          mode === "enhanced"
+            ? "Recording status: Recording (enhanced)…"
+            : "Recording status: Recording...";
       } catch (e) {
         console.error(e);
         recordStatus.textContent = "Recording status: Permission denied or error.";
@@ -1234,7 +1269,7 @@
       stopRecordBtn.addEventListener("click", stopRecording);
     }
 
-    // ---- Export / Import (current notebook only) ----
+    // ---- Export / Import (full backup) ----
     const exportBtn = document.getElementById("exportBtn");
     const importBtn = document.getElementById("importBtn");
     const importFileInput = document.getElementById("importFile");
@@ -1243,15 +1278,15 @@
     exportBtn.addEventListener("click", () => {
       try {
         saveNotebook();
-    
+
         const fullBackup = {
           notebooks,
           currentNotebookId,
           backupTimestamp: new Date().toISOString()
         };
-    
+
         const json = JSON.stringify(fullBackup);
-    
+
         // Save newest backup locally
         localStorage.setItem(STORAGE_KEY + "_backup", json);
         localStorage.setItem(
@@ -1259,33 +1294,33 @@
           JSON.stringify({ ts: fullBackup.backupTimestamp })
         );
         updateBackupInfo(fullBackup.backupTimestamp);
-    
+
         // ---- iOS-compatible download ----
         const base64 = btoa(unescape(encodeURIComponent(json)));
         const dataUrl = "data:application/json;base64," + base64;
-    
+
         const a = document.createElement("a");
         a.href = dataUrl;
-    
+
         const dateStr = fullBackup.backupTimestamp.replace(/[:.]/g, "-");
         a.download = `handwritten_notebook_FULL_${dateStr}.json`;
-    
+
         // append to DOM so iOS allows it
         document.body.appendChild(a);
-    
+
         // must be timed for Safari to work
         setTimeout(() => {
           a.click();
           document.body.removeChild(a);
         }, 100);
-    
+
         alert("Full backup exported successfully.");
       } catch (e) {
         console.error(e);
         alert("Export failed.");
       }
     });
-  
+
     importBtn.addEventListener("click", () => {
       importFileInput.click();
     });
@@ -1293,28 +1328,28 @@
     importFileInput.addEventListener("change", (e) => {
       const file = e.target.files[0];
       if (!file) return;
-    
+
       const reader = new FileReader();
       reader.onload = (ev) => {
         try {
           const loaded = JSON.parse(ev.target.result);
-    
+
           // must have full structure
           if (!loaded.notebooks || !Array.isArray(loaded.notebooks)) {
             throw new Error("Invalid full backup format");
           }
-    
+
           notebooks = loaded.notebooks;
           currentNotebookId = loaded.currentNotebookId || notebooks[0].id;
-    
+
           const nb = getCurrentNotebook();
           pages = nb.pages;
           currentPageIndex = nb.currentPageIndex ?? 0;
-    
+
           refreshNotebookSelect();
           goToPage(currentPageIndex);
           saveNotebook();
-    
+
           alert("✔ Full backup restored successfully!");
         }
         catch (err) {
@@ -1325,9 +1360,10 @@
           importFileInput.value = "";
         }
       };
-    
+
       reader.readAsText(file);
     });
+
     // Restore from auto-backup stored in localStorage
     restoreBackupBtn.addEventListener("click", () => {
       const raw = localStorage.getItem(STORAGE_KEY + "_backup");
