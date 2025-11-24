@@ -430,6 +430,8 @@
           </select>
         </label>
 
+        <!-- NEW: Save transcript button -->
+        <button id="saveTranscriptBtn" disabled>Save Transcript (.txt)</button>
       </div>
 
       <div id="audioList" class="audio-list"></div>
@@ -519,6 +521,7 @@
     const audioModeSelect = document.getElementById("audioMode");
 
     // NEW: transcription DOM elements
+    const saveTranscriptBtn = document.getElementById("saveTranscriptBtn");
     const liveTranscriptEl = document.getElementById("liveTranscript");
     const transcriptStatusEl = document.getElementById("transcriptStatus");
 
@@ -1290,6 +1293,24 @@
       };
     }
 
+    // Save transcript as .txt
+    if (saveTranscriptBtn) {
+      saveTranscriptBtn.addEventListener("click", () => {
+        const text = (finalTranscript || "").trim();
+        if (!text) {
+          alert("No transcript available yet.");
+          return;
+        }
+        const blob = new Blob([text], { type: "text/plain" });
+        const a = document.createElement("a");
+        const ts = new Date().toISOString().replace(/[:.]/g, "-");
+        a.href = URL.createObjectURL(blob);
+        a.download = "notebook_transcript_" + ts + ".txt";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      });
+    }
 
     // ==========================
     // Enhanced recording + tie to transcription
