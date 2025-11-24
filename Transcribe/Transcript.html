@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Live Transcription & Recorder</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root {
+      --bg: #f5f7fb;
+      --card-bg: #ffffff;
+      --accent: #3f51b5;
+      --accent-soft: #e3e7ff;
+      --accent-strong: #283593;
+      --danger: #c62828;
+      --text-main: #222;
+      --text-soft: #555;
+      --border-soft: #dde1f0;
+      --note-yellow: #fff7c2;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text-main);
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+
+    header {
+      background: linear-gradient(120deg, var(--accent), var(--accent-strong));
+      color: white;
+      padding: 14px 20px;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+    }
+
+    header h1 {
+      margin: 0;
+      font-size: 1.3rem;
+      letter-spacing: 0.03em;
+    }
+
+    header p {
+      margin: 4px 0 0;
+      font-size: 0.85rem;
+      opacity: 0.9;
+    }
+
+    main {
+      flex: 1;
+      max-width: 980px;
+      margin: 18px auto 24px;
+      padding: 0 12px;
+    }
+
+    .card {
+      background: var(--card-bg);
+      border-radius: 12px;
+      box-shadow: 0 3px 10px rgba(15, 15, 35, 0.08);
+      padding: 16px;
+      margin-bottom: 16px;
+      border: 1px solid var(--border-soft);
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+
+    .card-title {
+      font-weight: 600;
+      font-size: 0.98rem;
+      color: var(--accent-strong);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .badge {
+      border-radius: 999px;
+      padding: 3px 10px;
+      font-size: 0.7rem;
+      background: var(--accent-soft);
+      color: var(--accent-strong);
+    }
+
+    .controls-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+
+    button {
+      border: none;
+      border-radius: 999px;
+      padding: 8px 16px;
+      font-size: 0.85rem;
+      cursor: pointer;
+      font-weight: 500;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: transform 0.05s ease, box-shadow 0.1s ease, background 0.1s ease;
+    }
+
+    button:active {
+      transform: translateY(1px) scale(0.99);
+      box-shadow: none;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: white;
+      box-shadow: 0 2px 5px rgba(63, 81, 181, 0.4);
+    }
+
+    .btn-primary[disabled] {
+      opacity: 0.6;
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+
+    .btn-secondary {
+      background: var(--accent-soft);
+      color: var(--accent-strong);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+    }
+
+    .btn-danger {
+      background: var(--danger);
+      color: white;
+      box-shadow: 0 2px 5px rgba(198, 40, 40, 0.4);
+    }
+
+    .status-line {
+      font-size: 0.82rem;
+      color: var(--text-soft);
+      margin-top: 4px;
+    }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 3px 9px;
+      border-radius: 999px;
+      background: var(--accent-soft);
+      font-size: 0.75rem;
+      color: var(--accent-strong);
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #cfd2ff;
+    }
+
+    .status-dot.live {
+      background: #4caf50;
+      box-shadow: 0 0 0 4px rgba(76, 175, 80, 0.2);
+    }
+
+    .status-dot.error {
+      background: var(--danger);
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1.4fr 1.1fr;
+      gap: 10px;
+    }
+
+    @media (max-width: 800px) {
+      .grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .field-label {
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-soft);
+      margin-bottom: 4px;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 140px;
+      resize: vertical;
+      padding: 8px 10px;
+      border-radius: 8px;
+      border: 1px solid var(--border-soft);
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: 0.9rem;
+      line-height: 1.35;
+      background: #fafbff;
+    }
+
+    .note {
+      margin-top: 8px;
+      font-size: 0.8rem;
+      background: var(--note-yellow);
+      padding: 6px 8px;
+      border-radius: 6px;
+      border: 1px solid #f0e7a4;
+    }
+
+    .small-select {
+      padding: 5px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--border-soft);
+      font-size: 0.8rem;
+      background: white;
+    }
+
+    .recording-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.78rem;
+      padding: 3px 9px;
+      border-radius: 999px;
+      background: #ffebee;
+      color: var(--danger);
+      margin-left: 4px;
+    }
+
+    .recording-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--danger);
+      animation: pulse 1.2s infinite;
+    }
+
+    @keyframes pulse {
+      0% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.4); opacity: 0.4; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+
+    .download-link {
+      font-size: 0.82rem;
+      margin-top: 6px;
+    }
+
+    .download-link a {
+      color: var(--accent-strong);
+      text-decoration: none;
+      font-weight: 500;
+    }
+
+    .download-link a:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>My Notebook – Live Transcription & Recorder</h1>
+    <p>Live speech → text, optional recording, and translation placeholder (all in your browser).</p>
+  </header>
+
+  <main>
+    <!-- Controls -->
+    <section class="card">
+      <div class="card-header">
+        <div class="card-title">Session Controls</div>
+        <span class="badge" id="supportBadge">Checking support…</span>
+      </div>
+
+      <div class="controls-row">
+        <button class="btn-primary" id="startBtn">
+          ▶ Start (Transcribe + Record)
+        </button>
+
+        <button class="btn-danger" id="stopBtn" disabled>
+          ■ Stop
+        </button>
+
+        <select id="inputLang" class="small-select" title="Spoken language">
+          <option value="en-US">Spoken: English (US)</option>
+          <option value="en-GB">Spoken: English (UK)</option>
+          <option value="ja-JP">Spoken: Japanese</option>
+          <option value="tl-PH">Spoken: Filipino</option>
+          <option value="ms-MY">Spoken: Malay</option>
+        </select>
+
+        <select id="targetLang" class="small-select" title="Translate into">
+          <option value="en">Translate to: English</option>
+          <option value="tl">Translate to: Filipino</option>
+          <option value="ja">Translate to: Japanese</option>
+          <option value="ms">Translate to: Malay</option>
+        </select>
+
+        <span class="recording-badge" id="recBadge" style="display:none;">
+          <span class="recording-dot"></span> Recording
+        </span>
+      </div>
+
+      <div class="status-line">
+        <span class="status-pill" id="statusPill">
+          <span class="status-dot" id="statusDot"></span>
+          <span id="statusText">Idle. Click Start to begin.</span>
+        </span>
+      </div>
+
+      <div class="download-link" id="downloadArea"></div>
+
+      <div class="note">
+        Tip: Works best on Chrome / Edge desktop via HTTPS (GitHub Pages is fine).  
+        iPhone Safari may not support live speech recognition.
+      </div>
+    </section>
+
+    <!-- Transcription & Translation -->
+    <section class="card">
+      <div class="card-header">
+        <div class="card-title">Live Text</div>
+        <span class="badge">Real-time</span>
+      </div>
+
+      <div class="grid">
+        <div>
+          <div class="field-label">Transcription (spoken language)</div>
+          <textarea id="transcript" placeholder="Your speech will appear here…" readonly></textarea>
+        </div>
+        <div>
+          <div class="field-label">Translation (target language)</div>
+          <textarea id="translation" placeholder="Translation will appear here (API placeholder)…" readonly></textarea>
+        </div>
+      </div>
+
+      <div class="note">
+        Real translation requires connecting to a translation API (e.g. Google, DeepL, LibreTranslate).  
+        This page includes a <strong>placeholder</strong> function where you can plug your own API call.
+      </div>
+    </section>
+  </main>
+
+  <script>
+    // --- Feature Detection ---
+    const supportBadge = document.getElementById('supportBadge');
+    const statusPill = document.getElementById('statusPill');
+    const statusDot = document.getElementById('statusDot');
+    const statusText = document.getElementById('statusText');
+    const startBtn = document.getElementById('startBtn');
+    const stopBtn = document.getElementById('stopBtn');
+    const transcriptEl = document.getElementById('transcript');
+    const translationEl = document.getElementById('translation');
+    const inputLangEl = document.getElementById('inputLang');
+    const targetLangEl = document.getElementById('targetLang');
+    const recBadge = document.getElementById('recBadge');
+    const downloadArea = document.getElementById('downloadArea');
+
+    window.SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+    const hasSpeech = !!window.SpeechRecognition;
+    const hasMediaRecorder = !!(navigator.mediaDevices && window.MediaRecorder);
+
+    if (hasSpeech && hasMediaRecorder) {
+      supportBadge.textContent = 'OK: Speech + Recording supported';
+    } else if (hasSpeech && !hasMediaRecorder) {
+      supportBadge.textContent = 'Speech OK, recording not supported';
+    } else if (!hasSpeech && hasMediaRecorder) {
+      supportBadge.textContent = 'Recording OK, speech not supported';
+    } else {
+      supportBadge.textContent = 'Not supported in this browser';
+    }
+
+    // --- Global State ---
+    let recognition = null;
+    let isRecognizing = false;
+    let mediaStream = null;
+    let mediaRecorder = null;
+    let recordedChunks = [];
+    let lastTranscript = '';
+
+    function setStatus(mode, text) {
+      statusText.textContent = text;
+      statusDot.classList.remove('live', 'error');
+      if (mode === 'live') statusDot.classList.add('live');
+      if (mode === 'error') statusDot.classList.add('error');
+    }
+
+    function createSpeechRecognition() {
+      if (!window.SpeechRecognition) return null;
+
+      const rec = new window.SpeechRecognition();
+      rec.interimResults = true;
+      rec.continuous = true;
+      rec.lang = inputLangEl.value;
+      return rec;
+    }
+
+    async function startSession() {
+      if (!hasSpeech && !hasMediaRecorder) {
+        setStatus('error', 'Your browser does not support required features.');
+        return;
+      }
+
+      startBtn.disabled = true;
+      stopBtn.disabled = false;
+      downloadArea.innerHTML = '';
+      translationEl.value = '';
+      transcriptEl.value = '';
+      lastTranscript = '';
+
+      // Start recording (if possible)
+      if (hasMediaRecorder) {
+        try {
+          if (!mediaStream) {
+            mediaStream = await navigator.mediaDevices.getUserMedia({
+              audio: {
+                channelCount: 1,
+                sampleRate: 48000,           // browser may adjust, but hints for higher quality
+                noiseSuppression: true,
+                echoCancellation: true
+              }
+            });
+          }
+          recordedChunks = [];
+          mediaRecorder = new MediaRecorder(mediaStream, {
+            mimeType: 'audio/webm;codecs=opus'
+          });
+
+          mediaRecorder.ondataavailable = (e) => {
+            if (e.data.size > 0) {
+              recordedChunks.push(e.data);
+            }
+          };
+
+          mediaRecorder.onstop = () => {
+            if (!recordedChunks.length) return;
+            const blob = new Blob(recordedChunks, { type: 'audio/webm' });
+            const url = URL.createObjectURL(blob);
+            const ts = new Date().toISOString().replace(/[:.]/g, '-');
+            const filename = `recording_${ts}.webm`;
+
+            downloadArea.innerHTML =
+              `Last recording: <a href="${url}" download="${filename}">Download audio (${(blob.size / 1024 / 1024).toFixed(2)} MB)</a>`;
+          };
+
+          mediaRecorder.start();
+          recBadge.style.display = 'inline-flex';
+        } catch (err) {
+          console.error('Media capture error:', err);
+          setStatus('error', 'Cannot access microphone for recording.');
+        }
+      }
+
+      // Start speech recognition (if available)
+      if (hasSpeech) {
+        recognition = createSpeechRecognition();
+        recognition.lang = inputLangEl.value;
+        isRecognizing = true;
+
+        recognition.onresult = (event) => {
+          let interim = '';
+          for (let i = event.resultIndex; i < event.results.length; i++) {
+            const res = event.results[i];
+            if (res.isFinal) {
+              lastTranscript += res[0].transcript + ' ';
+            } else {
+              interim += res[0].transcript;
+            }
+          }
+
+          transcriptEl.value = lastTranscript + '\n' + interim;
+          transcriptEl.scrollTop = transcriptEl.scrollHeight;
+
+          // Call translation placeholder using the accumulated final text
+          debouncedTranslate(lastTranscript.trim(), targetLangEl.value);
+        };
+
+        recognition.onerror = (event) => {
+          console.error('Speech recognition error:', event.error);
+          setStatus('error', 'Speech error: ' + event.error);
+          isRecognizing = false;
+          startBtn.disabled = false;
+          stopBtn.disabled = true;
+        };
+
+        recognition.onend = () => {
+          // If we didn't explicitly stop, onend may be called unexpectedly
+          if (isRecognizing) {
+            try {
+              recognition.start();
+            } catch (e) {
+              console.warn('Restart failed:', e);
+              isRecognizing = false;
+              startBtn.disabled = false;
+              stopBtn.disabled = true;
+              setStatus('error', 'Speech engine stopped unexpectedly.');
+            }
+          }
+        };
+
+        try {
+          recognition.start();
+          setStatus('live', 'Listening & recording… speak now.');
+        } catch (err) {
+          console.error('Error starting recognition:', err);
+          setStatus('error', 'Could not start speech recognition.');
+        }
+      } else {
+        setStatus('error', 'Speech recognition is not supported here.');
+      }
+    }
+
+    function stopSession() {
+      stopBtn.disabled = true;
+      startBtn.disabled = false;
+      isRecognizing = false;
+
+      if (recognition) {
+        try {
+          recognition.onend = null; // avoid auto-restart
+          recognition.stop();
+        } catch (e) {
+          console.warn('Error stopping recognition:', e);
+        }
+        recognition = null;
+      }
+
+      if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+        mediaRecorder.stop();
+      }
+      recBadge.style.display = 'none';
+
+      setStatus(null, 'Stopped. Click Start to begin a new session.');
+    }
+
+    startBtn.addEventListener('click', startSession);
+    stopBtn.addEventListener('click', stopSession);
+
+    // If spoken language changes while running, update recognition language next restart.
+    inputLangEl.addEventListener('change', () => {
+      if (recognition) {
+        recognition.lang = inputLangEl.value;
+      }
+    });
+
+    // --- Translation Placeholder (YOU plug in a real API here) ---
+    let translateTimeout = null;
+    function debouncedTranslate(text, targetLang) {
+      if (!text) return;
+      if (translateTimeout) clearTimeout(translateTimeout);
+
+      translateTimeout = setTimeout(() => {
+        performTranslation(text, targetLang);
+      }, 800); // wait for user to pause speaking a bit
+    }
+
+    async function performTranslation(text, targetLang) {
+      // 🔹 CURRENT BEHAVIOR:
+      // For safety and simplicity, this just "simulates" translation by echoing the text.
+      // Replace this with a real translation API call if you like.
+      translationEl.value = `[Placeholder] Translate to (${targetLang}):\n\n` + text;
+      translationEl.scrollTop = translationEl.scrollHeight;
+
+      /*
+      // 🔧 EXAMPLE (LibreTranslate self-hosted / demo – you must check limits and host your own ideally):
+      try {
+        const res = await fetch('https://libretranslate.your-server.com/translate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            q: text,
+            source: 'auto',
+            target: targetLang
+          })
+        });
+        const data = await res.json();
+        translationEl.value = data.translatedText || '';
+      } catch (err) {
+        console.error('Translation error:', err);
+        translationEl.value = '[Translation error]\n\n' + text;
+      }
+      */
+    }
+
+    // Initial status
+    setStatus(null, 'Idle. Click Start to begin.');
+  </script>
+</body>
+</html>
