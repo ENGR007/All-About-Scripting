@@ -2,178 +2,130 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<title>Notebook Recorder — Live Transcription + Audio</title>
+<title>Notebook Recorder — Fast Save Version</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
+
 <style>
-    /* -------------------------------------------------------
-       NOTEBOOK UI THEME (LSEG-style dark navy + clean layout)
-       ------------------------------------------------------- */
-    :root {
-        --bg: #0d1220;
-        --card: #161b2e;
-        --border: #252b40;
-        --accent: #3f8cff;
-        --accent-soft: rgba(63, 140, 255, 0.12);
-        --accent-strong: #2c72e8;
-        --gold: #ffce47;
-        --text: #eef2ff;
-        --text-soft: #9aa4c7;
-        --red: #e04c65;
-        --red-soft: rgba(224, 76, 101, 0.18);
-        --green: #27e1a9;
-    }
+/* ============================================================
+   UI THEME
+   ============================================================ */
+:root {
+    --bg: #0d1220;
+    --card: #161b2e;
+    --border: #252b40;
+    --accent: #3f8cff;
+    --accent-soft: rgba(63,140,255,0.14);
+    --gold: #ffce47;
+    --text: #eef2ff;
+    --text-soft: #9aa4c7;
+    --red: #e04c65;
+    --green: #27e1a9;
+}
 
-    * { box-sizing: border-box; }
+body {
+    background: var(--bg);
+    color: var(--text);
+    margin: 0;
+    font-family: system-ui;
+}
 
-    body {
-        background: var(--bg);
-        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-        margin: 0;
-        padding: 0;
-        color: var(--text);
-        -webkit-font-smoothing: antialiased;
-    }
+header {
+    padding: 18px 22px;
+    background: #141a33;
+}
+header h1 { margin: 0; color: var(--gold); }
+header p { margin: 5px 0 0; color: var(--text-soft); }
 
-    header {
-        padding: 18px 22px;
-        background: linear-gradient(135deg, #11162b, #141a33);
-        border-bottom: 1px solid var(--border);
-        box-shadow: 0 4px 15px rgba(0,0,0,0.35);
-    }
+.card {
+    background: var(--card);
+    margin: 20px auto;
+    padding: 18px;
+    border-radius: 14px;
+    border: 1px solid var(--border);
+    max-width: 900px;
+}
 
-    header h1 {
-        margin: 0;
-        font-size: 1.35rem;
-        letter-spacing: 0.03em;
-        color: var(--gold);
-    }
+.section-title {
+    color: var(--gold);
+    margin-bottom: 12px;
+    font-size: .9rem;
+    text-transform: uppercase;
+}
 
-    header p {
-        margin: 4px 0 0;
-        font-size: .9rem;
-        color: var(--text-soft);
-    }
+.controls-row { display: flex; gap: 10px; flex-wrap: wrap; }
 
-    main {
-        padding: 24px;
-        max-width: 1200px;
-        margin: auto;
-    }
+button {
+    border: none;
+    padding: 8px 16px;
+    border-radius: 999px;
+    cursor: pointer;
+    background: var(--accent);
+    color: white;
+    font-size: .9rem;
+}
+button:disabled { opacity: .5; cursor: not-allowed; }
+.stop-btn { background: var(--red); }
 
-    .card {
-        background: var(--card);
-        border: 1px solid var(--border);
-        border-radius: 14px;
-        padding: 18px;
-        margin-bottom: 18px;
-        box-shadow: 0 6px 18px rgba(0,0,0,0.35);
-    }
+textarea {
+    width: 100%;
+    min-height: 180px;
+    background: #0f1322;
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px;
+    font-size: .9rem;
+}
 
-    .section-title {
-        font-size: .95rem;
-        font-weight: 600;
-        margin-bottom: 12px;
-        letter-spacing: .05em;
-        text-transform: uppercase;
-        color: var(--gold);
-    }
+.status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 12px;
+    padding: 6px 14px;
+    border-radius: 999px;
+    background: var(--accent-soft);
+    color: var(--text-soft);
+}
+.status-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: #555;
+}
+.status-dot.live {
+    background: var(--green);
+    box-shadow: 0 0 7px var(--green);
+}
 
-    .controls-row {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 10px;
-        align-items: center;
-        margin-bottom: 12px;
-    }
+.file-item {
+    background: rgba(255,255,255,0.05);
+    padding: 12px;
+    border-radius: 10px;
+    margin-bottom: 10px;
+    border: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.file-name { font-size: .85rem; }
+.file-btns button { font-size: .75rem; margin-left: 6px; }
+.rename-btn { background: #7b8bff; }
+.delete-btn { background: var(--red); }
+.play-btn { background: var(--green); }
 
-    button {
-        border: none;
-        border-radius: 999px;
-        padding: 9px 18px;
-        font-size: .9rem;
-        cursor: pointer;
-        color: white;
-        background: var(--accent);
-        font-weight: 500;
-        box-shadow: 0 3px 8px rgba(63,140,255,0.35);
-        transition: .12s ease;
-    }
-    button:hover:not(:disabled){
-        transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(63,140,255,0.55);
-    }
-    button:disabled {
-        opacity: .45;
-        cursor: not-allowed;
-    }
-
-    .stop-btn { background: var(--red); box-shadow: 0 3px 8px rgba(224,76,101,0.35); }
-    .stop-btn:hover:not(:disabled){ box-shadow: 0 4px 12px rgba(224,76,101,0.55); }
-
-    textarea {
-        width: 100%;
-        min-height: 180px;
-        background: #0f1322;
-        border: 1px solid var(--border);
-        border-radius: 10px;
-        padding: 12px;
-        font-size: .92rem;
-        color: var(--text);
-        line-height: 1.4;
-    }
-
-    .status-pill {
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        font-size: .85rem;
-        padding: 5px 12px;
-        background: var(--accent-soft);
-        border-radius: 999px;
-        color: var(--text-soft);
-        border: 1px solid var(--border);
-    }
-    .status-dot {
-        width: 10px; height: 10px;
-        border-radius: 50%;
-        background: #777;
-    }
-    .status-dot.live { background: var(--green); box-shadow: 0 0 7px var(--green); }
-
-    /* Library list */
-    .file-item {
-        background: rgba(255,255,255,0.04);
-        border: 1px solid var(--border);
-        padding: 12px;
-        border-radius: 10px;
-        margin-bottom: 10px;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-    }
-    .file-name { font-size: .9rem; }
-    .file-btns button {
-        margin-left: 6px;
-        padding: 6px 14px;
-        font-size: .8rem;
-    }
-    .rename-btn { background: #7b8bff; }
-    .delete-btn { background: var(--red); }
-    .play-btn { background: var(--green); }
 </style>
 </head>
 <body>
 
 <header>
     <h1>Notebook Recorder</h1>
-    <p>Live transcription + high-quality audio recording → saved directly to your chosen folder.</p>
+    <p>Live transcription + fast saving</p>
 </header>
-
-<main>
 
 <!-- CONTROLS -->
 <div class="card">
     <div class="section-title">Controls</div>
+
     <div class="controls-row">
         <button id="chooseFolderBtn">📁 Choose Save Folder</button>
         <button id="startBtn">▶ Start Recording</button>
@@ -186,80 +138,68 @@
     </div>
 </div>
 
-<!-- LIVE TRANSCRIPTION -->
+<!-- TRANSCRIPTION -->
 <div class="card">
     <div class="section-title">Live Transcription</div>
-    <textarea id="transcript" placeholder="Speech will appear here…" readonly></textarea>
+    <textarea id="transcript" readonly></textarea>
 </div>
 
-<!-- RECORDINGS LIBRARY -->
+<!-- LIBRARY -->
 <div class="card">
     <div class="section-title">Recordings Library</div>
     <div id="libraryList"></div>
 
     <div style="margin-top:14px;">
-        <button id="exportBtn">⬇ Export All (ZIP)</button>
+        <button id="exportBtn">⬇ Export ZIP</button>
         <button id="importBtn">⬆ Import ZIP</button>
         <input id="importFileInput" type="file" accept=".zip" style="display:none;">
     </div>
 </div>
 
-</main>
-
-<!-- PLAYBACK AUDIO ELEMENT -->
 <audio id="audioPlayer" controls style="display:none;"></audio>
 
-<script>
-/* ============================================================
-   GLOBALS
-   ============================================================ */
-let saveFolder = null;                 // FileSystemDirectoryHandle
-let recognition = null;                // SpeechRecognition
-let mediaRecorder = null;              // MediaRecorder
-let mediaChunks = [];                  // Audio chunks
-let liveTranscript = "";               // Full transcript
-let isRecording = false;
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 
-/* Timestamp format option: "2025-11-24 22-18-55" */
-function formattedTimestamp() {
+<script>
+/* ======================================================
+   GLOBAL STATE
+   ====================================================== */
+let saveFolder = null;
+let recognition = null;
+let mediaRecorder = null;
+let mediaChunks = [];
+let liveTranscript = "";
+
+/* Timestamp format */
+function ts() {
     const d = new Date();
-    const pad = n => (n < 10 ? "0" + n : n);
+    const pad = n => n<10?"0"+n:n;
     return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} `
          + `${pad(d.getHours())}-${pad(d.getMinutes())}-${pad(d.getSeconds())}`;
 }
 
-/* UI Helpers */
 function setStatus(text, live=false){
-    document.getElementById('statusText').textContent = text;
-    const dot = document.getElementById('statusDot');
-    dot.classList.toggle('live', live);
+    document.getElementById("statusText").textContent = text;
+    document.getElementById("statusDot").classList.toggle("live", live);
 }
 
-/* ============================================================
+/* ======================================================
    SELECT FOLDER
-   ============================================================ */
-document.getElementById('chooseFolderBtn').onclick = async () => {
-    try {
-        saveFolder = await window.showDirectoryPicker();
-        alert("Folder selected! All files will save here.");
-        refreshLibrary();
-    } catch (e) {
-        console.warn("Folder not chosen", e);
-    }
+   ====================================================== */
+document.getElementById("chooseFolderBtn").onclick = async () => {
+    saveFolder = await window.showDirectoryPicker();
+    alert("Folder selected!");
+    refreshLibrary(); // initial
 };
 
-/* ============================================================
-   START RECORDING
-   ============================================================ */
-document.getElementById('startBtn').onclick = async () => {
-    if (!saveFolder) return alert("Please choose a save folder first.");
+/* ======================================================
+   START
+   ====================================================== */
+document.getElementById("startBtn").onclick = async () => {
+    if (!saveFolder) return alert("Choose a save folder first.");
 
-    /* Start Speech Recognition */
     window.SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!window.SpeechRecognition) {
-        alert("SpeechRecognition not supported here.");
-        return;
-    }
+    if (!window.SpeechRecognition) return alert("SpeechRecognition not supported.");
 
     recognition = new window.SpeechRecognition();
     recognition.continuous = true;
@@ -267,7 +207,7 @@ document.getElementById('startBtn').onclick = async () => {
     recognition.lang = "en-US";
 
     liveTranscript = "";
-    document.getElementById('transcript').value = "";
+    document.getElementById("transcript").value = "";
 
     recognition.onresult = (e) => {
         let interim = "";
@@ -279,209 +219,159 @@ document.getElementById('startBtn').onclick = async () => {
                 interim += res[0].transcript;
             }
         }
-        document.getElementById('transcript').value =
+        document.getElementById("transcript").value =
             liveTranscript + "\n" + interim;
     };
 
     recognition.start();
 
-    /* Start audio recording */
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     mediaChunks = [];
-    mediaRecorder = new MediaRecorder(stream, {
-        mimeType: "audio/webm;codecs=opus",
-        audioBitsPerSecond: 192000
-    });
-
+    mediaRecorder = new MediaRecorder(stream);
     mediaRecorder.ondataavailable = e => mediaChunks.push(e.data);
-
     mediaRecorder.start();
 
-    isRecording = true;
     setStatus("Recording…", true);
-    document.getElementById('startBtn').disabled = true;
-    document.getElementById('stopBtn').disabled = false;
+    document.getElementById("startBtn").disabled = true;
+    document.getElementById("stopBtn").disabled = false;
 };
 
-/* ============================================================
-   STOP RECORDING
-   ============================================================ */
-document.getElementById('stopBtn').onclick = async () => {
-    if (!isRecording) return;
-
-    isRecording = false;
-    setStatus("Processing…");
+/* ======================================================
+   STOP — FAST SAVE VERSION
+   ====================================================== */
+document.getElementById("stopBtn").onclick = async () => {
+    setStatus("Saving…");
 
     recognition.stop();
     mediaRecorder.stop();
 
-    /* Wait a moment to finalize chunks */
     mediaRecorder.onstop = async () => {
         const blob = new Blob(mediaChunks, { type: "audio/webm" });
 
-        /* Ask for file name */
+        // Ask for title (Option B)
         let name = prompt("Save Session As:", "");
-        if (!name || !name.trim()) name = formattedTimestamp();
+        if (!name || !name.trim()) name = ts();
+        name = name.replace(/[\\/:*?"<>|]/g, "-").trim();
 
-        /* Clean filename */
-        name = name.replace(/[\\/:*?"<>|]/g, '-').trim();
+        // Save AUDIO instantly
+        const audioHandle = await saveFolder.getFileHandle(`${name}.webm`, { create: true });
+        const wA = await audioHandle.createWritable();
+        wA.write(blob).then(()=>wA.close());
 
-        /* Avoid overwrite */
-        let finalName = name;
-        let i = 2;
-        while (await exists(`${finalName}.webm`)) {
-            finalName = `${name} (${i++})`;
-        }
+        // Save TEXT instantly
+        const txtHandle = await saveFolder.getFileHandle(`${name}.txt`, { create: true });
+        const wT = await txtHandle.createWritable();
+        wT.write(liveTranscript.trim()).then(()=>wT.close());
 
-        /* Write AUDIO */
-        const audioHandle = await saveFolder.getFileHandle(`${finalName}.webm`, { create: true });
-        const writableA = await audioHandle.createWritable();
-        await writableA.write(blob);
-        await writableA.close();
-
-        /* Write TRANSCRIPT */
-        const txtHandle = await saveFolder.getFileHandle(`${finalName}.txt`, { create: true });
-        const writableT = await txtHandle.createWritable();
-        await writableT.write(liveTranscript.trim());
-        await writableT.close();
-
-        alert("Saved: " + finalName);
-        setStatus("Done");
-        refreshLibrary();
+        setStatus("Saved ✔");
+        
+        // Background refresh — non-blocking
+        setTimeout(refreshLibrary, 50);
     };
 
-    document.getElementById('startBtn').disabled = false;
-    document.getElementById('stopBtn').disabled = true;
+    document.getElementById("startBtn").disabled = false;
+    document.getElementById("stopBtn").disabled = true;
 };
 
-/* ============================================================
-   CHECK IF FILE EXISTS
-   ============================================================ */
-async function exists(filename){
-    if (!saveFolder) return false;
-    try {
-        await saveFolder.getFileHandle(filename);
-        return true;
-    } catch {
-        return false;
-    }
-}
-
-/* ============================================================
-   REFRESH RECORDINGS LIBRARY
-   ============================================================ */
+/* ======================================================
+   LIBRARY — NON BLOCKING
+   ====================================================== */
 async function refreshLibrary() {
     if (!saveFolder) return;
 
-    const list = document.getElementById('libraryList');
-    list.innerHTML = "";
+    const lib = document.getElementById("libraryList");
+    lib.innerHTML = "Loading…";
 
+    const items = [];
     for await (const entry of saveFolder.values()) {
-        if (entry.kind !== "file") continue;
+        if (entry.kind === "file" && entry.name.endsWith(".webm")) {
+            items.push(entry.name.replace(".webm", ""));
+        }
+    }
+    items.sort();
 
-        const name = entry.name;
-
-        if (!name.endsWith(".webm")) continue; // only show audio entries
-
-        const base = name.replace(/\.webm$/, "");
-        const txtName = base + ".txt";
-
-        const item = document.createElement("div");
-        item.className = "file-item";
-
-        item.innerHTML = `
+    lib.innerHTML = "";
+    for (const base of items) {
+        const row = document.createElement("div");
+        row.className = "file-item";
+        row.innerHTML = `
             <div class="file-name">${base}</div>
             <div class="file-btns">
-                <button class="play-btn">▶ Play</button>
-                <button class="rename-btn">✏ Rename</button>
-                <button class="delete-btn">🗑 Delete</button>
+                <button class="play-btn">▶</button>
+                <button class="rename-btn">✏</button>
+                <button class="delete-btn">🗑</button>
             </div>
         `;
 
         /* PLAY */
-        item.querySelector(".play-btn").onclick = async () => {
-            const file = await entry.getFile();
+        row.querySelector(".play-btn").onclick = async () => {
+            const audioHandle = await saveFolder.getFileHandle(base+".webm");
+            const file = await audioHandle.getFile();
             const url = URL.createObjectURL(file);
-            const player = document.getElementById('audioPlayer');
+            const player = document.getElementById("audioPlayer");
             player.src = url;
             player.style.display = "block";
             player.play();
         };
 
         /* RENAME */
-        item.querySelector(".rename-btn").onclick = async () => {
+        row.querySelector(".rename-btn").onclick = async () => {
             let newName = prompt("Rename:", base);
-            if (!newName || !newName.trim()) return;
+            if (!newName) return;
+            newName = newName.replace(/[\\/:*?"<>|]/g,"-");
 
-            newName = newName.replace(/[\\/:*?"<>|]/g, '-').trim();
+            const oldW = await saveFolder.getFileHandle(base+".webm");
+            const oldT = await saveFolder.getFileHandle(base+".txt");
 
-            /* Delete old + rewrite new */
-            await deleteFile(base + ".webm");
-            await deleteFile(base + ".txt");
+            const fileW = await oldW.getFile();
+            const fileT = await oldT.getFile();
 
-            // Avoid overwrite
-            let finalName = newName;
-            let i = 2;
-            while (await exists(`${finalName}.webm`)) {
-                finalName = `${newName} (${i++})`;
-            }
+            // Delete old
+            await saveFolder.removeEntry(base+".webm");
+            await saveFolder.removeEntry(base+".txt");
 
-            const fAudio = await entry.getFile();
-            const audioHandle = await saveFolder.getFileHandle(`${finalName}.webm`, { create: true });
-            const wa = await audioHandle.createWritable();
-            await wa.write(await fAudio.arrayBuffer());
-            await wa.close();
+            // Write new
+            const wH = await saveFolder.getFileHandle(newName+".webm", {create:true});
+            const wW = await wH.createWritable();
+            await wW.write(await fileW.arrayBuffer());
+            await wW.close();
 
-            // TXT
-            try {
-                const txtHandleOld = await saveFolder.getFileHandle(txtName);
-                const txtFileOld = await txtHandleOld.getFile();
-                const txtHandleNew = await saveFolder.getFileHandle(`${finalName}.txt`, { create: true });
-                const wt = await txtHandleNew.createWritable();
-                await wt.write(await txtFileOld.text());
-                await wt.close();
-            } catch {}
+            const tH = await saveFolder.getFileHandle(newName+".txt", {create:true});
+            const wT = await tH.createWritable();
+            await wT.write(await fileT.text());
+            await wT.close();
 
             refreshLibrary();
         };
 
         /* DELETE */
-        item.querySelector(".delete-btn").onclick = async () => {
+        row.querySelector(".delete-btn").onclick = async () => {
             if (!confirm("Delete this recording?")) return;
-            await deleteFile(name);
-            await deleteFile(txtName);
+            await saveFolder.removeEntry(base+".webm");
+            await saveFolder.removeEntry(base+".txt");
             refreshLibrary();
         };
 
-        list.appendChild(item);
+        lib.appendChild(row);
     }
 }
 
-/* DELETE A FILE */
-async function deleteFile(name){
-    try {
-        await saveFolder.removeEntry(name);
-    } catch(e){
-        console.warn("Delete error:", e);
-    }
-}
-
-/* ============================================================
+/* ======================================================
    EXPORT ZIP
-   ============================================================ */
-document.getElementById('exportBtn').onclick = async () => {
+   ====================================================== */
+document.getElementById("exportBtn").onclick = async () => {
     if (!saveFolder) return alert("Choose a folder first.");
-
     const zip = new JSZip();
 
     for await (const entry of saveFolder.values()) {
-        if (entry.kind !== "file") continue;
-        const file = await entry.getFile();
-        zip.file(entry.name, file);
+        if (entry.kind === "file") {
+            const file = await entry.getFile();
+            zip.file(entry.name, file);
+        }
     }
 
-    const content = await zip.generateAsync({ type: "blob" });
-    const url = URL.createObjectURL(content);
+    const blob = await zip.generateAsync({ type: "blob" });
+    const url = URL.createObjectURL(blob);
 
     const a = document.createElement("a");
     a.href = url;
@@ -489,40 +379,33 @@ document.getElementById('exportBtn').onclick = async () => {
     a.click();
 };
 
-/* ============================================================
+/* ======================================================
    IMPORT ZIP
-   ============================================================ */
-document.getElementById('importBtn').onclick = () => {
-    document.getElementById('importFileInput').click();
+   ====================================================== */
+document.getElementById("importBtn").onclick = () => {
+    document.getElementById("importFileInput").click();
 };
 
-document.getElementById('importFileInput').onchange = async (e) => {
+document.getElementById("importFileInput").onchange = async (e) => {
     if (!saveFolder) return alert("Choose a folder first.");
-
+    
     const file = e.target.files[0];
-    if (!file) return;
-
     const zip = await JSZip.loadAsync(file);
 
-    for (const [path, zipObj] of Object.entries(zip.files)) {
-        if (zipObj.dir) continue;
-
-        const content = await zipObj.async("blob");
-        const handle = await saveFolder.getFileHandle(path, { create: true });
-        const writable = await handle.createWritable();
-        await writable.write(content);
-        await writable.close();
+    for (const [name, entry] of Object.entries(zip.files)) {
+        if (!entry.dir) {
+            const blob = await entry.async("blob");
+            const handle = await saveFolder.getFileHandle(name, { create: true });
+            const w = await handle.createWritable();
+            await w.write(blob);
+            await w.close();
+        }
     }
 
-    alert("Import complete!");
+    alert("Import complete.");
     refreshLibrary();
 };
-
-/* ============================================================
-   INCLUDE JSZIP FROM CDN
-   ============================================================ */
 </script>
-<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 
 </body>
 </html>
