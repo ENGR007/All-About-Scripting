@@ -744,10 +744,16 @@
             session.audioBase64,
             session.mimeType || "audio/webm"
           );
+          
           const url = URL.createObjectURL(blob);
-          const audio = new Audio(url);
-          audio.play();
-          audio.addEventListener("ended", () => URL.revokeObjectURL(url));
+          currentAudio.pause();
+          currentAudio.src = url;
+          currentAudio.load();
+          currentAudio.play();
+        
+          currentAudio.onended = () => {
+            URL.revokeObjectURL(url);
+          };
         });
 
         const dlAudioBtn = document.createElement("button");
