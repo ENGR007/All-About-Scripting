@@ -1156,7 +1156,7 @@
         const labelSpan = document.createElement("span");
         labelSpan.textContent = clip.name || `Audio ${idx + 1}`;
     
-        // Download
+        // Download audio
         const downloadBtn = document.createElement("button");
         downloadBtn.textContent = "Download";
         downloadBtn.addEventListener("click", () => {
@@ -1169,31 +1169,31 @@
           document.body.removeChild(a);
         });
     
-        // Transcript
-        const transcriptBtn = document.createElement("button");
-        transcriptBtn.textContent = "Transcript";
-        transcriptBtn.addEventListener("click", async () => {
-          transcriptBtn.disabled = true;
-          transcriptBtn.textContent = "Transcribing...";
+        // Save transcript button (per audio)
+        const saveTxtBtn = document.createElement("button");
+        saveTxtBtn.textContent = "Save Transcript (.txt)";
+        saveTxtBtn.addEventListener("click", () => {
     
-          const blob = dataUrlToBlob(clip.dataUrl);
-          const text = await transcribeOfflineAudio(blob);
+          const transcript = clip.transcript || "";
+          if (!transcript.trim()) {
+            alert("No transcript was recorded for this audio.");
+            return;
+          }
     
           const safeName = (clip.name || `audio_${idx + 1}`).replace(/[^\w\- ]+/g, "_");
           const ts = new Date().toISOString().replace(/[:.]/g, "-");
+          const blob = new Blob([transcript], { type: "text/plain" });
     
           const a = document.createElement("a");
-          a.href = URL.createObjectURL(new Blob([text], { type: "text/plain" }));
+          a.href = URL.createObjectURL(blob);
           a.download = safeName + "_" + ts + ".txt";
+    
           document.body.appendChild(a);
           a.click();
           document.body.removeChild(a);
-    
-          transcriptBtn.disabled = false;
-          transcriptBtn.textContent = "Transcript";
         });
     
-        // Delete
+        // Delete audio
         const delBtn = document.createElement("button");
         delBtn.textContent = "Delete";
         delBtn.addEventListener("click", () => {
@@ -1206,7 +1206,7 @@
         row.appendChild(audioEl);
         row.appendChild(labelSpan);
         row.appendChild(downloadBtn);
-        row.appendChild(transcriptBtn);
+        row.appendChild(saveTxtBtn);
         row.appendChild(delBtn);
     
         audioListEl.appendChild(row);
@@ -1388,6 +1388,7 @@
               id: Date.now(),
               dataUrl,
               name
+              transcript: finalTranscript
             });
             saveNotebook();
             renderAudioList();
