@@ -480,6 +480,9 @@
       <div class="field-group">
         <label>Current audio preview</label>
         <audio id="currentAudio" controls></audio>
+        <div class="status-text">
+          <span id="recordingTimerText">Recording duration: 00:00</span>
+        </div>
         <span class="hint">
           After you click <strong>Stop</strong>, the latest recording appears here. Then click
           <strong>Save session</strong> to store audio + text in the notebook.
@@ -521,8 +524,8 @@
           <!-- Sessions injected here -->
         </div>
         <span class="hint">
-          All data is stored locally in your browser (localStorage). For longer recordings,
-          it’s still best to download the audio & transcript to your drive.
+          All data is stored locally in your browser (IndexedDB). For very long recordings,
+          it’s still good practice to download the audio & transcript to your drive.
         </span>
       </div>
     </section>
@@ -567,6 +570,7 @@
   const exportBtn = document.getElementById("exportBtn");
   const clearAllBtn = document.getElementById("clearAllBtn");
   const importFileInput = document.getElementById("importFile");
+  const recordingTimerText = document.getElementById("recordingTimerText");
 
   let recognition = null;
   let recognizing = false;
@@ -577,7 +581,21 @@
   let recordedChunks = [];
   let currentAudioBlob = null;
 
-  const STORAGE_KEY = "LiveNotebook_Sessions_v1";
+  // Timer state
+  let recordingStartTime = null;
+  let recordingTimerInterval = null;
+
+  // Playback state for saved sessions
+  let playButtonsBySession = {};
+  let currentPlayingSessionId = null;
+  let currentAudioUrl = null;
+
+  // IndexedDB constants
+  const DB_NAME = "LiveNotebookDB";
+  const DB_VERSION = 1;
+  const STORE_NAME = "sessions";
+  const LEGACY_STORAGE_KEY = "LiveNotebook_Sessions_v1"; // old localStorage key
+  let dbPromise = null;
 
   // ---------------------------
   // Utility functions
@@ -654,42 +672,149 @@
     return new Blob([byteArray], { type: mimeType });
   }
 
-  function loadSessions() {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (!raw) return [];
-      const arr = JSON.parse(raw);
-      if (!Array.isArray(arr)) return [];
-      return arr;
-    } catch (e) {
-      console.error("Error loading sessions:", e);
-      return [];
+  function setRecordingTimer(ms) {
+    if (!recordingTimerText) return;
+    const totalSec = Math.floor(ms / 1000);
+    const m = Math.floor(totalSec / 60);
+    const s = totalSec % 60;
+    recordingTimerText.textContent =
+      "Recording duration: " +
+      String(m).padStart(2, "0") +
+      ":" +
+      String(s).padStart(2, "0");
+  }
+
+  function resetCurrentPlayingLabel() {
+    if (currentPlayingSessionId && playButtonsBySession[currentPlayingSessionId]) {
+      playButtonsBySession[currentPlayingSessionId].textContent = "▶ Play";
     }
   }
 
-  function saveSessionsToStorage(sessions) {
+  // ---------------------------
+  // IndexedDB helpers
+  // ---------------------------
+
+  function getDB() {
+    if (!dbPromise) {
+      dbPromise = new Promise((resolve, reject) => {
+        const request = indexedDB.open(DB_NAME, DB_VERSION);
+        request.onupgradeneeded = (event) => {
+          const db = request.result;
+          if (!db.objectStoreNames.contains(STORE_NAME)) {
+            const store = db.createObjectStore(STORE_NAME, { keyPath: "id" });
+            store.createIndex("createdAt", "createdAt", { unique: false });
+          }
+        };
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
+    }
+    return dbPromise;
+  }
+
+  async function getAllSessions() {
+    const db = await getDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_NAME, "readonly");
+      const store = tx.objectStore(STORE_NAME);
+      const req = store.getAll();
+      req.onsuccess = () => {
+        const arr = req.result || [];
+        resolve(arr);
+      };
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  async function getSessionById(id) {
+    const db = await getDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_NAME, "readonly");
+      const store = tx.objectStore(STORE_NAME);
+      const req = store.get(id);
+      req.onsuccess = () => resolve(req.result || null);
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  async function putSession(session) {
+    const db = await getDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_NAME, "readwrite");
+      const store = tx.objectStore(STORE_NAME);
+      const req = store.put(session);
+      req.onsuccess = () => resolve();
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  async function deleteSessionById(id) {
+    const db = await getDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_NAME, "readwrite");
+      const store = tx.objectStore(STORE_NAME);
+      const req = store.delete(id);
+      req.onsuccess = () => resolve();
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  async function clearAllSessions() {
+    const db = await getDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_NAME, "readwrite");
+      const store = tx.objectStore(STORE_NAME);
+      const req = store.clear();
+      req.onsuccess = () => resolve();
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  async function migrateLegacyLocalStorage() {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions));
+      const raw = localStorage.getItem(LEGACY_STORAGE_KEY);
+      if (!raw) return;
+      const arr = JSON.parse(raw);
+      if (!Array.isArray(arr) || !arr.length) return;
+
+      for (const s of arr) {
+        if (!s.audioBase64) continue;
+        const blob = base64ToBlob(s.audioBase64, s.mimeType || "audio/webm");
+        const id =
+          s.id ||
+          s.createdAt ||
+          new Date().toISOString() + "_" + Math.random().toString(36).slice(2);
+        const sessionObj = {
+          id,
+          name: s.name || "Session_" + nowForName(),
+          createdAt: s.createdAt || new Date().toISOString(),
+          transcript: s.transcript || "",
+          mimeType: s.mimeType || blob.type || "audio/webm",
+          audioBlob: blob,
+        };
+        await putSession(sessionObj);
+      }
+      localStorage.removeItem(LEGACY_STORAGE_KEY);
+      console.log("Legacy sessions migrated from localStorage to IndexedDB.");
     } catch (e) {
-      console.error("Error saving sessions:", e);
+      console.error("Legacy migration error:", e);
     }
   }
 
   function updateSessionCount(sessions) {
     sessionCount.textContent =
-      sessions.length === 1
-        ? "1 session"
-        : sessions.length + " sessions";
+      sessions.length === 1 ? "1 session" : sessions.length + " sessions";
   }
 
   // ---------------------------
   // Render session list
   // ---------------------------
 
-  function renderSessions() {
-    const sessions = loadSessions();
+  async function renderSessions() {
+    const sessions = await getAllSessions();
     updateSessionCount(sessions);
 
+    playButtonsBySession = {};
     sessionsList.innerHTML = "";
     if (!sessions.length) {
       sessionsList.innerHTML =
@@ -713,22 +838,26 @@
         nameInput.value = session.name || "";
         nameInput.title = "Rename session";
 
-        nameInput.addEventListener("change", () => {
-          const sessionsAll = loadSessions();
-          const idx = sessionsAll.findIndex((s) => s.id === session.id);
-          if (idx !== -1) {
-            sessionsAll[idx].name =
-              nameInput.value.trim() || sessionsAll[idx].name;
-            saveSessionsToStorage(sessionsAll);
+        nameInput.addEventListener("change", async () => {
+          const newName = nameInput.value.trim();
+          const full = await getSessionById(session.id);
+          if (full) {
+            full.name = newName || full.name;
+            await putSession(full);
             renderSessions();
           }
         });
 
         const metaDiv = document.createElement("div");
         metaDiv.className = "session-meta";
+        const sizeKB =
+          session.audioBlob && session.audioBlob.size
+            ? " • " + Math.round(session.audioBlob.size / 1024) + " KB"
+            : "";
         metaDiv.innerHTML =
           '<span class="badge-pill">Saved</span> ' +
-          formatDateTime(session.createdAt);
+          formatDateTime(session.createdAt) +
+          sizeKB;
 
         headerRow.appendChild(nameInput);
         headerRow.appendChild(metaDiv);
@@ -739,33 +868,61 @@
         const playBtn = document.createElement("button");
         playBtn.className = "btn-primary";
         playBtn.textContent = "▶ Play";
-        playBtn.addEventListener("click", () => {
-          const blob = base64ToBlob(
-            session.audioBase64,
-            session.mimeType || "audio/webm"
-          );
-          
-          const url = URL.createObjectURL(blob);
-          currentAudio.pause();
+        playBtn.dataset.sessionId = session.id;
+        playButtonsBySession[session.id] = playBtn;
+
+        playBtn.addEventListener("click", async () => {
+          const id = session.id;
+
+          // If same session is currently playing, toggle pause
+          if (currentPlayingSessionId === id && !currentAudio.paused) {
+            currentAudio.pause();
+            return;
+          }
+
+          // Stop previous playback (if any)
+          if (!currentAudio.paused) {
+            currentAudio.pause();
+          }
+          if (currentAudioUrl) {
+            URL.revokeObjectURL(currentAudioUrl);
+            currentAudioUrl = null;
+          }
+          resetCurrentPlayingLabel();
+
+          const full = await getSessionById(id);
+          if (!full || !full.audioBlob) {
+            alert("No audio found for this session.");
+            return;
+          }
+
+          currentPlayingSessionId = id;
+          const url = URL.createObjectURL(full.audioBlob);
+          currentAudioUrl = url;
           currentAudio.src = url;
           currentAudio.load();
-          currentAudio.play();
-        
-          currentAudio.onended = () => {
-            URL.revokeObjectURL(url);
-          };
+          playBtn.textContent = "⏸ Pause";
+
+          try {
+            await currentAudio.play();
+          } catch (err) {
+            console.error("Playback error:", err);
+            resetCurrentPlayingLabel();
+            currentPlayingSessionId = null;
+          }
         });
 
         const dlAudioBtn = document.createElement("button");
         dlAudioBtn.className = "btn-ghost";
         dlAudioBtn.textContent = "⬇ Audio";
-        dlAudioBtn.addEventListener("click", () => {
-          const blob = base64ToBlob(
-            session.audioBase64,
-            session.mimeType || "audio/webm"
-          );
+        dlAudioBtn.addEventListener("click", async () => {
+          const full = await getSessionById(session.id);
+          if (!full || !full.audioBlob) {
+            alert("No audio available for this session.");
+            return;
+          }
           const baseName = session.name || "Session_" + nowForName();
-          downloadBlob(blob, baseName + ".webm");
+          downloadBlob(full.audioBlob, baseName + ".webm");
         });
 
         const dlTxtBtn = document.createElement("button");
@@ -779,10 +936,11 @@
         const delBtn = document.createElement("button");
         delBtn.className = "btn-danger";
         delBtn.textContent = "✕ Delete";
-        delBtn.addEventListener("click", () => {
-          const sessionsAll = loadSessions();
-          const filtered = sessionsAll.filter((s) => s.id !== session.id);
-          saveSessionsToStorage(filtered);
+        delBtn.addEventListener("click", async () => {
+          await deleteSessionById(session.id);
+          if (currentPlayingSessionId === session.id && !currentAudio.paused) {
+            currentAudio.pause();
+          }
           renderSessions();
         });
 
@@ -798,7 +956,10 @@
           (session.transcript || "").slice(0, 100).replace(/\s+/g, " ");
         transcriptPreview.innerHTML =
           "<strong>Preview:</strong> " +
-          (previewText ? previewText + (session.transcript.length > 100 ? "…" : "") : "<em>(empty)</em>");
+          (previewText
+            ? previewText +
+              (session.transcript && session.transcript.length > 100 ? "…" : "")
+            : "<em>(empty)</em>");
 
         card.appendChild(headerRow);
         card.appendChild(buttonsRow);
@@ -807,7 +968,19 @@
       });
   }
 
-  renderSessions();
+  // Keep Play button label in sync when audio stops/pauses
+  currentAudio.addEventListener("ended", () => {
+    resetCurrentPlayingLabel();
+    if (currentAudioUrl) {
+      URL.revokeObjectURL(currentAudioUrl);
+      currentAudioUrl = null;
+    }
+    currentPlayingSessionId = null;
+  });
+
+  currentAudio.addEventListener("pause", () => {
+    resetCurrentPlayingLabel();
+  });
 
   // ---------------------------
   // Speech recognition setup
@@ -870,7 +1043,7 @@
     recordedChunks = [];
 
     let options = {};
-    if (MediaRecorder.isTypeSupported("audio/webm;codecs=opus")) {
+    if (window.MediaRecorder && MediaRecorder.isTypeSupported("audio/webm;codecs=opus")) {
       options.mimeType = "audio/webm;codecs=opus";
     }
 
@@ -887,18 +1060,55 @@
         type: mediaRecorder.mimeType || "audio/webm",
       });
       currentAudioBlob = blob;
+
+      // Reset any previous session playback state
+      resetCurrentPlayingLabel();
+      currentPlayingSessionId = null;
+      if (currentAudioUrl) {
+        URL.revokeObjectURL(currentAudioUrl);
+        currentAudioUrl = null;
+      }
+
       const url = URL.createObjectURL(blob);
       currentAudio.src = url;
+      currentAudio.load();
+      currentAudioUrl = url;
+
       saveSessionBtn.disabled = false;
+
+      // Final timer update
+      if (recordingStartTime !== null) {
+        setRecordingTimer(Date.now() - recordingStartTime);
+      }
     };
 
     mediaRecorder.start();
+
+    // Start timer
+    recordingStartTime = Date.now();
+    setRecordingTimer(0);
+    if (recordingTimerInterval) {
+      clearInterval(recordingTimerInterval);
+    }
+    recordingTimerInterval = setInterval(() => {
+      if (recordingStartTime !== null) {
+        setRecordingTimer(Date.now() - recordingStartTime);
+      }
+    }, 1000);
   }
 
   function stopRecording() {
     if (mediaRecorder && mediaRecorder.state !== "inactive") {
       mediaRecorder.stop();
       mediaRecorder.stream.getTracks().forEach((t) => t.stop());
+    }
+    if (recordingTimerInterval) {
+      clearInterval(recordingTimerInterval);
+      recordingTimerInterval = null;
+    }
+    if (recordingStartTime !== null) {
+      setRecordingTimer(Date.now() - recordingStartTime);
+      recordingStartTime = null;
     }
   }
 
@@ -914,6 +1124,13 @@
     currentAudio.src = "";
     currentAudioBlob = null;
     saveSessionBtn.disabled = true;
+    resetCurrentPlayingLabel();
+    currentPlayingSessionId = null;
+    if (currentAudioUrl) {
+      URL.revokeObjectURL(currentAudioUrl);
+      currentAudioUrl = null;
+    }
+    setRecordingTimer(0);
 
     try {
       await startRecording();
@@ -947,7 +1164,7 @@
 
     const text = transcriptArea.value || "";
     const nameRaw = sessionNameInput.value.trim();
-    const name = nameRaw || "Session_" + nowForName(); // Option B: if no input, use date
+    const name = nameRaw || "Session_" + nowForName(); // if no input, use date
     const createdAt = new Date().toISOString();
     const mimeType = currentAudioBlob.type || "audio/webm";
 
@@ -955,18 +1172,16 @@
     saveSessionBtn.disabled = true;
 
     try {
-      const base64 = await blobToBase64(currentAudioBlob);
-      const sessions = loadSessions();
-      sessions.push({
+      const session = {
         id: createdAt + "_" + Math.random().toString(36).slice(2),
         name,
         createdAt,
         transcript: text,
-        audioBase64: base64,
         mimeType,
-      });
-      saveSessionsToStorage(sessions);
-      renderSessions();
+        audioBlob: currentAudioBlob,
+      };
+      await putSession(session);
+      await renderSessions();
       setStatus("Session saved locally.", "idle");
     } catch (e) {
       console.error("Failed to save session:", e);
@@ -977,9 +1192,24 @@
   });
 
   // Backup: export all
-  exportBtn.addEventListener("click", () => {
-    const sessions = loadSessions();
-    const blob = new Blob([JSON.stringify(sessions, null, 2)], {
+  exportBtn.addEventListener("click", async () => {
+    const sessions = await getAllSessions();
+    const exportArr = [];
+    for (const s of sessions) {
+      let audioBase64 = null;
+      if (s.audioBlob) {
+        audioBase64 = await blobToBase64(s.audioBlob);
+      }
+      exportArr.push({
+        id: s.id,
+        name: s.name,
+        createdAt: s.createdAt,
+        transcript: s.transcript,
+        mimeType: s.mimeType,
+        audioBase64,
+      });
+    }
+    const blob = new Blob([JSON.stringify(exportArr, null, 2)], {
       type: "application/json;charset=utf-8",
     });
     const filename = "LiveNotebook_Backup_" + nowForName() + ".json";
@@ -987,10 +1217,16 @@
   });
 
   // Clear all
-  clearAllBtn.addEventListener("click", () => {
+  clearAllBtn.addEventListener("click", async () => {
     if (!confirm("Delete ALL saved sessions from this browser?")) return;
-    localStorage.removeItem(STORAGE_KEY);
-    renderSessions();
+    await clearAllSessions();
+    resetCurrentPlayingLabel();
+    currentPlayingSessionId = null;
+    if (currentAudioUrl) {
+      URL.revokeObjectURL(currentAudioUrl);
+      currentAudioUrl = null;
+    }
+    await renderSessions();
   });
 
   // Import
@@ -998,17 +1234,36 @@
     const file = e.target.files[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = () => {
+    reader.onload = async () => {
       try {
         const imported = JSON.parse(reader.result);
         if (!Array.isArray(imported)) {
           alert("Invalid file format (expected array).");
           return;
         }
-        const existing = loadSessions();
-        const merged = existing.concat(imported);
-        saveSessionsToStorage(merged);
-        renderSessions();
+        for (const item of imported) {
+          if (!item.audioBase64) continue;
+          const blob = base64ToBlob(
+            item.audioBase64,
+            item.mimeType || "audio/webm"
+          );
+          const id =
+            item.id ||
+            item.createdAt ||
+            new Date().toISOString() +
+              "_" +
+              Math.random().toString(36).slice(2);
+          const obj = {
+            id,
+            name: item.name || "Imported_" + nowForName(),
+            createdAt: item.createdAt || new Date().toISOString(),
+            transcript: item.transcript || "",
+            mimeType: item.mimeType || blob.type || "audio/webm",
+            audioBlob: blob,
+          };
+          await putSession(obj);
+        }
+        await renderSessions();
         alert("Import complete. Sessions merged.");
       } catch (err) {
         console.error("Import error:", err);
@@ -1019,6 +1274,16 @@
     // reset input so same file can be selected again if needed
     e.target.value = "";
   });
+
+  // ---------------------------
+  // Init
+  // ---------------------------
+
+  (async function initApp() {
+    setRecordingTimer(0);
+    await migrateLegacyLocalStorage();
+    await renderSessions();
+  })();
 </script>
 </body>
 </html>
