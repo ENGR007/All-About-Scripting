@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Live Transcribe Pro</title>
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    max-width: 800px;
+    margin: 25px auto;
+    padding: 10px;
+    line-height: 1.6;
+  }
+  h1 { text-align: center; }
+  button {
+    padding: 10px 18px;
+    margin: 5px;
+    font-size: 15px;
+    cursor: pointer;
+  }
+  #status { margin-top: 10px; font-weight: bold; }
+  #transcript {
+    width: 100%;
+    height: 300px;
+    padding: 10px;
+    margin-top: 15px;
+    font-size: 15px;
+  }
+</style>
+</head>
+<body>
+
+<h1>🎤 Live Transcription Pro</h1>
+<p>Click <b>Start</b>, allow microphone, and begin speaking.</p>
+
+<button id="startBtn">Start</button>
+<button id="stopBtn" disabled>Stop</button>
+<button id="saveTxtBtn" disabled>Save as TXT</button>
+<button id="saveSrtBtn" disabled>Save as SRT</button>
+
+<div id="status">Status: idle</div>
+
+<textarea id="transcript" readonly></textarea>
+
+<script>
+window.SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+if (!window.SpeechRecognition) {
+  document.getElementById('status').textContent =
+    "❌ SpeechRecognition is not supported in this browser.";
+} else {
+  const recognition = new window.SpeechRecognition();
+  recognition.lang = "en-US";
+  recognition.continuous = true;
+  recognition.interimResults = true;
+
+  const startBtn = document.getElementById("startBtn");
+  const stopBtn = document.getElementById("stopBtn");
+  const saveTxtBtn = document.getElementById("saveTxtBtn");
+  const saveSrtBtn = document.getElementById("saveSrtBtn");
+  const statusEl = document.getElementById("status");
+  const transcriptEl = document.getElementById("transcript");
+
+  let finalText = "";
+  let segments = [];
+  let baseTime = null;
+
+  startBtn.onclick = () => {
+    finalText = "";
+    segments = [];
+    transcriptEl.value = "";
+    baseTime = Date.now();
+
+    recognition.start();
+    startBtn.disabled = true;
+    stopBtn.disabled = false;
+    saveTxtBtn.disabled = true;
+    saveSrtBtn.disabled = true;
+    statusEl.textContent = "🎙️ Listening…";
+  };
+
+  stopBtn.onclick = () => {
+    recognition.stop();
+    startBtn.disabled = false;
+    stopBtn.disabled = true;
+    saveTxtBtn.disabled = false;
+    saveSrtBtn.disabled = false;
+    statusEl.textContent = "Stopped";
+  };
+
+  recognition.onresult = (event) => {
+    let interim = "";
+
+    for (let i = event.resultIndex; i < event.results.length; i++) {
+      const res = event.results[i];
+      const text = res[0].transcript;
+
+      if (res.isFinal) {
+        finalText += text + " ";
+        const now = (Date.now() - baseTime) / 1000;
+
+        segments.push({
+          start: now - 1.5,     // rough timestamping
+          end: now,
+          text: text.trim()
+        });
+
+      } else {
+        interim += text;
+      }
+    }
+
+    transcriptEl.value = finalText + "\n" + interim;
+    transcriptEl.scrollTop = transcriptEl.scrollHeight;
+  };
+
+  // Save TXT
+  saveTxtBtn.onclick = () => {
+    const blob = new Blob([finalText.trim()], { type: "text/plain" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "transcript.txt";
+    a.click();
+  };
+
+  // Save SRT
+  saveSrtBtn.onclick = () => {
+    let srt = "";
+    segments.forEach((seg, i) => {
+      const format = (sec) => {
+        const d = new Date(sec * 1000).toISOString().substr(11, 12).replace('.', ',');
+        return d;
+      };
+
+      srt += (i + 1) + "\n";
+      srt += format(Math.max(seg.start, 0)) + " --> " + format(seg.end) + "\n";
+      srt += seg.text + "\n\n";
+    });
+
+    const blob = new Blob([srt], { type: "text/plain" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "transcript.srt";
+    a.click();
+  };
+
+  recognition.onerror = (e) => {
+    statusEl.textContent = "Error: " + e.error;
+    startBtn.disabled = false;
+    stopBtn.disabled = true;
+  };
+
+  recognition.onend = () => {
+    if (!stopBtn.disabled) {
+      statusEl.textContent = "Listening ended. Click Start again.";
+    }
+  };
+}
+</script>
+
+</body>
+</html>
