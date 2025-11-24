@@ -1120,7 +1120,9 @@
       }
       return new Blob([bytes], { type: mime });
     }
-
+      async function transcribeOfflineAudio(blob) {
+        return "Transcription not supported for saved audio on this browser.";
+      }
     function renderAudioList() {
       const page = pages[currentPageIndex];
       audioListEl.innerHTML = "";
@@ -1167,23 +1169,64 @@
           }
         });
 
-        const delBtn = document.createElement("button");
-        delBtn.textContent = "Delete";
-        delBtn.addEventListener("click", () => {
-          if (!confirm("Delete this audio note?")) return;
-          page.audio.splice(idx, 1);
-          saveNotebook();
-          renderAudioList();
-        });
-
-        row.appendChild(audioEl);
-        row.appendChild(labelSpan);
-        row.appendChild(downloadBtn);
-        row.appendChild(delBtn);
-        audioListEl.appendChild(row);
+      // Transcript button
+      const transcriptBtn = document.createElement("button");
+      transcriptBtn.textContent = "Transcript";
+      transcriptBtn.addEventListener("click", async () => {
+        transcriptBtn.disabled = true;
+        transcriptBtn.textContent = "Transcribing...";
+      
+        if (!recogSupported) {
+          alert("Transcription not supported in this browser.");
+          transcriptBtn.textContent = "Transcript";
+          transcriptBtn.disabled = false;
+          return;
+        }
+      
+        try {
+          const blob = dataUrlToBlob(clip.dataUrl);
+      
+          // Offline placeholder
+          const text = await transcribeOfflineAudio(blob);
+      
+          const safeName = (clip.name || `audio_${idx + 1}`).replace(/[^\w\- ]+/g, "_");
+          const ts = new Date().toISOString().replace(/[:.]/g, "-");
+      
+          const a = document.createElement("a");
+          a.href = URL.createObjectURL(new Blob([text], { type: "text/plain" }));
+          a.download = safeName + "_" + ts + ".txt";
+      
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+      
+        } catch (e) {
+          console.error(e);
+          alert("Transcription failed.");
+        }
+      
+        transcriptBtn.textContent = "Transcript";
+        transcriptBtn.disabled = false;
       });
-    }
-
+      
+      // Delete button
+      const delBtn = document.createElement("button");
+      delBtn.textContent = "Delete";
+      delBtn.addEventListener("click", () => {
+        if (!confirm("Delete this audio note?")) return;
+        page.audio.splice(idx, 1);
+        saveNotebook();
+        renderAudioList();
+      });
+      
+      // Append elements to row
+      row.appendChild(audioEl);
+      row.appendChild(labelSpan);
+      row.appendChild(downloadBtn);
+      row.appendChild(transcriptBtn);
+      row.appendChild(delBtn);
+      audioListEl.appendChild(row);
+      
     // ==========================
     // Live Transcription (SpeechRecognition)
     // ==========================
