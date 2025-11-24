@@ -246,6 +246,17 @@
       max-width: 220px;
     }
 
+    /* Transcript area */
+    #liveTranscript {
+      width: 100%;
+      min-height: 80px;
+      resize: vertical;
+      padding: 5px 6px;
+      border-radius: 4px;
+      border: 1px solid #ccc;
+      font-size: 0.85rem;
+    }
+
     .search-row {
       margin-top: 4px;
       display: flex;
@@ -418,10 +429,21 @@
             <option value="enhanced">Enhanced (noise-reduced)</option>
           </select>
         </label>
+
+        <!-- NEW: Save transcript button -->
+        <button id="saveTranscriptBtn" disabled>Save Transcript (.txt)</button>
       </div>
+
       <div id="audioList" class="audio-list"></div>
       <div id="audioHint" class="hint">
         🎙 Audio recording uses your microphone. Support depends on your browser/device.
+      </div>
+
+      <!-- NEW: Live transcript area -->
+      <div id="transcriptContainer" class="note-meta">
+        <label for="liveTranscript">Live Transcript (this recording only):</label>
+        <textarea id="liveTranscript" placeholder="Transcript will appear here..." readonly></textarea>
+        <div id="transcriptStatus" class="hint">Speech recognition: idle</div>
       </div>
     </div>
 
@@ -449,9 +471,10 @@
       Use Export/Import to back up or move to another browser.
     </div>
   </div>
-
   <script>
-    // ---- Data model ----
+    // =====================================================
+    //  Notebook core data + drawing (unchanged from yours)
+    // =====================================================
     const STORAGE_KEY = "handNotebook_v2";
 
     // Multi-notebook state
@@ -496,6 +519,11 @@
     const audioListEl = document.getElementById("audioList");
     const audioHintEl = document.getElementById("audioHint");
     const audioModeSelect = document.getElementById("audioMode");
+
+    // NEW: transcription DOM elements
+    const saveTranscriptBtn = document.getElementById("saveTranscriptBtn");
+    const liveTranscriptEl = document.getElementById("liveTranscript");
+    const transcriptStatusEl = document.getElementById("transcriptStatus");
 
     // Notebook UI
     const notebookSelect = document.getElementById("notebookSelect");
@@ -1077,7 +1105,10 @@
       }
     });
 
-    // ---- Audio helpers ----
+    
+    // ==========================
+    // Audio helpers
+    // ==========================
     function dataUrlToBlob(dataUrl) {
       const parts = dataUrl.split(",");
       const match = parts[0].match(/:(.*?);/);
@@ -1090,144 +1121,79 @@
       }
       return new Blob([bytes], { type: mime });
     }
-
-    function decodeAudioDataSafe(audioCtx, arrayBuffer) {
-      // Promise wrapper for wider browser compatibility
-      return new Promise((resolve, reject) => {
-        audioCtx.decodeAudioData(arrayBuffer, resolve, reject);
-      });
+    
+    // ✨ MUST BE OUTSIDE ANY FUNCTION
+    async function transcribeOfflineAudio(blob) {
+      return "Transcription not supported for saved audio on this browser.";
     }
-
-    async function webmDataUrlToWavBlob(dataUrl) {
-      const blob = dataUrlToBlob(dataUrl);
-      const arrayBuffer = await blob.arrayBuffer();
-
-      const AudioCtx = window.AudioContext || window.webkitAudioContext;
-      if (!AudioCtx) {
-        throw new Error("Web Audio API not supported");
-      }
-
-      const audioCtx = new AudioCtx();
-      const audioBuffer = await decodeAudioDataSafe(audioCtx, arrayBuffer);
-      const wavArrayBuffer = audioBufferToWav(audioBuffer);
-      return new Blob([wavArrayBuffer], { type: "audio/wav" });
-    }
-
-    function audioBufferToWav(buffer) {
-      const numChannels = buffer.numberOfChannels;
-      const sampleRate = buffer.sampleRate;
-      const format = 1; // PCM
-      const bitDepth = 16;
-
-      const samples = buffer.length * numChannels;
-      const bytesPerSample = bitDepth / 8;
-      const blockAlign = numChannels * bytesPerSample;
-      const dataSize = samples * bytesPerSample;
-      const bufferSize = 44 + dataSize;
-
-      const arrayBuffer = new ArrayBuffer(bufferSize);
-      const view = new DataView(arrayBuffer);
-
-      // Helpers
-      function writeString(view, offset, string) {
-        for (let i = 0; i < string.length; i++) {
-          view.setUint8(offset + i, string.charCodeAt(i));
-        }
-      }
-
-      function floatTo16BitPCM(view, offset, input) {
-        for (let i = 0; i < input.length; i++, offset += 2) {
-          let s = Math.max(-1, Math.min(1, input[i]));
-          s = s < 0 ? s * 0x8000 : s * 0x7FFF;
-          view.setInt16(offset, s, true);
-        }
-      }
-
-      // RIFF chunk descriptor
-      writeString(view, 0, "RIFF");
-      view.setUint32(4, 36 + dataSize, true);
-      writeString(view, 8, "WAVE");
-
-      // fmt sub-chunk
-      writeString(view, 12, "fmt ");
-      view.setUint32(16, 16, true);            // SubChunk1Size (16 for PCM)
-      view.setUint16(20, format, true);        // AudioFormat
-      view.setUint16(22, numChannels, true);   // NumChannels
-      view.setUint32(24, sampleRate, true);    // SampleRate
-      view.setUint32(28, sampleRate * blockAlign, true); // ByteRate
-      view.setUint16(32, blockAlign, true);    // BlockAlign
-      view.setUint16(34, bitDepth, true);      // BitsPerSample
-
-      // data sub-chunk
-      writeString(view, 36, "data");
-      view.setUint32(40, dataSize, true);
-
-      // Interleave channels
-      const interleaved = new Float32Array(samples);
-      let offset = 0;
-      for (let i = 0; i < buffer.length; i++) {
-        for (let ch = 0; ch < numChannels; ch++) {
-          interleaved[offset++] = buffer.getChannelData(ch)[i];
-        }
-      }
-
-      // PCM samples
-      floatTo16BitPCM(view, 44, interleaved);
-
-      return arrayBuffer;
-    }
-
+    
+    // ==========================
+    // Audio list renderer
+    // ==========================
     function renderAudioList() {
       const page = pages[currentPageIndex];
       audioListEl.innerHTML = "";
+    
       if (!page || !page.audio || !page.audio.length) {
         audioListEl.textContent = "No audio notes on this page yet.";
         return;
       }
+    
       page.audio.forEach((clip, idx) => {
         const row = document.createElement("div");
         row.className = "audio-row";
-
+    
         const audioEl = document.createElement("audio");
         audioEl.controls = true;
+    
         try {
           const blob = dataUrlToBlob(clip.dataUrl);
           audioEl.src = URL.createObjectURL(blob);
         } catch (e) {
           audioEl.textContent = "Audio not supported.";
         }
-
+    
         const labelSpan = document.createElement("span");
         labelSpan.textContent = clip.name || `Audio ${idx + 1}`;
-
-        // Download button: convert from WEBM dataURL → WAV file
+    
+        // Download audio
         const downloadBtn = document.createElement("button");
-        downloadBtn.textContent = "Download WAV";
-        downloadBtn.addEventListener("click", async () => {
-          try {
-            recordStatus.textContent = "Preparing WAV...";
-
-            const safeName = (clip.name || `audio_${idx + 1}`).replace(/[^\w\- ]+/g, "_");
-            const wavBlob = await webmDataUrlToWavBlob(clip.dataUrl);
-            const url = URL.createObjectURL(wavBlob);
-
-            const a = document.createElement("a");
-            a.href = url;
-            a.download = safeName + ".wav";
-
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-
-            URL.revokeObjectURL(url);
-            recordStatus.textContent = "WAV downloaded.";
-          } catch (err) {
-            console.error(err);
-            alert("Conversion to WAV failed. Your browser may not fully support Web Audio decoding.");
-            recordStatus.textContent = "Conversion failed.";
-          }
+        downloadBtn.textContent = "Download";
+        downloadBtn.addEventListener("click", () => {
+          const safeName = (clip.name || `audio_${idx + 1}`).replace(/[^\w\- ]+/g, "_");
+          const a = document.createElement("a");
+          a.href = clip.dataUrl;
+          a.download = safeName + ".webm";
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
         });
-
+    
+        // Save transcript button (per audio)
+        const saveTxtBtn = document.createElement("button");
+        saveTxtBtn.textContent = "Save Transcript (.txt)";
+        saveTxtBtn.addEventListener("click", () => {
+    
+          const transcript = clip.transcript || "";
+          if (!transcript.trim()) {
+            alert("No transcript was recorded for this audio.");
+            return;
+          }
+    
+          const safeName = (clip.name || `audio_${idx + 1}`).replace(/[^\w\- ]+/g, "_");
+          const ts = new Date().toISOString().replace(/[:.]/g, "-");
+          const blob = new Blob([transcript], { type: "text/plain" });
+    
+          const a = document.createElement("a");
+          a.href = URL.createObjectURL(blob);
+          a.download = safeName + "_" + ts + ".txt";
+    
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+        });
+    
+        // Delete audio
         const delBtn = document.createElement("button");
         delBtn.textContent = "Delete";
         delBtn.addEventListener("click", () => {
@@ -1236,19 +1202,123 @@
           saveNotebook();
           renderAudioList();
         });
-
+    
         row.appendChild(audioEl);
         row.appendChild(labelSpan);
         row.appendChild(downloadBtn);
+        row.appendChild(saveTxtBtn);
         row.appendChild(delBtn);
+    
         audioListEl.appendChild(row);
       });
     }
+                
+    // ==========================
+    // Live Transcription (SpeechRecognition)
+    // ==========================
+    window.SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const recogSupported = !!window.SpeechRecognition;
+    let recognition = null;
+    let isRecognizing = false;
+    let finalTranscript = "";
+    let transcriptSegments = [];
+    let transcriptBaseTime = null;
 
-    // ---- Enhanced recording ----
+    function setupRecognition() {
+      if (!recogSupported) {
+        if (transcriptStatusEl) {
+          transcriptStatusEl.textContent = "Speech recognition: not supported in this browser.";
+        }
+        if (saveTranscriptBtn) {
+          saveTranscriptBtn.disabled = true;
+        }
+        return;
+      }
+
+      recognition = new window.SpeechRecognition();
+      recognition.lang = "en-US";
+      recognition.continuous = true;
+      recognition.interimResults = true;
+
+      recognition.onstart = () => {
+        isRecognizing = true;
+        if (transcriptStatusEl) {
+          transcriptStatusEl.textContent = "Speech recognition: listening…";
+        }
+      };
+
+      recognition.onresult = (event) => {
+        let interim = "";
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const res = event.results[i];
+          const text = res[0].transcript;
+          if (res.isFinal) {
+            finalTranscript += text + " ";
+            const now = (Date.now() - transcriptBaseTime) / 1000;
+            transcriptSegments.push({
+              start: Math.max(now - 1.5, 0),
+              end: now,
+              text: text.trim()
+            });
+          } else {
+            interim += text;
+          }
+        }
+
+        if (liveTranscriptEl) {
+          liveTranscriptEl.value = finalTranscript + "\n" + interim;
+          liveTranscriptEl.scrollTop = liveTranscriptEl.scrollHeight;
+        }
+      };
+
+      recognition.onerror = (e) => {
+        console.error("SpeechRecognition error:", e);
+        isRecognizing = false;
+        if (transcriptStatusEl) {
+          transcriptStatusEl.textContent = "Speech recognition error: " + e.error;
+        }
+        if (saveTranscriptBtn && finalTranscript.trim()) {
+          saveTranscriptBtn.disabled = false;
+        }
+      };
+
+      recognition.onend = () => {
+        isRecognizing = false;
+        if (transcriptStatusEl) {
+          transcriptStatusEl.textContent = "Speech recognition: stopped.";
+        }
+        if (saveTranscriptBtn && finalTranscript.trim()) {
+          saveTranscriptBtn.disabled = false;
+        }
+      };
+    }
+
+    // Save transcript as .txt
+    if (saveTranscriptBtn) {
+      saveTranscriptBtn.addEventListener("click", () => {
+        const text = (finalTranscript || "").trim();
+        if (!text) {
+          alert("No transcript available yet.");
+          return;
+        }
+        const blob = new Blob([text], { type: "text/plain" });
+        const a = document.createElement("a");
+        const ts = new Date().toISOString().replace(/[:.]/g, "-");
+        a.href = URL.createObjectURL(blob);
+        a.download = "notebook_transcript_" + ts + ".txt";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      });
+    }
+
+    // ==========================
+    // Enhanced recording + tie to transcription
+    // ==========================
     async function startRecording() {
       if (!audioSupported || isRecordingAudio) return;
       try {
+        // Choose constraints based on audio mode
         const mode = audioModeSelect ? audioModeSelect.value : "standard";
 
         let constraints;
@@ -1317,7 +1387,8 @@
             page.audio.push({
               id: Date.now(),
               dataUrl,
-              name
+              name,
+              transcript: finalTranscript
             });
             saveNotebook();
             renderAudioList();
@@ -1325,6 +1396,25 @@
           };
           reader.readAsDataURL(blob);
         };
+
+        // Reset transcript for this new recording session
+        finalTranscript = "";
+        transcriptSegments = [];
+        if (liveTranscriptEl) liveTranscriptEl.value = "";
+        if (transcriptStatusEl) transcriptStatusEl.textContent = "Speech recognition: starting…";
+        if (saveTranscriptBtn) saveTranscriptBtn.disabled = true;
+
+        // Start SpeechRecognition at same time (if supported)
+        if (recogSupported && recognition) {
+          transcriptBaseTime = Date.now();
+          try {
+            recognition.start();
+          } catch (err) {
+            console.warn("Recognition start failed:", err);
+          }
+        } else if (!recogSupported && transcriptStatusEl) {
+          transcriptStatusEl.textContent = "Speech recognition not available in this browser.";
+        }
 
         mediaRecorder.start(); // unlimited until you press Stop
         isRecordingAudio = true;
@@ -1344,6 +1434,15 @@
       if (!isRecordingAudio || !mediaRecorder) return;
       recordStatus.textContent = "Recording status: Stopping...";
       mediaRecorder.stop();
+
+      // Also stop recognition if active
+      if (recogSupported && recognition && isRecognizing) {
+        try {
+          recognition.stop();
+        } catch (err) {
+          console.warn("Recognition stop failed:", err);
+        }
+      }
     }
 
     function initAudio() {
@@ -1352,11 +1451,13 @@
         stopRecordBtn.disabled = true;
         recordStatus.textContent = "Recording status: Not supported in this browser.";
         audioHintEl.textContent = "Your browser does not support in-page audio recording.";
-        return;
+      } else {
+        startRecordBtn.addEventListener("click", startRecording);
+        stopRecordBtn.addEventListener("click", stopRecording);
       }
 
-      startRecordBtn.addEventListener("click", startRecording);
-      stopRecordBtn.addEventListener("click", stopRecording);
+      // Init speech recognition
+      setupRecognition();
     }
 
     // ---- Export / Import (full backup) ----
