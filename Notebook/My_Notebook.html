@@ -410,7 +410,7 @@
         <button id="stopRecordBtn" disabled>Stop</button>
         <span id="recordStatus">Recording status: Idle</span>
 
-        <!-- NEW: Audio mode selector -->
+        <!-- Audio mode selector -->
         <label class="toolbar-label" style="margin-left:8px;">
           Mode
           <select id="audioMode" style="margin-left:4px; font-size:0.8rem; padding:2px 4px;">
@@ -449,7 +449,7 @@
       Use Export/Import to back up or move to another browser.
     </div>
   </div>
-  <script src="https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.4/dist/ffmpeg.min.js"></script>
+
   <script>
     // ---- Data model ----
     const STORAGE_KEY = "handNotebook_v2";
@@ -495,7 +495,7 @@
     const recordStatus = document.getElementById("recordStatus");
     const audioListEl = document.getElementById("audioList");
     const audioHintEl = document.getElementById("audioHint");
-    const audioModeSelect = document.getElementById("audioMode"); // NEW
+    const audioModeSelect = document.getElementById("audioMode");
 
     // Notebook UI
     const notebookSelect = document.getElementById("notebookSelect");
@@ -1091,6 +1091,92 @@
       return new Blob([bytes], { type: mime });
     }
 
+    function decodeAudioDataSafe(audioCtx, arrayBuffer) {
+      // Promise wrapper for wider browser compatibility
+      return new Promise((resolve, reject) => {
+        audioCtx.decodeAudioData(arrayBuffer, resolve, reject);
+      });
+    }
+
+    async function webmDataUrlToWavBlob(dataUrl) {
+      const blob = dataUrlToBlob(dataUrl);
+      const arrayBuffer = await blob.arrayBuffer();
+
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) {
+        throw new Error("Web Audio API not supported");
+      }
+
+      const audioCtx = new AudioCtx();
+      const audioBuffer = await decodeAudioDataSafe(audioCtx, arrayBuffer);
+      const wavArrayBuffer = audioBufferToWav(audioBuffer);
+      return new Blob([wavArrayBuffer], { type: "audio/wav" });
+    }
+
+    function audioBufferToWav(buffer) {
+      const numChannels = buffer.numberOfChannels;
+      const sampleRate = buffer.sampleRate;
+      const format = 1; // PCM
+      const bitDepth = 16;
+
+      const samples = buffer.length * numChannels;
+      const bytesPerSample = bitDepth / 8;
+      const blockAlign = numChannels * bytesPerSample;
+      const dataSize = samples * bytesPerSample;
+      const bufferSize = 44 + dataSize;
+
+      const arrayBuffer = new ArrayBuffer(bufferSize);
+      const view = new DataView(arrayBuffer);
+
+      // Helpers
+      function writeString(view, offset, string) {
+        for (let i = 0; i < string.length; i++) {
+          view.setUint8(offset + i, string.charCodeAt(i));
+        }
+      }
+
+      function floatTo16BitPCM(view, offset, input) {
+        for (let i = 0; i < input.length; i++, offset += 2) {
+          let s = Math.max(-1, Math.min(1, input[i]));
+          s = s < 0 ? s * 0x8000 : s * 0x7FFF;
+          view.setInt16(offset, s, true);
+        }
+      }
+
+      // RIFF chunk descriptor
+      writeString(view, 0, "RIFF");
+      view.setUint32(4, 36 + dataSize, true);
+      writeString(view, 8, "WAVE");
+
+      // fmt sub-chunk
+      writeString(view, 12, "fmt ");
+      view.setUint32(16, 16, true);            // SubChunk1Size (16 for PCM)
+      view.setUint16(20, format, true);        // AudioFormat
+      view.setUint16(22, numChannels, true);   // NumChannels
+      view.setUint32(24, sampleRate, true);    // SampleRate
+      view.setUint32(28, sampleRate * blockAlign, true); // ByteRate
+      view.setUint16(32, blockAlign, true);    // BlockAlign
+      view.setUint16(34, bitDepth, true);      // BitsPerSample
+
+      // data sub-chunk
+      writeString(view, 36, "data");
+      view.setUint32(40, dataSize, true);
+
+      // Interleave channels
+      const interleaved = new Float32Array(samples);
+      let offset = 0;
+      for (let i = 0; i < buffer.length; i++) {
+        for (let ch = 0; ch < numChannels; ch++) {
+          interleaved[offset++] = buffer.getChannelData(ch)[i];
+        }
+      }
+
+      // PCM samples
+      floatTo16BitPCM(view, 44, interleaved);
+
+      return arrayBuffer;
+    }
+
     function renderAudioList() {
       const page = pages[currentPageIndex];
       audioListEl.innerHTML = "";
@@ -1114,57 +1200,30 @@
         const labelSpan = document.createElement("span");
         labelSpan.textContent = clip.name || `Audio ${idx + 1}`;
 
-        // Download button so you can save to phone / device
+        // Download button: convert from WEBM dataURL → WAV file
         const downloadBtn = document.createElement("button");
-        downloadBtn.textContent = "Download";
+        downloadBtn.textContent = "Download WAV";
         downloadBtn.addEventListener("click", async () => {
           try {
-            recordStatus.textContent = "Converting to M4A... please wait";
-        
-            const { createFFmpeg, fetchFile } = FFmpeg;
-            const ffmpeg = createFFmpeg({ log: false });
-        
-            if (!ffmpeg.isLoaded()) {
-              await ffmpeg.load();
-            }
-        
+            recordStatus.textContent = "Preparing WAV...";
+
             const safeName = (clip.name || `audio_${idx + 1}`).replace(/[^\w\- ]+/g, "_");
-        
-            // Convert base64 → blob → Uint8Array
-            const blob = dataUrlToBlob(clip.dataUrl);
-            const u8 = new Uint8Array(await blob.arrayBuffer());
-        
-            // Write input file for ffmpeg
-            ffmpeg.FS("writeFile", "input.webm", u8);
-        
-            // Run conversion
-            await ffmpeg.run(
-              "-i", "input.webm",
-              "-c:a", "aac",
-              "-b:a", "192k",
-              "output.m4a"
-            );
-        
-            // Read output
-            const data = ffmpeg.FS("readFile", "output.m4a");
-        
-            const outBlob = new Blob([data.buffer], { type: "audio/mp4" });
-            const url = URL.createObjectURL(outBlob);
-        
+            const wavBlob = await webmDataUrlToWavBlob(clip.dataUrl);
+            const url = URL.createObjectURL(wavBlob);
+
             const a = document.createElement("a");
             a.href = url;
-            a.download = safeName + ".m4a";
-        
+            a.download = safeName + ".wav";
+
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
-        
+
             URL.revokeObjectURL(url);
-        
-            recordStatus.textContent = "M4A ready & downloaded!";
+            recordStatus.textContent = "WAV downloaded.";
           } catch (err) {
             console.error(err);
-            alert("Conversion to M4A failed.");
+            alert("Conversion to WAV failed. Your browser may not fully support Web Audio decoding.");
             recordStatus.textContent = "Conversion failed.";
           }
         });
@@ -1190,7 +1249,6 @@
     async function startRecording() {
       if (!audioSupported || isRecordingAudio) return;
       try {
-        // Choose constraints based on audio mode
         const mode = audioModeSelect ? audioModeSelect.value : "standard";
 
         let constraints;
@@ -1202,7 +1260,6 @@
               echoCancellation: true,
               noiseSuppression: true,
               autoGainControl: true
-              // sampleRate / sampleSize are often ignored, so we skip them
             }
           };
         } else {
