@@ -576,6 +576,7 @@
   let recognizing = false;
   let finalTranscript = "";
   let interimTranscript = "";
+  let lastInsertedMinute = -1;   // NEW: tracks last minute marker inserted
 
   let mediaRecorder = null;
   let recordedChunks = [];
@@ -594,7 +595,7 @@
   const DB_NAME = "LiveNotebookDB";
   const DB_VERSION = 1;
   const STORE_NAME = "sessions";
-  const LEGACY_STORAGE_KEY = "LiveNotebook_Sessions_v1";
+  const LEGACY_STORAGE_KEY = "LiveNotebook_Sessions_v1"; // old localStorage key
   let dbPromise = null;
 
   // ---------------------------
@@ -698,7 +699,7 @@
     if (!dbPromise) {
       dbPromise = new Promise((resolve, reject) => {
         const request = indexedDB.open(DB_NAME, DB_VERSION);
-        request.onupgradeneeded = () => {
+        request.onupgradeneeded = (event) => {
           const db = request.result;
           if (!db.objectStoreNames.contains(STORE_NAME)) {
             const store = db.createObjectStore(STORE_NAME, { keyPath: "id" });
@@ -874,13 +875,13 @@
         playBtn.addEventListener("click", async () => {
           const id = session.id;
 
-          // Toggle pause if same session is playing
+          // If same session is currently playing, toggle pause
           if (currentPlayingSessionId === id && !currentAudio.paused) {
             currentAudio.pause();
             return;
           }
 
-          // Stop previous playback
+          // Stop previous playback (if any)
           if (!currentAudio.paused) {
             currentAudio.pause();
           }
@@ -982,56 +983,6 @@
     resetCurrentPlayingLabel();
   });
 
-  // ---------------------------------------------
-  // Minute-based transcript formatting (SRT-like)
-  // ---------------------------------------------
-
-  // Each block = one minute of recording, with text
-  // Output looks like:
-  // [00:00]
-  // First minute text...
-  //
-  // [01:00]
-  // Second minute text...
-  let transcriptBlocks = [];
-
-  function formatMinuteHeader(minute) {
-    const m = String(minute).padStart(2, "0");
-    return `${m}:00`;
-  }
-
-  function addFinalTextToBlock(text) {
-    const trimmed = text.trim();
-    if (!trimmed) return;
-
-    let elapsedMs = 0;
-    if (recordingStartTime) {
-      elapsedMs = Date.now() - recordingStartTime;
-    }
-    const minute = Math.floor(elapsedMs / 60000); // 0,1,2,...
-
-    let block = transcriptBlocks.find((b) => b.minute === minute);
-    if (!block) {
-      block = { minute, text: "" };
-      transcriptBlocks.push(block);
-    }
-    block.text += (block.text ? " " : "") + trimmed;
-  }
-
-  function rebuildTranscriptText() {
-    if (!transcriptBlocks.length) return "";
-    const lines = [];
-    transcriptBlocks
-      .slice()
-      .sort((a, b) => a.minute - b.minute)
-      .forEach((block) => {
-        lines.push(`[${formatMinuteHeader(block.minute)}]`);
-        lines.push(block.text.trim());
-        lines.push(""); // blank line between blocks
-      });
-    return lines.join("\n").trim();
-  }
-
   // ---------------------------
   // Speech recognition setup
   // ---------------------------
@@ -1062,17 +1013,36 @@
 
     recognition.onresult = (event) => {
       interimTranscript = "";
+
+      const now = Date.now();
+      const elapsedMs = recordingStartTime ? now - recordingStartTime : 0;
+      const currentMinute = Math.floor(elapsedMs / 60000);
+
       for (let i = event.resultIndex; i < event.results.length; i++) {
         const res = event.results[i];
         if (res.isFinal) {
-          addFinalTextToBlock(res[0].transcript);
+          // Insert minute marker when crossing into a new minute
+          if (currentMinute !== -1 && currentMinute > lastInsertedMinute) {
+            const mm = String(currentMinute).padStart(2, "0");
+            if (finalTranscript.trim() !== "") {
+              finalTranscript = finalTranscript.trimEnd() + "\n\n";
+            }
+            finalTranscript += `[${mm}:00]\n`;
+            lastInsertedMinute = currentMinute;
+          }
+
+          const textChunk = res[0].transcript.trim();
+          if (textChunk) {
+            finalTranscript += textChunk + " ";
+          }
         } else {
           interimTranscript += res[0].transcript;
         }
       }
-      const baseText = rebuildTranscriptText();
+
       transcriptArea.value =
-        baseText + (interimTranscript ? "\n" + interimTranscript : "");
+        finalTranscript +
+        (interimTranscript ? "\n" + interimTranscript : "");
       transcriptArea.scrollTop = transcriptArea.scrollHeight;
     };
   }
@@ -1169,13 +1139,11 @@
   // ---------------------------
 
   startBtn.addEventListener("click", async () => {
-    // reset SRT-style blocks and text
-    transcriptBlocks = [];
+    // reset current
     finalTranscript = "";
     interimTranscript = "";
+    lastInsertedMinute = -1;  // NEW: reset minute markers each new recording
     transcriptArea.value = "";
-
-    // reset current audio preview
     currentAudio.src = "";
     currentAudioBlob = null;
     saveSessionBtn.disabled = true;
@@ -1208,13 +1176,6 @@
     }
     startBtn.disabled = false;
     stopBtn.disabled = true;
-
-    // When fully stopped, remove interim and keep only SRT-style blocks
-    interimTranscript = "";
-    const baseText = rebuildTranscriptText();
-    transcriptArea.value = baseText;
-    transcriptArea.scrollTop = transcriptArea.scrollHeight;
-
     setStatus("Stopped. You can review, then Save session.", "idle");
   });
 
@@ -1224,8 +1185,7 @@
       return;
     }
 
-    // Use the SRT-style formatted text as the saved transcript
-    const text = rebuildTranscriptText() || transcriptArea.value || "";
+    const text = transcriptArea.value || "";
     const nameRaw = sessionNameInput.value.trim();
     const name = nameRaw || "Session_" + nowForName(); // if no input, use date
     const createdAt = new Date().toISOString();
