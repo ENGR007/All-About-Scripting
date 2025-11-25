@@ -73,7 +73,7 @@
       flex-wrap: wrap;
       gap: 8px;
       align-items: center;
-      justify-content: center; /* centered Tools + Pen */
+      justify-content: center;
     }
     .toolbar-group {
       display: flex;
@@ -147,7 +147,7 @@
       overflow: hidden;
       background: #fdfcf8;
       position: relative;
-      height: min(70vh, 640px); /* adapt to screen */
+      height: min(70vh, 640px);
       -webkit-user-select: none;
       user-select: none;
     }
@@ -159,13 +159,12 @@
         linear-gradient(to bottom, rgba(0,0,0,0.05) 1px, transparent 1px);
       background-size: 100% 24px;
       background-color: #fffbf3;
-      padding-left: 40px; /* margin like a notebook */
+      padding-left: 40px;
       -webkit-user-select: none;
       user-select: none;
       touch-action: none;
     }
     .page-surface::before {
-      /* vertical margin line */
       content: "";
       position: absolute;
       top: 0;
@@ -180,7 +179,7 @@
       left: 0;
       width: 100%;
       height: 100%;
-      touch-action: none; /* prevent scrolling during draw */
+      touch-action: none;
       -webkit-user-select: none;
       user-select: none;
     }
@@ -380,7 +379,6 @@
           <span class="color-dot color-yellow"></span> Yellow
         </button>
         <label class="toolbar-label">Size
-          <!-- default pen size now 1 -->
           <input id="sizeSlider" type="range" min="1" max="15" value="1" />
         </label>
       </div>
@@ -420,6 +418,7 @@
         <button id="startRecordBtn">Start Recording</button>
         <button id="stopRecordBtn" disabled>Stop</button>
         <span id="recordStatus">Recording status: Idle</span>
+        <span id="recordTimer" class="hint">⏱ 00:00</span>
 
         <!-- Audio mode selector -->
         <label class="toolbar-label" style="margin-left:8px;">
@@ -429,9 +428,6 @@
             <option value="enhanced">Enhanced (noise-reduced)</option>
           </select>
         </label>
-
-        <!-- NEW: Save transcript button -->
-        <!-- <button id="saveTranscriptBtn" disabled>Save Transcript (.txt)</button> -->
       </div>
 
       <div id="audioList" class="audio-list"></div>
@@ -439,7 +435,7 @@
         🎙 Audio recording uses your microphone. Support depends on your browser/device.
       </div>
 
-      <!-- NEW: Live transcript area -->
+      <!-- Live transcript area -->
       <div id="transcriptContainer" class="note-meta">
         <label for="liveTranscript">Live Transcript (this recording only):</label>
         <textarea id="liveTranscript" placeholder="Transcript will appear here..." readonly></textarea>
@@ -467,13 +463,13 @@
     </div>
 
     <div class="footer">
-      Notebook is stored locally in this browser using localStorage. You can close and reopen and continue where you left off.  
+      Notebook is stored locally in this browser using localStorage. You can close and reopen and continue where you left off.
       Use Export/Import to back up or move to another browser.
     </div>
   </div>
   <script>
     // =====================================================
-    //  Notebook core data + drawing (unchanged from yours)
+    //  Notebook core data + drawing
     // =====================================================
     const STORAGE_KEY = "handNotebook_v2";
 
@@ -520,10 +516,10 @@
     const audioHintEl = document.getElementById("audioHint");
     const audioModeSelect = document.getElementById("audioMode");
 
-    // NEW: transcription DOM elements
-    const saveTranscriptBtn = document.getElementById("saveTranscriptBtn");
+    // Transcription DOM elements
     const liveTranscriptEl = document.getElementById("liveTranscript");
     const transcriptStatusEl = document.getElementById("transcriptStatus");
+    const recordTimerEl = document.getElementById("recordTimer");
 
     // Notebook UI
     const notebookSelect = document.getElementById("notebookSelect");
@@ -537,6 +533,25 @@
     const fullscreenToggleBtn = document.getElementById("fullscreenToggleBtn");
     let isFullscreenMode = false;
 
+    // Timer state for recording
+    let recordTimerInterval = null;
+    let recordStartTime = null;
+
+    // SpeechRecognition state
+    window.SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const recogSupported = !!window.SpeechRecognition;
+    let recognition = null;
+    let isRecognizing = false;
+    let finalTranscript = "";
+    let transcriptSegments = [];
+    let transcriptBaseTime = null;
+    let recognitionRestartTimer = null;
+
+    // We used to have a global "Save Transcript (.txt)" button in the toolbar.
+    // It has been removed from the layout; this is left for backward compatibility
+    // (it will just be null and safely ignored).
+    const saveTranscriptBtn = document.getElementById("saveTranscriptBtn");
+
     // ---- Helpers for notebook/pages ----
     function createBlankPage() {
       return {
@@ -546,7 +561,7 @@
         strokes: [],
         undoStack: [],
         redoStack: [],
-        audio: [] // {id, dataUrl, name}
+        audio: [] // {id, dataUrl, name, transcript}
       };
     }
 
@@ -606,9 +621,7 @@
       try {
         const json = JSON.stringify(data);
         const nowIso = new Date().toISOString();
-        // main storage
         localStorage.setItem(STORAGE_KEY, json);
-        // newest-only backup
         localStorage.setItem(STORAGE_KEY + "_backup", json);
         localStorage.setItem(
           STORAGE_KEY + "_backup_meta",
@@ -696,29 +709,25 @@
     }
 
     function loadNotebooks() {
-      // Try primary first
       let raw = localStorage.getItem(STORAGE_KEY);
-
-      // If missing, try backup
       if (!raw) {
         raw = localStorage.getItem(STORAGE_KEY + "_backup");
       }
 
-      // If still missing → create fresh default notebook
       if (!raw) {
         const nb = createNotebook("My Notebook");
         notebooks = [nb];
         currentNotebookId = nb.id;
         pages = nb.pages;
         currentPageIndex = nb.currentPageIndex;
-        updateBackupInfo(); // will show "none yet"
+        updateBackupInfo();
         return;
       }
 
       try {
         const parsed = JSON.parse(raw);
         applyParsedNotebookData(parsed);
-        updateBackupInfo(); // load from *_backup_meta if present
+        updateBackupInfo();
       } catch (e) {
         console.warn("Could not load notebook:", e);
         const nb = createNotebook("My Notebook");
@@ -861,11 +870,11 @@
       const page = pages[currentPageIndex];
       if (!page) return;
 
-      page.redoStack = []; // new stroke invalidates redo history
+      page.redoStack = [];
 
       const normalizedPoint = normalizePoint(x, y);
       const stroke = {
-        tool: currentTool, // 'pen', 'highlighter', 'eraser'
+        tool: currentTool,
         color: currentColor,
         size: currentSize,
         points: [normalizedPoint]
@@ -924,16 +933,15 @@
 
       if (stroke.tool === "eraser") {
         ctx.globalCompositeOperation = "destination-out";
-        ctx.lineWidth = stroke.size * 3; // thicker erase
+        ctx.lineWidth = stroke.size * 3;
         ctx.strokeStyle = "rgba(0,0,0,1)";
       } else if (stroke.tool === "highlighter") {
         ctx.globalCompositeOperation = "source-over";
         ctx.lineWidth = stroke.size * 3;
-        // highlighter is always yellowish
         ctx.strokeStyle = "rgba(255, 235, 59, 0.45)";
       } else {
         ctx.globalCompositeOperation = "source-over";
-        ctx.lineWidth = stroke.size * 2; // make pen clearer
+        ctx.lineWidth = stroke.size * 2;
         ctx.strokeStyle = getColorValue(stroke.color || "black");
       }
 
@@ -999,7 +1007,7 @@
       document.getElementById("pageTitle").value = page.title || "";
       document.getElementById("pageText").value = page.text || "";
       updatePageInfo();
-      resizeCanvasToContainer(); // this will also redraw
+      resizeCanvasToContainer();
       renderAudioList();
       saveNotebook();
     }
@@ -1060,7 +1068,6 @@
     }
 
     canvas.addEventListener("pointerdown", (evt) => {
-      // basic palm rejection: if a pen stroke is active, ignore extra touches
       if (penActive && evt.pointerType === "touch") {
         return;
       }
@@ -1105,7 +1112,6 @@
       }
     });
 
-    
     // ==========================
     // Audio helpers
     // ==========================
@@ -1121,41 +1127,41 @@
       }
       return new Blob([bytes], { type: mime });
     }
-    
-    // ✨ MUST BE OUTSIDE ANY FUNCTION
+
+    // Placeholder if you later wire this to a local whisper.cpp server.
     async function transcribeOfflineAudio(blob) {
-      return "Transcription not supported for saved audio on this browser.";
+      return "Transcription not supported for saved audio in this browser-only version.";
     }
-    
+
     // ==========================
-    // Audio list renderer
+    // Audio list renderer (per-clip Save Transcript)
     // ==========================
     function renderAudioList() {
       const page = pages[currentPageIndex];
       audioListEl.innerHTML = "";
-    
+
       if (!page || !page.audio || !page.audio.length) {
         audioListEl.textContent = "No audio notes on this page yet.";
         return;
       }
-    
+
       page.audio.forEach((clip, idx) => {
         const row = document.createElement("div");
         row.className = "audio-row";
-    
+
         const audioEl = document.createElement("audio");
         audioEl.controls = true;
-    
+
         try {
           const blob = dataUrlToBlob(clip.dataUrl);
           audioEl.src = URL.createObjectURL(blob);
         } catch (e) {
           audioEl.textContent = "Audio not supported.";
         }
-    
+
         const labelSpan = document.createElement("span");
         labelSpan.textContent = clip.name || `Audio ${idx + 1}`;
-    
+
         // Download audio
         const downloadBtn = document.createElement("button");
         downloadBtn.textContent = "Download";
@@ -1168,31 +1174,30 @@
           a.click();
           document.body.removeChild(a);
         });
-    
+
         // Save transcript button (per audio)
         const saveTxtBtn = document.createElement("button");
         saveTxtBtn.textContent = "Save Transcript (.txt)";
         saveTxtBtn.addEventListener("click", () => {
-    
           const transcript = clip.transcript || "";
           if (!transcript.trim()) {
             alert("No transcript was recorded for this audio.");
             return;
           }
-    
+
           const safeName = (clip.name || `audio_${idx + 1}`).replace(/[^\w\- ]+/g, "_");
           const ts = new Date().toISOString().replace(/[:.]/g, "-");
           const blob = new Blob([transcript], { type: "text/plain" });
-    
+
           const a = document.createElement("a");
           a.href = URL.createObjectURL(blob);
           a.download = safeName + "_" + ts + ".txt";
-    
+
           document.body.appendChild(a);
           a.click();
           document.body.removeChild(a);
         });
-    
+
         // Delete audio
         const delBtn = document.createElement("button");
         delBtn.textContent = "Delete";
@@ -1202,27 +1207,70 @@
           saveNotebook();
           renderAudioList();
         });
-    
+
         row.appendChild(audioEl);
         row.appendChild(labelSpan);
         row.appendChild(downloadBtn);
         row.appendChild(saveTxtBtn);
         row.appendChild(delBtn);
-    
+
         audioListEl.appendChild(row);
       });
     }
-                
+
     // ==========================
-    // Live Transcription (SpeechRecognition)
+    // Recording timer helpers
     // ==========================
-    window.SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    const recogSupported = !!window.SpeechRecognition;
-    let recognition = null;
-    let isRecognizing = false;
-    let finalTranscript = "";
-    let transcriptSegments = [];
-    let transcriptBaseTime = null;
+    function resetRecordTimer() {
+      if (recordTimerInterval) {
+        clearInterval(recordTimerInterval);
+        recordTimerInterval = null;
+      }
+      recordStartTime = null;
+      if (recordTimerEl) {
+        recordTimerEl.textContent = "⏱ 00:00";
+      }
+    }
+
+    function startRecordTimer() {
+      resetRecordTimer();
+      recordStartTime = Date.now();
+      recordTimerInterval = setInterval(() => {
+        const elapsed = Math.floor((Date.now() - recordStartTime) / 1000);
+        const mm = String(Math.floor(elapsed / 60)).padStart(2, "0");
+        const ss = String(elapsed % 60).padStart(2, "0");
+        if (recordTimerEl) {
+          recordTimerEl.textContent = `⏱ ${mm}:${ss}`;
+        }
+      }, 1000);
+    }
+
+    // ==========================
+    // SpeechRecognition helpers (auto-restart ~4s)
+    // ==========================
+    function clearRecognitionRestartTimer() {
+      if (recognitionRestartTimer) {
+        clearTimeout(recognitionRestartTimer);
+        recognitionRestartTimer = null;
+      }
+    }
+
+    function scheduleRecognitionRestart() {
+      clearRecognitionRestartTimer();
+      if (!isRecordingAudio || !recogSupported || !recognition) return;
+
+      // Force-stop recognition after ~4 seconds to avoid "hang",
+      // then onend will restart it while recording is active.
+      recognitionRestartTimer = setTimeout(() => {
+        try {
+          if (isRecognizing) {
+            recognition.stop();
+          }
+        } catch (e) {
+          console.warn("Recognition stop (timer) failed:", e);
+        }
+      }, 4000);
+    }
 
     function setupRecognition() {
       if (!recogSupported) {
@@ -1245,6 +1293,7 @@
         if (transcriptStatusEl) {
           transcriptStatusEl.textContent = "Speech recognition: listening…";
         }
+        scheduleRecognitionRestart();
       };
 
       recognition.onresult = (event) => {
@@ -1269,31 +1318,56 @@
           liveTranscriptEl.value = finalTranscript + "\n" + interim;
           liveTranscriptEl.scrollTop = liveTranscriptEl.scrollHeight;
         }
+
+        // We got results ⇒ push restart 4s from now.
+        scheduleRecognitionRestart();
       };
 
       recognition.onerror = (e) => {
         console.error("SpeechRecognition error:", e);
         isRecognizing = false;
+        clearRecognitionRestartTimer();
         if (transcriptStatusEl) {
           transcriptStatusEl.textContent = "Speech recognition error: " + e.error;
         }
         if (saveTranscriptBtn && finalTranscript.trim()) {
           saveTranscriptBtn.disabled = false;
         }
+
+        // If still recording and it's not a hard-permission error, try to restart.
+        if (isRecordingAudio && e.error !== "not-allowed") {
+          try {
+            recognition.start();
+          } catch (err) {
+            console.warn("Recognition restart after error failed:", err);
+          }
+        }
       };
 
       recognition.onend = () => {
         isRecognizing = false;
+        clearRecognitionRestartTimer();
         if (transcriptStatusEl) {
           transcriptStatusEl.textContent = "Speech recognition: stopped.";
         }
         if (saveTranscriptBtn && finalTranscript.trim()) {
           saveTranscriptBtn.disabled = false;
         }
+
+        // Auto-restart as long as audio recording is still active
+        if (isRecordingAudio) {
+          try {
+            recognition.start();
+            transcriptStatusEl.textContent = "Speech recognition: listening…";
+            scheduleRecognitionRestart();
+          } catch (err) {
+            console.warn("Recognition restart onend failed:", err);
+          }
+        }
       };
     }
 
-    // Save transcript as .txt
+    // Save live transcript as .txt (if you add the toolbar button back)
     if (saveTranscriptBtn) {
       saveTranscriptBtn.addEventListener("click", () => {
         const text = (finalTranscript || "").trim();
@@ -1318,12 +1392,10 @@
     async function startRecording() {
       if (!audioSupported || isRecordingAudio) return;
       try {
-        // Choose constraints based on audio mode
         const mode = audioModeSelect ? audioModeSelect.value : "standard";
 
         let constraints;
         if (mode === "enhanced") {
-          // Ask the browser for better-quality, speech-focused input
           constraints = {
             audio: {
               channelCount: 1,
@@ -1338,7 +1410,6 @@
 
         currentStream = await navigator.mediaDevices.getUserMedia(constraints);
 
-        // Prefer high-quality Opus where supported
         let options = {};
         if (window.MediaRecorder && MediaRecorder.isTypeSupported) {
           if (MediaRecorder.isTypeSupported("audio/webm;codecs=opus")) {
@@ -1363,6 +1434,7 @@
           isRecordingAudio = false;
           startRecordBtn.disabled = false;
           stopRecordBtn.disabled = true;
+          resetRecordTimer();
 
           if (currentStream) {
             currentStream.getTracks().forEach(t => t.stop());
@@ -1405,14 +1477,14 @@
         if (saveTranscriptBtn) saveTranscriptBtn.disabled = true;
 
         // Start SpeechRecognition at same time (if supported)
-        if (recogSupported && recognition) {
+        if (recogSupported) {
           transcriptBaseTime = Date.now();
           try {
             recognition.start();
           } catch (err) {
             console.warn("Recognition start failed:", err);
           }
-        } else if (!recogSupported && transcriptStatusEl) {
+        } else if (transcriptStatusEl) {
           transcriptStatusEl.textContent = "Speech recognition not available in this browser.";
         }
 
@@ -1420,6 +1492,7 @@
         isRecordingAudio = true;
         startRecordBtn.disabled = true;
         stopRecordBtn.disabled = false;
+        startRecordTimer();
         recordStatus.textContent =
           mode === "enhanced"
             ? "Recording status: Recording (enhanced)…"
@@ -1427,6 +1500,7 @@
       } catch (e) {
         console.error(e);
         recordStatus.textContent = "Recording status: Permission denied or error.";
+        resetRecordTimer();
       }
     }
 
@@ -1434,9 +1508,11 @@
       if (!isRecordingAudio || !mediaRecorder) return;
       recordStatus.textContent = "Recording status: Stopping...";
       mediaRecorder.stop();
+      resetRecordTimer();
 
       // Also stop recognition if active
       if (recogSupported && recognition && isRecognizing) {
+        clearRecognitionRestartTimer();
         try {
           recognition.stop();
         } catch (err) {
@@ -1478,7 +1554,6 @@
 
         const json = JSON.stringify(fullBackup);
 
-        // Save newest backup locally
         localStorage.setItem(STORAGE_KEY + "_backup", json);
         localStorage.setItem(
           STORAGE_KEY + "_backup_meta",
@@ -1486,7 +1561,6 @@
         );
         updateBackupInfo(fullBackup.backupTimestamp);
 
-        // ---- iOS-compatible download ----
         const base64 = btoa(unescape(encodeURIComponent(json)));
         const dataUrl = "data:application/json;base64," + base64;
 
@@ -1496,10 +1570,8 @@
         const dateStr = fullBackup.backupTimestamp.replace(/[:.]/g, "-");
         a.download = `handwritten_notebook_FULL_${dateStr}.json`;
 
-        // append to DOM so iOS allows it
         document.body.appendChild(a);
 
-        // must be timed for Safari to work
         setTimeout(() => {
           a.click();
           document.body.removeChild(a);
@@ -1525,7 +1597,6 @@
         try {
           const loaded = JSON.parse(ev.target.result);
 
-          // must have full structure
           if (!loaded.notebooks || !Array.isArray(loaded.notebooks)) {
             throw new Error("Invalid full backup format");
           }
@@ -1574,7 +1645,7 @@
         document.getElementById("pageText").value = pages[currentPageIndex].text || "";
         resizeCanvasToContainer();
         renderAudioList();
-        saveNotebook(); // also refreshes backup + timestamp
+        saveNotebook();
         alert("Restored from auto backup.");
       } catch (e) {
         console.error(e);
