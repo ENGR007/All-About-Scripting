@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>HTML Advanced Painter (iPad)</title>
+  <title>HTML Pro Painter</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <style>
     :root {
@@ -37,8 +37,8 @@
       display: flex;
       flex-wrap: wrap;
       align-items: center;
-      gap: 0.5rem;
-      padding: 0.4rem 0.6rem;
+      gap: 0.4rem;
+      padding: 0.4rem 0.5rem;
       background: linear-gradient(to right, #151b2e, #101629);
       border-bottom: 1px solid var(--border);
       position: sticky;
@@ -55,8 +55,8 @@
     .toolbar-group {
       display: flex;
       align-items: center;
-      gap: 0.35rem;
-      padding: 0.25rem 0.55rem;
+      gap: 0.3rem;
+      padding: 0.25rem 0.5rem;
       border-radius: 999px;
       background: rgba(11, 16, 32, 0.7);
       border: 1px solid var(--border);
@@ -80,9 +80,10 @@
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      gap: 0.35rem;
+      gap: 0.3rem;
       user-select: none;
       -webkit-user-select: none;
+      touch-action: manipulation;
     }
 
     button:active,
@@ -107,8 +108,8 @@
     }
 
     input[type="color"] {
-      width: 28px;
-      height: 28px;
+      width: 26px;
+      height: 26px;
       border-radius: 50%;
       border: 1px solid var(--border);
       padding: 0;
@@ -136,8 +137,21 @@
       text-align: right;
     }
 
-    .canvas-wrapper {
+    .main {
       flex: 1;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 240px;
+      min-height: 0;
+    }
+
+    @media (max-width: 900px) {
+      .main {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-rows: 1fr auto;
+      }
+    }
+
+    .canvas-wrapper {
       position: relative;
       background: #050814;
       overflow: hidden;
@@ -145,7 +159,9 @@
 
     canvas {
       display: block;
-      touch-action: none; /* Important for iPad pencil & gestures */
+      width: 100%;
+      height: 100%;
+      touch-action: none;
     }
 
     .hint {
@@ -161,30 +177,84 @@
       max-width: min(90vw, 430px);
     }
 
-    @media (max-width: 900px) {
-      .toolbar {
-        gap: 0.3rem;
-      }
-      .toolbar-group {
-        padding: 0.2rem 0.45rem;
-      }
-      .toolbar-title {
-        font-size: 0.9rem;
-      }
-      input[type="range"] {
-        width: 60px;
-      }
+    .side-panel {
+      border-left: 1px solid var(--border);
+      background: #0d1222;
+      display: flex;
+      flex-direction: column;
+      padding: 0.4rem;
+      gap: 0.5rem;
     }
+
+    .panel-section {
+      border-radius: 0.6rem;
+      background: rgba(10, 15, 28, 0.95);
+      border: 1px solid var(--border);
+      padding: 0.4rem 0.5rem;
+    }
+
+    .panel-title {
+      font-size: 0.78rem;
+      color: var(--text-soft);
+      margin-bottom: 0.3rem;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    .layer-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.3rem;
+      padding: 0.25rem 0.4rem;
+      border-radius: 0.4rem;
+      cursor: pointer;
+      font-size: 0.78rem;
+    }
+
+    .layer-item.active {
+      background: rgba(255, 184, 77, 0.15);
+      border: 1px solid var(--accent);
+    }
+
+    .layer-name {
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .layer-controls {
+      display: flex;
+      gap: 0.2rem;
+      align-items: center;
+    }
+
+    .mini-btn {
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: #101629;
+      color: var(--text-soft);
+      font-size: 0.7rem;
+      padding: 0.1rem 0.3rem;
+      touch-action: manipulation;
+    }
+
+    .small-input {
+      width: 48px;
+    }
+
   </style>
 </head>
 <body>
   <div class="toolbar">
-    <div class="toolbar-title">HTML Advanced Painter</div>
+    <div class="toolbar-title">HTML Pro Painter</div>
 
     <div class="toolbar-group">
       <span class="toolbar-label">Tool</span>
       <button class="chip-toggle active" id="brushTool">Brush</button>
-      <button class="chip-toggle" id="eraserTool">Eraser</button>
+      <button class="chip-toggle" id="erasorTool">Eraser</button>
+      <button class="chip-toggle" id="selectTool">Select/Move</button>
     </div>
 
     <div class="toolbar-group">
@@ -192,11 +262,11 @@
       <select id="brushMode">
         <option value="smooth">Smooth</option>
         <option value="texture">Texture</option>
-        <option value="spray">Spray</option>
+        <option value="smudge">Smudge</option>
       </select>
       <span class="toolbar-label">Size</span>
-      <input type="range" id="sizeSlider" min="1" max="60" value="12" />
-      <span id="sizeValue">12</span>px
+      <input type="range" id="sizeSlider" min="1" max="60" value="10" />
+      <span id="sizeValue">10</span>px
     </div>
 
     <div class="toolbar-group">
@@ -214,14 +284,14 @@
     <div class="toolbar-group">
       <button id="undoBtn">Undo</button>
       <button id="redoBtn">Redo</button>
-      <button class="danger" id="clearBtn">Clear</button>
+      <button class="danger" id="clearBtn">Clear Layer</button>
     </div>
 
     <div class="toolbar-group">
-      <span class="toolbar-label">Filters</span>
-      <span class="toolbar-label">Brt</span>
+      <span class="toolbar-label">Filters (Layer)</span>
+      <span class="toolbar-label">B</span>
       <input type="range" id="brightnessSlider" min="-100" max="100" value="0" />
-      <span class="toolbar-label">Ctr</span>
+      <span class="toolbar-label">C</span>
       <input type="range" id="contrastSlider" min="-100" max="100" value="0" />
       <span class="toolbar-label">Blur</span>
       <input type="range" id="blurSlider" min="0" max="5" value="0" />
@@ -231,17 +301,68 @@
 
     <div class="toolbar-group">
       <button class="primary" id="saveBtn">Save PNG</button>
+      <button id="playTlBtn">Play TL</button>
       <span id="pressureIndicator">P: 1.0</span>
     </div>
   </div>
 
-  <div class="canvas-wrapper">
-    <canvas id="paintCanvas"></canvas>
-    <div class="hint">
-      💡 Tips:
-      <br />• Draw with Apple Pencil or one finger.
-      <br />• Use <b>two-finger pinch</b> to zoom and <b>two-finger drag</b> to pan.
-      <br />• Try different brush modes: Smooth, Texture, Spray.
+  <div class="main">
+    <div class="canvas-wrapper">
+      <canvas id="paintCanvas"></canvas>
+      <div class="hint">
+        💡 Tips:<br/>
+        • Draw with Brush / Eraser on the active layer.<br/>
+        • Use <b>Select/Move</b> to drag parts of a layer.<br/>
+        • BG Fill always paints the Background layer only.<br/>
+        • Filters apply to the active layer.<br/>
+        • Time-lapse captures each stroke for playback.
+      </div>
+    </div>
+
+    <div class="side-panel">
+      <div class="panel-section" id="layerPanel">
+        <div class="panel-title">Layers</div>
+        <div style="display:flex;gap:0.3rem;margin-bottom:0.3rem;">
+          <button class="mini-btn" id="addLayerBtn">+ Layer</button>
+          <button class="mini-btn" id="delLayerBtn">–</button>
+          <button class="mini-btn" id="layerUpBtn">↑</button>
+          <button class="mini-btn" id="layerDownBtn">↓</button>
+        </div>
+        <div id="layerList"></div>
+        <div style="margin-top:0.3rem;font-size:0.75rem;color:var(--text-soft);">
+          Background layer is always at bottom and used for Fill BG.
+        </div>
+      </div>
+
+      <div class="panel-section">
+        <div class="panel-title">Layer Props</div>
+        <div style="display:flex;align-items:center;gap:0.3rem;margin-bottom:0.25rem;">
+          <span class="toolbar-label">Opacity</span>
+          <input type="range" id="layerOpacity" min="0" max="100" value="100"/>
+          <span id="layerOpacityValue" style="font-size:0.75rem;">100%</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:0.3rem;">
+          <span class="toolbar-label">Blend</span>
+          <select id="layerBlendMode">
+            <option value="source-over">Normal</option>
+            <option value="multiply">Multiply</option>
+            <option value="screen">Screen</option>
+            <option value="overlay">Overlay</option>
+            <option value="lighten">Lighten</option>
+            <option value="darken">Darken</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="panel-section">
+        <div class="panel-title">Selection</div>
+        <div style="font-size:0.75rem;color:var(--text-soft);margin-bottom:0.25rem;">
+          Use <b>Select/Move</b> tool:<br/>
+          • Drag to create a rectangle.<br/>
+          • Tap inside to move it around.
+        </div>
+        <button class="mini-btn" id="clearSelectionBtn">Clear Selection</button>
+      </div>
     </div>
   </div>
 
@@ -249,318 +370,385 @@
     const canvas = document.getElementById("paintCanvas");
     const ctx = canvas.getContext("2d");
 
-    // Offscreen buffer for actual drawing (world space)
-    const bufferCanvas = document.createElement("canvas");
-    const bufferCtx = bufferCanvas.getContext("2d");
+    // Canvas size (fixed for session for simplicity)
+    function setupCanvasSize() {
+      const wrapper = canvas.parentElement;
+      const rect = wrapper.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+      canvas.style.width = rect.width + "px";
+      canvas.style.height = rect.height + "px";
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+    window.addEventListener("load", setupCanvasSize);
+    window.addEventListener("resize", () => {
+      // For now, just keep existing size to avoid complexity on rotate
+      // You can reload page on orientation change.
+    });
 
-    // Choose a decent base size (virtual canvas)
-    bufferCanvas.width = 2048;
-    bufferCanvas.height = 2048;
+    // Base "world" resolution (virtual)
+    const WORLD_WIDTH = 2048;
+    const WORLD_HEIGHT = 2048;
 
-    // UI elements
+    // Layers: each layer has its own offscreen canvas
+    const layers = [];
+    let activeLayerIndex = 1; // will set after creation
+
+    function createLayer(name) {
+      const c = document.createElement("canvas");
+      c.width = WORLD_WIDTH;
+      c.height = WORLD_HEIGHT;
+      const cctx = c.getContext("2d");
+      cctx.clearRect(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
+      return {
+        name,
+        canvas: c,
+        ctx: cctx,
+        visible: true,
+        opacity: 1.0,
+        blendMode: "source-over",
+        undoStack: [],
+        redoStack: []
+      };
+    }
+
+    function initLayers() {
+      layers.length = 0;
+      const bgLayer = createLayer("Background");
+      // Background default color from bgPicker
+      bgLayer.ctx.fillStyle = document.getElementById("bgPicker").value;
+      bgLayer.ctx.fillRect(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
+      layers.push(bgLayer);
+
+      const mainLayer = createLayer("Layer 1");
+      layers.push(mainLayer);
+
+      activeLayerIndex = 1;
+      refreshLayerUI();
+      render();
+    }
+
+    // UI Elements
     const brushToolBtn = document.getElementById("brushTool");
-    const eraserToolBtn = document.getElementById("eraserTool");
+    const erasorToolBtn = document.getElementById("erasorTool");
+    const selectToolBtn = document.getElementById("selectTool");
     const brushModeSelect = document.getElementById("brushMode");
     const colorPicker = document.getElementById("colorPicker");
     const sizeSlider = document.getElementById("sizeSlider");
     const sizeValue = document.getElementById("sizeValue");
+    const eyedropperBtn = document.getElementById("eyedropperBtn");
+    const bgPicker = document.getElementById("bgPicker");
+    const fillBgBtn = document.getElementById("fillBgBtn");
     const undoBtn = document.getElementById("undoBtn");
     const redoBtn = document.getElementById("redoBtn");
     const clearBtn = document.getElementById("clearBtn");
     const saveBtn = document.getElementById("saveBtn");
+    const playTlBtn = document.getElementById("playTlBtn");
     const pressureIndicator = document.getElementById("pressureIndicator");
-    const bgPicker = document.getElementById("bgPicker");
-    const fillBgBtn = document.getElementById("fillBgBtn");
-    const eyedropperBtn = document.getElementById("eyedropperBtn");
-
     const brightnessSlider = document.getElementById("brightnessSlider");
     const contrastSlider = document.getElementById("contrastSlider");
     const blurSlider = document.getElementById("blurSlider");
     const applyFilterBtn = document.getElementById("applyFilterBtn");
     const resetFilterBtn = document.getElementById("resetFilterBtn");
 
+    const layerListEl = document.getElementById("layerList");
+    const addLayerBtn = document.getElementById("addLayerBtn");
+    const delLayerBtn = document.getElementById("delLayerBtn");
+    const layerUpBtn = document.getElementById("layerUpBtn");
+    const layerDownBtn = document.getElementById("layerDownBtn");
+    const layerOpacitySlider = document.getElementById("layerOpacity");
+    const layerOpacityValue = document.getElementById("layerOpacityValue");
+    const layerBlendModeSelect = document.getElementById("layerBlendMode");
+    const clearSelectionBtn = document.getElementById("clearSelectionBtn");
+
     // Drawing state
-    let drawing = false;
-    let currentTool = "brush"; // "brush" or "eraser"
+    let currentTool = "brush"; // "brush" | "eraser" | "select"
+    let brushMode = brushModeSelect.value;
     let brushColor = colorPicker.value;
     let brushSize = parseInt(sizeSlider.value, 10);
-    let brushMode = brushModeSelect.value;
+    let drawing = false;
     let lastWorldX = 0;
     let lastWorldY = 0;
     let isEyedropper = false;
 
-    // Zoom & pan state (screen transform)
-    let scale = 1.0;
-    let offsetX = 0;
-    let offsetY = 0;
-
-    // Pinch zoom state
-    let isPinching = false;
-    let startScale = 1.0;
-    let startOffsetX = 0;
-    let startOffsetY = 0;
-    let pinchStartDist = 0;
-
-    // Undo / Redo on the buffer (world canvas)
-    const undoStack = [];
-    const redoStack = [];
-    const MAX_HISTORY = 40;
-
-    function initBufferBackground() {
-      bufferCtx.save();
-      bufferCtx.setTransform(1, 0, 0, 1, 0, 0);
-      bufferCtx.fillStyle = bgPicker.value;
-      bufferCtx.fillRect(0, 0, bufferCanvas.width, bufferCanvas.height);
-      bufferCtx.restore();
+    // View mapping (world to screen)
+    function worldToScreen(wx, wy) {
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = rect.width / WORLD_WIDTH;
+      const scaleY = rect.height / WORLD_HEIGHT;
+      const s = Math.min(scaleX, scaleY);
+      const ox = (rect.width - WORLD_WIDTH * s) / 2;
+      const oy = (rect.height - WORLD_HEIGHT * s) / 2;
+      return { x: ox + wx * s, y: oy + wy * s, s };
     }
 
-    initBufferBackground();
-
-    function fitCanvasToWindow() {
-      const wrapper = canvas.parentElement;
-      const rect = wrapper.getBoundingClientRect();
-      const dpr = window.devicePixelRatio || 1;
-
-      canvas.width = rect.width * dpr;
-      canvas.height = rect.height * dpr;
-      canvas.style.width = rect.width + "px";
-      canvas.style.height = rect.height + "px";
-
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-
-      // Start centered
-      if (!fitCanvasToWindow.initialized) {
-        scale = Math.min(
-          rect.width / bufferCanvas.width,
-          rect.height / bufferCanvas.height
-        );
-        // Center image
-        offsetX = (rect.width - bufferCanvas.width * scale) / 2;
-        offsetY = (rect.height - bufferCanvas.height * scale) / 2;
-        fitCanvasToWindow.initialized = true;
-      }
-
-      render();
+    function screenToWorld(sx, sy) {
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = rect.width / WORLD_WIDTH;
+      const scaleY = rect.height / WORLD_HEIGHT;
+      const s = Math.min(scaleX, scaleY);
+      const ox = (rect.width - WORLD_WIDTH * s) / 2;
+      const oy = (rect.height - WORLD_HEIGHT * s) / 2;
+      const wx = (sx - ox) / s;
+      const wy = (sy - oy) / s;
+      return { wx, wy };
     }
-    fitCanvasToWindow.initialized = false;
 
-    window.addEventListener("load", fitCanvasToWindow);
-    window.addEventListener("resize", fitCanvasToWindow);
-
+    // Render all layers + selection overlay
     function render() {
       const rect = canvas.getBoundingClientRect();
       const dpr = window.devicePixelRatio || 1;
-      const w = rect.width;
-      const h = rect.height;
-
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      ctx.clearRect(0, 0, w, h);
+      ctx.clearRect(0, 0, rect.width, rect.height);
+
+      const scaleX = rect.width / WORLD_WIDTH;
+      const scaleY = rect.height / WORLD_HEIGHT;
+      const s = Math.min(scaleX, scaleY);
+      const ox = (rect.width - WORLD_WIDTH * s) / 2;
+      const oy = (rect.height - WORLD_HEIGHT * s) / 2;
 
       ctx.save();
-      ctx.translate(offsetX, offsetY);
-      ctx.scale(scale, scale);
-      ctx.drawImage(bufferCanvas, 0, 0);
-      ctx.restore();
-    }
+      ctx.translate(ox, oy);
+      ctx.scale(s, s);
 
-    function saveState() {
-      try {
-        const snapshot = bufferCtx.getImageData(
-          0,
-          0,
-          bufferCanvas.width,
-          bufferCanvas.height
-        );
-        undoStack.push(snapshot);
-        if (undoStack.length > MAX_HISTORY) undoStack.shift();
-        redoStack.length = 0;
-      } catch (e) {
-        console.warn("Unable to save state:", e);
+      for (let i = 0; i < layers.length; i++) {
+        const layer = layers[i];
+        if (!layer.visible) continue;
+        ctx.globalAlpha = layer.opacity;
+        ctx.globalCompositeOperation = layer.blendMode;
+        ctx.drawImage(layer.canvas, 0, 0);
+      }
+
+      ctx.restore();
+      ctx.globalAlpha = 1.0;
+      ctx.globalCompositeOperation = "source-over";
+
+      // Draw selection overlay (screen coords)
+      if (selection.active) {
+        ctx.save();
+        ctx.strokeStyle = "cyan";
+        ctx.setLineDash([6, 4]);
+        ctx.lineWidth = 1;
+        const tl = worldToScreen(selection.x, selection.y);
+        const br = worldToScreen(selection.x + selection.w, selection.y + selection.h);
+        const x = tl.x;
+        const y = tl.y;
+        const w = br.x - tl.x;
+        const h = br.y - tl.y;
+        ctx.strokeRect(x, y, w, h);
+        ctx.restore();
       }
     }
 
-    function restoreState(snapshot) {
-      if (!snapshot) return;
-      bufferCtx.putImageData(snapshot, 0, 0);
-      render();
+    // Layer UI
+    function refreshLayerUI() {
+      layerListEl.innerHTML = "";
+      for (let i = layers.length - 1; i >= 0; i--) {
+        const layer = layers[i];
+        const item = document.createElement("div");
+        item.className = "layer-item" + (i === activeLayerIndex ? " active" : "");
+        item.dataset.index = i;
+
+        const nameSpan = document.createElement("div");
+        nameSpan.className = "layer-name";
+        nameSpan.textContent = layer.name + (i === 0 ? " (BG)" : "");
+        item.appendChild(nameSpan);
+
+        const controls = document.createElement("div");
+        controls.className = "layer-controls";
+
+        const eyeBtn = document.createElement("button");
+        eyeBtn.className = "mini-btn";
+        eyeBtn.textContent = layer.visible ? "👁" : "🙈";
+        eyeBtn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          layer.visible = !layer.visible;
+          refreshLayerUI();
+          render();
+        });
+        controls.appendChild(eyeBtn);
+
+        item.appendChild(controls);
+
+        item.addEventListener("click", () => {
+          activeLayerIndex = parseInt(item.dataset.index, 10);
+          syncLayerPropsUI();
+          refreshLayerUI();
+          render();
+        });
+
+        layerListEl.appendChild(item);
+      }
+      syncLayerPropsUI();
     }
 
+    function syncLayerPropsUI() {
+      const layer = layers[activeLayerIndex];
+      layerOpacitySlider.value = Math.round(layer.opacity * 100);
+      layerOpacityValue.textContent = Math.round(layer.opacity * 100) + "%";
+      layerBlendModeSelect.value = layer.blendMode;
+    }
+
+    // Layer creation / deletion / reorder
+    addLayerBtn.addEventListener("click", () => {
+      const newLayer = createLayer("Layer " + layers.length);
+      layers.push(newLayer);
+      activeLayerIndex = layers.length - 1;
+      refreshLayerUI();
+      render();
+    });
+
+    delLayerBtn.addEventListener("click", () => {
+      if (activeLayerIndex === 0) {
+        alert("Cannot delete Background layer.");
+        return;
+      }
+      if (!confirm("Delete active layer?")) return;
+      layers.splice(activeLayerIndex, 1);
+      if (activeLayerIndex >= layers.length) activeLayerIndex = layers.length - 1;
+      refreshLayerUI();
+      render();
+    });
+
+    layerUpBtn.addEventListener("click", () => {
+      if (activeLayerIndex <= 0 || activeLayerIndex >= layers.length - 1) return;
+      const idx = activeLayerIndex;
+      const tmp = layers[idx];
+      layers[idx] = layers[idx + 1];
+      layers[idx + 1] = tmp;
+      activeLayerIndex = idx + 1;
+      refreshLayerUI();
+      render();
+    });
+
+    layerDownBtn.addEventListener("click", () => {
+      if (activeLayerIndex <= 0) return;
+      const idx = activeLayerIndex;
+      if (idx === 0) return;
+      const tmp = layers[idx];
+      layers[idx] = layers[idx - 1];
+      layers[idx - 1] = tmp;
+      activeLayerIndex = idx - 1;
+      refreshLayerUI();
+      render();
+    });
+
+    layerOpacitySlider.addEventListener("input", () => {
+      const v = parseInt(layerOpacitySlider.value, 10) / 100;
+      const layer = layers[activeLayerIndex];
+      layer.opacity = v;
+      layerOpacityValue.textContent = Math.round(v * 100) + "%";
+      render();
+    });
+
+    layerBlendModeSelect.addEventListener("change", () => {
+      const layer = layers[activeLayerIndex];
+      layer.blendMode = layerBlendModeSelect.value;
+      render();
+    });
+
+    // Tools
     function setTool(tool) {
       currentTool = tool;
-      if (tool === "brush") {
-        brushToolBtn.classList.add("active");
-        eraserToolBtn.classList.remove("active");
-      } else {
-        eraserToolBtn.classList.add("active");
-        brushToolBtn.classList.remove("active");
+      brushToolBtn.classList.toggle("active", tool === "brush");
+      erasorToolBtn.classList.toggle("active", tool === "eraser");
+      selectToolBtn.classList.toggle("active", tool === "select");
+    }
+
+    brushToolBtn.addEventListener("click", () => setTool("brush"));
+    erasorToolBtn.addEventListener("click", () => setTool("eraser"));
+    selectToolBtn.addEventListener("click", () => setTool("select"));
+
+    brushModeSelect.addEventListener("change", (e) => {
+      brushMode = e.target.value;
+    });
+
+    colorPicker.addEventListener("input", (e) => {
+      brushColor = e.target.value;
+    });
+
+    sizeSlider.addEventListener("input", (e) => {
+      brushSize = parseInt(e.target.value, 10);
+      sizeValue.textContent = brushSize;
+    });
+
+    // Undo/Redo per active layer
+    function saveLayerState(layer) {
+      try {
+        const data = layer.ctx.getImageData(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
+        layer.undoStack.push(data);
+        if (layer.undoStack.length > 40) layer.undoStack.shift();
+        layer.redoStack.length = 0;
+      } catch (e) {
+        console.warn("saveLayerState failed:", e);
       }
     }
 
-    function getCanvasCoords(evt) {
-      const rect = canvas.getBoundingClientRect();
-      const x = evt.clientX - rect.left;
-      const y = evt.clientY - rect.top;
-      const pressure =
-        typeof evt.pressure === "number" && evt.pressure > 0
-          ? evt.pressure
-          : 1.0;
-      // Convert to world coords
-      const worldX = (x - offsetX) / scale;
-      const worldY = (y - offsetY) / scale;
-      return { x, y, worldX, worldY, pressure };
-    }
-
-    function applyBrushStyle(pressure = 1.0) {
-      const p = pressure && pressure > 0 ? pressure : 1.0;
-      const size = brushSize * (0.4 + p * 0.6); // 40–100% scaling
-      bufferCtx.lineCap = "round";
-      bufferCtx.lineJoin = "round";
-      bufferCtx.lineWidth = size;
-      bufferCtx.setLineDash([]);
-      bufferCtx.globalAlpha = 1.0;
-      bufferCtx.filter = "none";
-
-      if (currentTool === "brush") {
-        bufferCtx.globalCompositeOperation = "source-over";
-        bufferCtx.strokeStyle = brushColor;
-
-        if (brushMode === "texture") {
-          bufferCtx.globalAlpha = 0.8;
-          bufferCtx.setLineDash([size * 0.5, size * 0.6]);
-        } else if (brushMode === "smooth") {
-          bufferCtx.globalAlpha = 1.0;
-        } else if (brushMode === "spray") {
-          // handled separately in draw
-        }
-      } else if (currentTool === "eraser") {
-        bufferCtx.globalCompositeOperation = "destination-out";
-        bufferCtx.strokeStyle = "rgba(0,0,0,1)";
-      }
-    }
-
-    function beginStroke(worldX, worldY, pressure) {
-      drawing = true;
-      lastWorldX = worldX;
-      lastWorldY = worldY;
-      saveState(); // snapshot before each stroke
-      bufferCtx.beginPath();
-      bufferCtx.moveTo(worldX, worldY);
-      applyBrushStyle(pressure);
-    }
-
-    function drawStroke(worldX, worldY, pressure) {
-      if (!drawing) return;
-
-      if (currentTool === "brush" && brushMode === "spray") {
-        // Spray paint style
-        const p = pressure && pressure > 0 ? pressure : 1.0;
-        const size = brushSize * (0.4 + p * 0.6);
-        const radius = size * 0.9;
-        const dots = Math.max(10, Math.floor(radius * 2.5));
-
-        bufferCtx.save();
-        bufferCtx.globalCompositeOperation =
-          currentTool === "brush" ? "source-over" : "destination-out";
-        bufferCtx.fillStyle =
-          currentTool === "brush" ? brushColor : "rgba(0,0,0,1)";
-        bufferCtx.globalAlpha = currentTool === "brush" ? 0.5 : 1.0;
-
-        for (let i = 0; i < dots; i++) {
-          const angle = Math.random() * Math.PI * 2;
-          const r = Math.random() * radius;
-          const sx = worldX + Math.cos(angle) * r;
-          const sy = worldY + Math.sin(angle) * r;
-          const dotR = Math.random() * (size * 0.2);
-          bufferCtx.beginPath();
-          bufferCtx.arc(sx, sy, dotR, 0, Math.PI * 2);
-          bufferCtx.fill();
-        }
-        bufferCtx.restore();
-      } else {
-        applyBrushStyle(pressure);
-        bufferCtx.lineTo(worldX, worldY);
-        bufferCtx.stroke();
-      }
-
-      lastWorldX = worldX;
-      lastWorldY = worldY;
+    undoBtn.addEventListener("click", () => {
+      const layer = layers[activeLayerIndex];
+      if (!layer.undoStack.length) return;
+      const current = layer.ctx.getImageData(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
+      layer.redoStack.push(current);
+      const prev = layer.undoStack.pop();
+      layer.ctx.putImageData(prev, 0, 0);
       render();
-    }
+    });
 
-    function endStroke() {
-      if (!drawing) return;
-      drawing = false;
-      bufferCtx.closePath();
-      bufferCtx.globalCompositeOperation = "source-over";
-      bufferCtx.setLineDash([]);
-      bufferCtx.globalAlpha = 1.0;
+    redoBtn.addEventListener("click", () => {
+      const layer = layers[activeLayerIndex];
+      if (!layer.redoStack.length) return;
+      const current = layer.ctx.getImageData(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
+      layer.undoStack.push(current);
+      const next = layer.redoStack.pop();
+      layer.ctx.putImageData(next, 0, 0);
       render();
-    }
+    });
 
-    // Pointer events (Pencil / mouse / single finger drawing)
-    canvas.addEventListener("pointerdown", (evt) => {
-      // If currently pinching with touch, ignore drawing
-      if (isPinching) return;
-      evt.preventDefault();
-      canvas.setPointerCapture(evt.pointerId);
-      const { worldX, worldY, pressure } = getCanvasCoords(evt);
-
-      if (isEyedropper) {
-        pickColorAt(worldX, worldY);
-        isEyedropper = false;
-        eyedropperBtn.classList.remove("active");
-        render();
-        return;
+    clearBtn.addEventListener("click", () => {
+      const layer = layers[activeLayerIndex];
+      if (!confirm("Clear active layer?")) return;
+      saveLayerState(layer);
+      layer.ctx.clearRect(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
+      if (activeLayerIndex === 0) {
+        // if BG, refill with bgPicker color
+        layer.ctx.fillStyle = bgPicker.value;
+        layer.ctx.fillRect(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
       }
-
-      beginStroke(worldX, worldY, pressure);
-      pressureIndicator.textContent = `P: ${pressure.toFixed(2)}`;
+      render();
     });
 
-    canvas.addEventListener("pointermove", (evt) => {
-      if (!drawing && !isEyedropper) return;
-      if (isPinching) return;
-      evt.preventDefault();
-      const { worldX, worldY, pressure } = getCanvasCoords(evt);
-
-      if (isEyedropper) {
-        pressureIndicator.textContent = `P: ${pressure.toFixed(2)}`;
-        return;
-      }
-
-      drawStroke(worldX, worldY, pressure);
-      pressureIndicator.textContent = `P: ${pressure.toFixed(2)}`;
+    // BG Fill – always on Background layer, fixed
+    fillBgBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const bgLayer = layers[0];
+      saveLayerState(bgLayer);
+      bgLayer.ctx.clearRect(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
+      bgLayer.ctx.fillStyle = bgPicker.value;
+      bgLayer.ctx.fillRect(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
+      render();
     });
 
-    canvas.addEventListener("pointerup", (evt) => {
-      evt.preventDefault();
-      canvas.releasePointerCapture(evt.pointerId);
-      endStroke();
+    bgPicker.addEventListener("input", () => {
+      // auto update BG color too
+      const bgLayer = layers[0];
+      saveLayerState(bgLayer);
+      bgLayer.ctx.clearRect(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
+      bgLayer.ctx.fillStyle = bgPicker.value;
+      bgLayer.ctx.fillRect(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
+      render();
     });
 
-    canvas.addEventListener("pointercancel", (evt) => {
-      evt.preventDefault();
-      canvas.releasePointerCapture(evt.pointerId);
-      endStroke();
-    });
-
-    // Prevent iOS scrolling while drawing
-    canvas.addEventListener(
-      "touchmove",
-      (e) => {
-        if (drawing || isPinching) e.preventDefault();
-      },
-      { passive: false }
-    );
-
-    // Eyedropper (sample from buffer)
-    function pickColorAt(worldX, worldY) {
-      const x = Math.floor(worldX);
-      const y = Math.floor(worldY);
-      if (x < 0 || y < 0 || x >= bufferCanvas.width || y >= bufferCanvas.height) return;
-      const data = bufferCtx.getImageData(x, y, 1, 1).data;
+    // Eyedropper
+    function pickColorAtWorld(wx, wy) {
+      const layer = layers[activeLayerIndex];
+      const x = Math.floor(wx);
+      const y = Math.floor(wy);
+      if (x < 0 || y < 0 || x >= WORLD_WIDTH || y >= WORLD_HEIGHT) return;
+      const data = layer.ctx.getImageData(x, y, 1, 1).data;
       const [r, g, b, a] = data;
-      if (a === 0) return; // transparent
+      if (a === 0) return;
       const hex =
         "#" +
         [r, g, b]
@@ -575,111 +763,317 @@
       eyedropperBtn.classList.toggle("active", isEyedropper);
     });
 
-    // Tool switching
-    brushToolBtn.addEventListener("click", () => setTool("brush"));
-    eraserToolBtn.addEventListener("click", () => setTool("eraser"));
+    // Drawing logic
+    function applyBrushStyle(layerCtx, pressure = 1.0) {
+      const p = pressure > 0 ? pressure : 1.0;
+      const size = brushSize * (0.4 + p * 0.6);
+      layerCtx.lineCap = "round";
+      layerCtx.lineJoin = "round";
+      layerCtx.lineWidth = size;
+      layerCtx.setLineDash([]);
+      layerCtx.globalAlpha = 1.0;
+      layerCtx.filter = "none";
 
-    // Brush mode & size
-    brushModeSelect.addEventListener("change", (e) => {
-      brushMode = e.target.value;
-    });
+      if (currentTool === "brush") {
+        layerCtx.globalCompositeOperation = "source-over";
+        layerCtx.strokeStyle = brushColor;
 
-    colorPicker.addEventListener("input", (e) => {
-      brushColor = e.target.value;
-    });
+        if (brushMode === "texture") {
+          layerCtx.globalAlpha = 0.85;
+          layerCtx.setLineDash([size * 0.6, size * 0.5]);
+        } else if (brushMode === "smooth") {
+          layerCtx.globalAlpha = 1.0;
+        } else if (brushMode === "smudge") {
+          // handled specially in stroke
+        }
+      } else if (currentTool === "eraser") {
+        layerCtx.globalCompositeOperation = "destination-out";
+        layerCtx.strokeStyle = "rgba(0,0,0,1)";
+      }
+    }
 
-    sizeSlider.addEventListener("input", (e) => {
-      brushSize = parseInt(e.target.value, 10);
-      sizeValue.textContent = brushSize;
-    });
+    function beginStroke(wx, wy, pressure) {
+      const layer = layers[activeLayerIndex];
+      saveLayerState(layer);
+      const layerCtx = layer.ctx;
+      drawing = true;
+      lastWorldX = wx;
+      lastWorldY = wy;
+      layerCtx.beginPath();
+      layerCtx.moveTo(wx, wy);
+      applyBrushStyle(layerCtx, pressure);
+      if (currentTool === "brush" && brushMode === "smudge") {
+        // smudge: nothing special on begin
+      }
+    }
 
-    // Background controls (fill behind existing drawing)
-    fillBgBtn.addEventListener("click", () => {
-      saveState();
-      bufferCtx.save();
-      bufferCtx.globalCompositeOperation = "destination-over";
-      bufferCtx.fillStyle = bgPicker.value;
-      bufferCtx.fillRect(0, 0, bufferCanvas.width, bufferCanvas.height);
-      bufferCtx.restore();
+    function drawStroke(wx, wy, pressure) {
+      if (!drawing) return;
+      const layer = layers[activeLayerIndex];
+      const layerCtx = layer.ctx;
+
+      if (currentTool === "brush" && brushMode === "smudge") {
+        // Very simple smudge: sample color from around current point and draw with it
+        const x = Math.floor(wx);
+        const y = Math.floor(wy);
+        const radius = Math.max(1, Math.floor(brushSize / 2));
+        try {
+          const img = layerCtx.getImageData(
+            Math.max(0, x - radius),
+            Math.max(0, y - radius),
+            Math.min(radius * 2, WORLD_WIDTH - x + radius),
+            Math.min(radius * 2, WORLD_HEIGHT - y + radius)
+          );
+          let r = 0, g = 0, b = 0, count = 0;
+          for (let i = 0; i < img.data.length; i += 4) {
+            const a = img.data[i + 3];
+            if (a === 0) continue;
+            r += img.data[i];
+            g += img.data[i + 1];
+            b += img.data[i + 2];
+            count++;
+          }
+          if (count > 0) {
+            r = Math.round(r / count);
+            g = Math.round(g / count);
+            b = Math.round(b / count);
+            layerCtx.strokeStyle = `rgba(${r},${g},${b},0.85)`;
+          } else {
+            layerCtx.strokeStyle = brushColor;
+          }
+          layerCtx.globalCompositeOperation = "source-over";
+          layerCtx.lineCap = "round";
+          layerCtx.lineJoin = "round";
+          const p = pressure > 0 ? pressure : 1.0;
+          layerCtx.lineWidth = brushSize * (0.4 + p * 0.6);
+          layerCtx.lineTo(wx, wy);
+          layerCtx.stroke();
+        } catch (e) {
+          // fallback
+          layerCtx.strokeStyle = brushColor;
+          layerCtx.lineTo(wx, wy);
+          layerCtx.stroke();
+        }
+      } else {
+        applyBrushStyle(layerCtx, pressure);
+        layerCtx.lineTo(wx, wy);
+        layerCtx.stroke();
+      }
+
+      lastWorldX = wx;
+      lastWorldY = wy;
+      render();
+    }
+
+    function endStroke() {
+      if (!drawing) return;
+      drawing = false;
+      const layer = layers[activeLayerIndex];
+      layer.ctx.closePath();
+      captureTimelapseFrame();
+      render();
+    }
+
+    // Selection & move
+    const selection = {
+      active: false,
+      x: 0, y: 0, w: 0, h: 0,
+      dragging: false,
+      dragOffsetX: 0,
+      dragOffsetY: 0,
+      moveImage: null,
+      baseSnapshot: null,
+      layerIndex: -1
+    };
+
+    clearSelectionBtn.addEventListener("click", () => {
+      selection.active = false;
+      selection.dragging = false;
+      selection.moveImage = null;
+      selection.baseSnapshot = null;
       render();
     });
 
-    // Undo / Redo
-    undoBtn.addEventListener("click", () => {
-      if (!undoStack.length) return;
-      const snapshot = undoStack.pop();
-      const current = bufferCtx.getImageData(
-        0,
-        0,
-        bufferCanvas.width,
-        bufferCanvas.height
+    function isPointInSelection(wx, wy) {
+      if (!selection.active) return false;
+      return (
+        wx >= selection.x &&
+        wy >= selection.y &&
+        wx <= selection.x + selection.w &&
+        wy <= selection.y + selection.h
       );
-      redoStack.push(current);
-      restoreState(snapshot);
-    });
+    }
 
-    redoBtn.addEventListener("click", () => {
-      if (!redoStack.length) return;
-      const snapshot = redoStack.pop();
-      const current = bufferCtx.getImageData(
-        0,
-        0,
-        bufferCanvas.width,
-        bufferCanvas.height
-      );
-      undoStack.push(current);
-      restoreState(snapshot);
-    });
+    function startSelection(wx, wy) {
+      selection.active = true;
+      selection.dragging = false;
+      selection.x = wx;
+      selection.y = wy;
+      selection.w = 0;
+      selection.h = 0;
+      selection.moveImage = null;
+      selection.baseSnapshot = null;
+      selection.layerIndex = activeLayerIndex;
+    }
 
-    // Clear canvas
-    clearBtn.addEventListener("click", () => {
-      if (
-        !confirm(
-          "Clear the canvas? This cannot be undone (except via Undo if history exists)."
-        )
-      ) {
+    function updateSelectionRect(wx, wy) {
+      selection.w = wx - selection.x;
+      selection.h = wy - selection.y;
+      render();
+    }
+
+    function normalizeSelection() {
+      if (!selection.active) return;
+      if (selection.w < 0) {
+        selection.x += selection.w;
+        selection.w = Math.abs(selection.w);
+      }
+      if (selection.h < 0) {
+        selection.y += selection.h;
+        selection.h = Math.abs(selection.h);
+      }
+    }
+
+    function startSelectionMove(wx, wy) {
+      selection.dragging = true;
+      selection.dragOffsetX = wx - selection.x;
+      selection.dragOffsetY = wy - selection.y;
+
+      const layer = layers[selection.layerIndex];
+      const sx = Math.floor(selection.x);
+      const sy = Math.floor(selection.y);
+      const sw = Math.floor(selection.w);
+      const sh = Math.floor(selection.h);
+      try {
+        selection.moveImage = layer.ctx.getImageData(sx, sy, sw, sh);
+        selection.baseSnapshot = layer.ctx.getImageData(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
+      } catch (e) {
+        selection.moveImage = null;
+        selection.baseSnapshot = null;
+      }
+    }
+
+    function moveSelectionTo(wx, wy) {
+      if (!selection.dragging || !selection.moveImage || !selection.baseSnapshot) return;
+      const layer = layers[selection.layerIndex];
+      const nx = wx - selection.dragOffsetX;
+      const ny = wy - selection.dragOffsetY;
+      selection.x = nx;
+      selection.y = ny;
+      layer.ctx.putImageData(selection.baseSnapshot, 0, 0);
+      layer.ctx.putImageData(selection.moveImage, Math.floor(nx), Math.floor(ny));
+      render();
+    }
+
+    function finishSelectionMove() {
+      selection.dragging = false;
+      selection.moveImage = null;
+      selection.baseSnapshot = null;
+      captureTimelapseFrame();
+      render();
+    }
+
+    // Pointer events
+    canvas.addEventListener("pointerdown", (evt) => {
+      const rect = canvas.getBoundingClientRect();
+      const sx = evt.clientX - rect.left;
+      const sy = evt.clientY - rect.top;
+      const { wx, wy } = screenToWorld(sx, sy);
+      const pressure = typeof evt.pressure === "number" && evt.pressure > 0 ? evt.pressure : 1.0;
+      pressureIndicator.textContent = `P: ${pressure.toFixed(2)}`;
+
+      if (isEyedropper) {
+        pickColorAtWorld(wx, wy);
+        isEyedropper = false;
+        eyedropperBtn.classList.remove("active");
+        render();
         return;
       }
-      saveState();
-      bufferCtx.setTransform(1, 0, 0, 1, 0, 0);
-      bufferCtx.clearRect(0, 0, bufferCanvas.width, bufferCanvas.height);
-      bufferCtx.fillStyle = bgPicker.value;
-      bufferCtx.fillRect(0, 0, bufferCanvas.width, bufferCanvas.height);
-      render();
+
+      if (currentTool === "select") {
+        if (selection.active && isPointInSelection(wx, wy)) {
+          startSelectionMove(wx, wy);
+        } else {
+          startSelection(wx, wy);
+        }
+      } else {
+        beginStroke(wx, wy, pressure);
+      }
+
+      canvas.setPointerCapture(evt.pointerId);
     });
 
-    // Save PNG (from full-resolution buffer)
-    saveBtn.addEventListener("click", () => {
-      const dataURL = bufferCanvas.toDataURL("image/png");
-      const a = document.createElement("a");
-      a.href = dataURL;
-      a.download = "drawing.png";
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
+    canvas.addEventListener("pointermove", (evt) => {
+      const rect = canvas.getBoundingClientRect();
+      const sx = evt.clientX - rect.left;
+      const sy = evt.clientY - rect.top;
+      const { wx, wy } = screenToWorld(sx, sy);
+      const pressure = typeof evt.pressure === "number" && evt.pressure > 0 ? evt.pressure : 1.0;
+      pressureIndicator.textContent = `P: ${pressure.toFixed(2)}`;
+
+      if (currentTool === "select") {
+        if (selection.dragging) {
+          moveSelectionTo(wx, wy);
+        } else if (selection.active && !selection.dragging && drawing === false) {
+          // while creating box
+          if (evt.buttons === 1) {
+            updateSelectionRect(wx, wy);
+          }
+        }
+      } else {
+        if (evt.buttons === 1 && drawing) {
+          drawStroke(wx, wy, pressure);
+        }
+      }
     });
 
-    // ====== Filters (Brightness / Contrast / Blur) ======
-    function applyFiltersToBuffer() {
-      const bVal = parseInt(brightnessSlider.value, 10); // -100..100
-      const cVal = parseInt(contrastSlider.value, 10); // -100..100
-      const blurAmount = parseInt(blurSlider.value, 10); // 0..5
+    canvas.addEventListener("pointerup", (evt) => {
+      const rect = canvas.getBoundingClientRect();
+      const sx = evt.clientX - rect.left;
+      const sy = evt.clientY - rect.top;
+      const { wx, wy } = screenToWorld(sx, sy);
 
-      saveState();
+      if (currentTool === "select") {
+        if (selection.dragging) {
+          finishSelectionMove();
+        } else {
+          normalizeSelection();
+        }
+      } else {
+        endStroke();
+      }
 
-      let imageData = bufferCtx.getImageData(
-        0,
-        0,
-        bufferCanvas.width,
-        bufferCanvas.height
-      );
+      canvas.releasePointerCapture(evt.pointerId);
+    });
+
+    canvas.addEventListener("pointercancel", (evt) => {
+      drawing = false;
+      if (selection.dragging) {
+        finishSelectionMove();
+      }
+      canvas.releasePointerCapture(evt.pointerId);
+    });
+
+    canvas.addEventListener("touchmove", (e) => {
+      if (drawing || selection.dragging) e.preventDefault();
+    }, { passive: false });
+
+    // Filters (active layer)
+    function applyFiltersToActiveLayer() {
+      const layer = layers[activeLayerIndex];
+      saveLayerState(layer);
+
+      const bVal = parseInt(brightnessSlider.value, 10);
+      const cVal = parseInt(contrastSlider.value, 10);
+      const blurAmount = parseInt(blurSlider.value, 10);
+
+      let imageData = layer.ctx.getImageData(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
       const data = imageData.data;
       const len = data.length;
 
       const brightnessOffset = (bVal / 100) * 255;
       const contrastFactor = 1 + cVal / 100;
 
-      // Brightness & contrast
       for (let i = 0; i < len; i += 4) {
         let r = data[i];
         let g = data[i + 1];
@@ -694,39 +1088,26 @@
         data[i + 2] = Math.max(0, Math.min(255, b));
       }
 
-      // Simple box blur based on blurAmount (0..5)
       if (blurAmount > 0) {
-        const passes = blurAmount; // number of passes
+        const passes = blurAmount;
         const w = imageData.width;
         const h = imageData.height;
-
         let src = data;
         let tmp = new Uint8ClampedArray(src.length);
-
         const kernel = [1, 2, 1, 2, 4, 2, 1, 2, 1];
         const ksum = 16;
 
         for (let pass = 0; pass < passes; pass++) {
           for (let y = 0; y < h; y++) {
             for (let x = 0; x < w; x++) {
-              let rSum = 0,
-                gSum = 0,
-                bSum = 0,
-                aSum = 0;
+              let rSum = 0, gSum = 0, bSum = 0, aSum = 0;
               let ki = 0;
-
               for (let ky = -1; ky <= 1; ky++) {
                 const ny = y + ky;
-                if (ny < 0 || ny >= h) {
-                  ki += 3;
-                  continue;
-                }
+                if (ny < 0 || ny >= h) { ki += 3; continue; }
                 for (let kx = -1; kx <= 1; kx++) {
                   const nx = x + kx;
-                  if (nx < 0 || nx >= w) {
-                    ki++;
-                    continue;
-                  }
+                  if (nx < 0 || nx >= w) { ki++; continue; }
                   const idx = (ny * w + nx) * 4;
                   const weight = kernel[ki++];
                   rSum += src[idx] * weight;
@@ -735,7 +1116,6 @@
                   aSum += src[idx + 3] * weight;
                 }
               }
-
               const i = (y * w + x) * 4;
               tmp[i] = rSum / ksum;
               tmp[i + 1] = gSum / ksum;
@@ -743,99 +1123,93 @@
               tmp[i + 3] = aSum / ksum;
             }
           }
-          // Swap buffers
           const swap = src;
           src = tmp;
           tmp = swap;
         }
-
-        // After final pass, src holds blurred data
-        for (let i = 0; i < len; i++) {
-          data[i] = src[i];
-        }
+        for (let i = 0; i < len; i++) data[i] = src[i];
       }
 
-      bufferCtx.putImageData(imageData, 0, 0);
+      layer.ctx.putImageData(imageData, 0, 0);
       render();
+      captureTimelapseFrame();
     }
 
-    applyFilterBtn.addEventListener("click", applyFiltersToBuffer);
+    applyFilterBtn.addEventListener("click", applyFiltersToActiveLayer);
     resetFilterBtn.addEventListener("click", () => {
       brightnessSlider.value = 0;
       contrastSlider.value = 0;
       blurSlider.value = 0;
     });
 
-    // ====== Zoom & Pan with two-finger pinch (touch) ======
-    function getTouchInfo(t1, t2) {
-      const rect = canvas.getBoundingClientRect();
-      const x1 = t1.clientX - rect.left;
-      const y1 = t1.clientY - rect.top;
-      const x2 = t2.clientX - rect.left;
-      const y2 = t2.clientY - rect.top;
-      const centerX = (x1 + x2) / 2;
-      const centerY = (y1 + y2) / 2;
-      const dist = Math.hypot(x2 - x1, y2 - y1);
-      return { centerX, centerY, dist };
+    // Save PNG – flatten all layers
+    saveBtn.addEventListener("click", () => {
+      const exportCanvas = document.createElement("canvas");
+      exportCanvas.width = WORLD_WIDTH;
+      exportCanvas.height = WORLD_HEIGHT;
+      const ectx = exportCanvas.getContext("2d");
+
+      for (let i = 0; i < layers.length; i++) {
+        const layer = layers[i];
+        if (!layer.visible) continue;
+        ectx.globalAlpha = layer.opacity;
+        ectx.globalCompositeOperation = layer.blendMode;
+        ectx.drawImage(layer.canvas, 0, 0);
+      }
+      const dataURL = exportCanvas.toDataURL("image/png");
+      const a = document.createElement("a");
+      a.href = dataURL;
+      a.download = "drawing.png";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    });
+
+    // Time-lapse recording
+    const timelapseFrames = [];
+    const MAX_TL_FRAMES = 240;
+
+    function captureTimelapseFrame() {
+      // Flatten and store data URL
+      const exportCanvas = document.createElement("canvas");
+      exportCanvas.width = WORLD_WIDTH;
+      exportCanvas.height = WORLD_HEIGHT;
+      const ectx = exportCanvas.getContext("2d");
+      for (let i = 0; i < layers.length; i++) {
+        const layer = layers[i];
+        if (!layer.visible) continue;
+        ectx.globalAlpha = layer.opacity;
+        ectx.globalCompositeOperation = layer.blendMode;
+        ectx.drawImage(layer.canvas, 0, 0);
+      }
+      const url = exportCanvas.toDataURL("image/jpeg", 0.7);
+      timelapseFrames.push(url);
+      if (timelapseFrames.length > MAX_TL_FRAMES) timelapseFrames.shift();
     }
 
-    canvas.addEventListener(
-      "touchstart",
-      (e) => {
-        if (e.touches.length === 2) {
-          e.preventDefault();
-          isPinching = true;
-          const [t1, t2] = e.touches;
-          const { centerX, centerY, dist } = getTouchInfo(t1, t2);
-          pinchStartDist = dist;
-          startScale = scale;
-          startOffsetX = offsetX;
-          startOffsetY = offsetY;
+    playTlBtn.addEventListener("click", () => {
+      if (!timelapseFrames.length) {
+        alert("No time-lapse frames yet. Draw something first!");
+        return;
+      }
+      const win = window.open("", "_blank", "width=800,height=800");
+      if (!win) return;
+      win.document.write("<title>Time-Lapse Playback</title>");
+      win.document.write("<style>body{margin:0;background:#000;display:flex;align-items:center;justify-content:center;}img{max-width:100%;max-height:100%;}</style>");
+      const img = win.document.createElement("img");
+      win.document.body.appendChild(img);
+      let idx = 0;
+      function step() {
+        if (win.closed) return;
+        img.src = timelapseFrames[idx];
+        idx = (idx + 1) % timelapseFrames.length;
+        setTimeout(step, 150);
+      }
+      step();
+    });
 
-          // world coordinates under center
-          const worldX = (centerX - startOffsetX) / startScale;
-          const worldY = (centerY - startOffsetY) / startScale;
-          canvas._pinchWorldX = worldX;
-          canvas._pinchWorldY = worldY;
-        }
-      },
-      { passive: false }
-    );
-
-    canvas.addEventListener(
-      "touchmove",
-      (e) => {
-        if (!isPinching || e.touches.length < 2) return;
-        e.preventDefault();
-
-        const [t1, t2] = e.touches;
-        const { centerX, centerY, dist } = getTouchInfo(t1, t2);
-        if (pinchStartDist === 0) return;
-
-        let newScale = (startScale * dist) / pinchStartDist;
-        newScale = Math.max(0.3, Math.min(5, newScale));
-
-        const worldX = canvas._pinchWorldX;
-        const worldY = canvas._pinchWorldY;
-
-        scale = newScale;
-        offsetX = centerX - worldX * scale;
-        offsetY = centerY - worldY * scale;
-
-        render();
-      },
-      { passive: false }
-    );
-
-    canvas.addEventListener(
-      "touchend",
-      (e) => {
-        if (e.touches.length < 2) {
-          isPinching = false;
-        }
-      },
-      { passive: false }
-    );
+    // Init
+    initLayers();
   </script>
 </body>
 </html>
