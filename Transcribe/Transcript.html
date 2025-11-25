@@ -480,13 +480,11 @@
       <div class="field-group">
         <label>Current audio preview</label>
         <audio id="currentAudio" controls></audio>
-        <div class="status-text">
-          <span id="recordingTimerText">Recording duration: 00:00</span>
-        </div>
         <span class="hint">
           After you click <strong>Stop</strong>, the latest recording appears here. Then click
           <strong>Save session</strong> to store audio + text in the notebook.
         </span>
+        <span id="recordTimer" class="hint">Recording time: 00:00</span>
       </div>
     </section>
 
@@ -524,8 +522,8 @@
           <!-- Sessions injected here -->
         </div>
         <span class="hint">
-          All data is stored locally in your browser (IndexedDB). For very long recordings,
-          it’s still good practice to download the audio & transcript to your drive.
+          All data is stored locally in your browser. For longer recordings,
+          it’s still best to download the audio & transcript to your drive.
         </span>
       </div>
     </section>
@@ -570,32 +568,102 @@
   const exportBtn = document.getElementById("exportBtn");
   const clearAllBtn = document.getElementById("clearAllBtn");
   const importFileInput = document.getElementById("importFile");
-  const recordingTimerText = document.getElementById("recordingTimerText");
+  const recordTimerEl = document.getElementById("recordTimer");
 
   let recognition = null;
   let recognizing = false;
-  let finalTranscript = "";
+  let finalTranscript = "";       // now holds SRT-style text
   let interimTranscript = "";
 
   let mediaRecorder = null;
   let recordedChunks = [];
   let currentAudioBlob = null;
 
-  // Timer state
-  let recordingStartTime = null;
-  let recordingTimerInterval = null;
+  let isRecording = false;
+  let recordTimerInterval = null;
+  let recordStartTime = null;     // ms since epoch
 
-  // Playback state for saved sessions
-  let playButtonsBySession = {};
-  let currentPlayingSessionId = null;
-  let currentAudioUrl = null;
+  const STORAGE_KEY = "LiveNotebook_Sessions_v1";
 
-  // IndexedDB constants
-  const DB_NAME = "LiveNotebookDB";
+  // IndexedDB settings
+  const DB_NAME = "LiveNotebookDB_v1";
   const DB_VERSION = 1;
-  const STORE_NAME = "sessions";
-  const LEGACY_STORAGE_KEY = "LiveNotebook_Sessions_v1"; // old localStorage key
+  const AUDIO_STORE = "audioBlobs";
+
   let dbPromise = null;
+
+  // SRT blocks (per minute)
+  // Each block: { index, startSec, endSec, text }
+  let srtBlocks = [];
+
+  // ---------------------------
+  // IndexedDB helpers (audio only)
+  // ---------------------------
+
+  function getDB() {
+    if (!("indexedDB" in window)) {
+      console.warn("IndexedDB not supported; audio persistence may be limited.");
+      return Promise.reject(new Error("IndexedDB not supported"));
+    }
+    if (!dbPromise) {
+      dbPromise = new Promise((resolve, reject) => {
+        const req = indexedDB.open(DB_NAME, DB_VERSION);
+        req.onerror = () => reject(req.error);
+        req.onupgradeneeded = (event) => {
+          const db = event.target.result;
+          if (!db.objectStoreNames.contains(AUDIO_STORE)) {
+            db.createObjectStore(AUDIO_STORE);
+          }
+        };
+        req.onsuccess = () => resolve(req.result);
+      });
+    }
+    return dbPromise;
+  }
+
+  async function storeAudioBlob(id, blob) {
+    const db = await getDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(AUDIO_STORE, "readwrite");
+      const store = tx.objectStore(AUDIO_STORE);
+      store.put(blob, id);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  }
+
+  async function loadAudioBlob(id) {
+    const db = await getDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(AUDIO_STORE, "readonly");
+      const store = tx.objectStore(AUDIO_STORE);
+      const req = store.get(id);
+      req.onsuccess = () => resolve(req.result || null);
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  async function deleteAudioBlob(id) {
+    const db = await getDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(AUDIO_STORE, "readwrite");
+      const store = tx.objectStore(AUDIO_STORE);
+      store.delete(id);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  }
+
+  async function clearAllAudioBlobs() {
+    const db = await getDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(AUDIO_STORE, "readwrite");
+      const store = tx.objectStore(AUDIO_STORE);
+      const req = store.clear();
+      req.onsuccess = () => resolve();
+      req.onerror = () => reject(req.error);
+    });
+  }
 
   // ---------------------------
   // Utility functions
@@ -672,132 +740,24 @@
     return new Blob([byteArray], { type: mimeType });
   }
 
-  function setRecordingTimer(ms) {
-    if (!recordingTimerText) return;
-    const totalSec = Math.floor(ms / 1000);
-    const m = Math.floor(totalSec / 60);
-    const s = totalSec % 60;
-    recordingTimerText.textContent =
-      "Recording duration: " +
-      String(m).padStart(2, "0") +
-      ":" +
-      String(s).padStart(2, "0");
-  }
-
-  function resetCurrentPlayingLabel() {
-    if (currentPlayingSessionId && playButtonsBySession[currentPlayingSessionId]) {
-      playButtonsBySession[currentPlayingSessionId].textContent = "▶ Play";
-    }
-  }
-
-  // ---------------------------
-  // IndexedDB helpers
-  // ---------------------------
-
-  function getDB() {
-    if (!dbPromise) {
-      dbPromise = new Promise((resolve, reject) => {
-        const request = indexedDB.open(DB_NAME, DB_VERSION);
-        request.onupgradeneeded = (event) => {
-          const db = request.result;
-          if (!db.objectStoreNames.contains(STORE_NAME)) {
-            const store = db.createObjectStore(STORE_NAME, { keyPath: "id" });
-            store.createIndex("createdAt", "createdAt", { unique: false });
-          }
-        };
-        request.onsuccess = () => resolve(request.result);
-        request.onerror = () => reject(request.error);
-      });
-    }
-    return dbPromise;
-  }
-
-  async function getAllSessions() {
-    const db = await getDB();
-    return new Promise((resolve, reject) => {
-      const tx = db.transaction(STORE_NAME, "readonly");
-      const store = tx.objectStore(STORE_NAME);
-      const req = store.getAll();
-      req.onsuccess = () => {
-        const arr = req.result || [];
-        resolve(arr);
-      };
-      req.onerror = () => reject(req.error);
-    });
-  }
-
-  async function getSessionById(id) {
-    const db = await getDB();
-    return new Promise((resolve, reject) => {
-      const tx = db.transaction(STORE_NAME, "readonly");
-      const store = tx.objectStore(STORE_NAME);
-      const req = store.get(id);
-      req.onsuccess = () => resolve(req.result || null);
-      req.onerror = () => reject(req.error);
-    });
-  }
-
-  async function putSession(session) {
-    const db = await getDB();
-    return new Promise((resolve, reject) => {
-      const tx = db.transaction(STORE_NAME, "readwrite");
-      const store = tx.objectStore(STORE_NAME);
-      const req = store.put(session);
-      req.onsuccess = () => resolve();
-      req.onerror = () => reject(req.error);
-    });
-  }
-
-  async function deleteSessionById(id) {
-    const db = await getDB();
-    return new Promise((resolve, reject) => {
-      const tx = db.transaction(STORE_NAME, "readwrite");
-      const store = tx.objectStore(STORE_NAME);
-      const req = store.delete(id);
-      req.onsuccess = () => resolve();
-      req.onerror = () => reject(req.error);
-    });
-  }
-
-  async function clearAllSessions() {
-    const db = await getDB();
-    return new Promise((resolve, reject) => {
-      const tx = db.transaction(STORE_NAME, "readwrite");
-      const store = tx.objectStore(STORE_NAME);
-      const req = store.clear();
-      req.onsuccess = () => resolve();
-      req.onerror = () => reject(req.error);
-    });
-  }
-
-  async function migrateLegacyLocalStorage() {
+  function loadSessions() {
     try {
-      const raw = localStorage.getItem(LEGACY_STORAGE_KEY);
-      if (!raw) return;
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return [];
       const arr = JSON.parse(raw);
-      if (!Array.isArray(arr) || !arr.length) return;
-
-      for (const s of arr) {
-        if (!s.audioBase64) continue;
-        const blob = base64ToBlob(s.audioBase64, s.mimeType || "audio/webm");
-        const id =
-          s.id ||
-          s.createdAt ||
-          new Date().toISOString() + "_" + Math.random().toString(36).slice(2);
-        const sessionObj = {
-          id,
-          name: s.name || "Session_" + nowForName(),
-          createdAt: s.createdAt || new Date().toISOString(),
-          transcript: s.transcript || "",
-          mimeType: s.mimeType || blob.type || "audio/webm",
-          audioBlob: blob,
-        };
-        await putSession(sessionObj);
-      }
-      localStorage.removeItem(LEGACY_STORAGE_KEY);
-      console.log("Legacy sessions migrated from localStorage to IndexedDB.");
+      if (!Array.isArray(arr)) return [];
+      return arr;
     } catch (e) {
-      console.error("Legacy migration error:", e);
+      console.error("Error loading sessions:", e);
+      return [];
+    }
+  }
+
+  function saveSessionsToStorage(sessions) {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions));
+    } catch (e) {
+      console.error("Error saving sessions:", e);
     }
   }
 
@@ -806,15 +766,79 @@
       sessions.length === 1 ? "1 session" : sessions.length + " sessions";
   }
 
+  // Recording timer
+  function resetRecordTimer() {
+    if (recordTimerInterval) {
+      clearInterval(recordTimerInterval);
+      recordTimerInterval = null;
+    }
+    recordStartTime = null;
+    if (recordTimerEl) {
+      recordTimerEl.textContent = "Recording time: 00:00";
+    }
+  }
+
+  function startRecordTimer() {
+    resetRecordTimer();
+    recordStartTime = Date.now();
+    recordTimerInterval = setInterval(() => {
+      if (!recordStartTime || !recordTimerEl) return;
+      const diff = Date.now() - recordStartTime;
+      const totalSeconds = Math.floor(diff / 1000);
+      const hours = Math.floor(totalSeconds / 3600);
+      const minutes = Math.floor((totalSeconds % 3600) / 60);
+      const seconds = totalSeconds % 60;
+      const hh = hours > 0 ? String(hours).padStart(2, "0") + ":" : "";
+      const mm = String(minutes).padStart(2, "0");
+      const ss = String(seconds).padStart(2, "0");
+      recordTimerEl.textContent = "Recording time: " + hh + mm + ":" + ss;
+    }, 500);
+  }
+
+  function stopRecordTimer() {
+    if (recordTimerInterval) {
+      clearInterval(recordTimerInterval);
+      recordTimerInterval = null;
+    }
+  }
+
+  // Format seconds to SRT "HH:MM:SS,000"
+  function formatSrtTime(totalSeconds) {
+    const pad = (n) => String(n).padStart(2, "0");
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    return pad(hours) + ":" + pad(minutes) + ":" + pad(seconds) + ",000";
+  }
+
+  // Build SRT-style transcript text from srtBlocks
+  function buildSrtTranscript() {
+    if (!srtBlocks.length) return "";
+    let out = "";
+    for (const b of srtBlocks) {
+      const text = (b.text || "").trim();
+      if (!text) continue;
+      out +=
+        b.index +
+        "\n" +
+        formatSrtTime(b.startSec) +
+        " --> " +
+        formatSrtTime(b.endSec) +
+        "\n" +
+        text +
+        "\n\n";
+    }
+    return out.trimEnd();
+  }
+
   // ---------------------------
   // Render session list
   // ---------------------------
 
   async function renderSessions() {
-    const sessions = await getAllSessions();
+    const sessions = loadSessions();
     updateSessionCount(sessions);
 
-    playButtonsBySession = {};
     sessionsList.innerHTML = "";
     if (!sessions.length) {
       sessionsList.innerHTML =
@@ -838,26 +862,22 @@
         nameInput.value = session.name || "";
         nameInput.title = "Rename session";
 
-        nameInput.addEventListener("change", async () => {
-          const newName = nameInput.value.trim();
-          const full = await getSessionById(session.id);
-          if (full) {
-            full.name = newName || full.name;
-            await putSession(full);
+        nameInput.addEventListener("change", () => {
+          const sessionsAll = loadSessions();
+          const idx = sessionsAll.findIndex((s) => s.id === session.id);
+          if (idx !== -1) {
+            sessionsAll[idx].name =
+              nameInput.value.trim() || sessionsAll[idx].name;
+            saveSessionsToStorage(sessionsAll);
             renderSessions();
           }
         });
 
         const metaDiv = document.createElement("div");
         metaDiv.className = "session-meta";
-        const sizeKB =
-          session.audioBlob && session.audioBlob.size
-            ? " • " + Math.round(session.audioBlob.size / 1024) + " KB"
-            : "";
         metaDiv.innerHTML =
           '<span class="badge-pill">Saved</span> ' +
-          formatDateTime(session.createdAt) +
-          sizeKB;
+          formatDateTime(session.createdAt);
 
         headerRow.appendChild(nameInput);
         headerRow.appendChild(metaDiv);
@@ -868,47 +888,26 @@
         const playBtn = document.createElement("button");
         playBtn.className = "btn-primary";
         playBtn.textContent = "▶ Play";
-        playBtn.dataset.sessionId = session.id;
-        playButtonsBySession[session.id] = playBtn;
-
         playBtn.addEventListener("click", async () => {
-          const id = session.id;
-
-          // If same session is currently playing, toggle pause
-          if (currentPlayingSessionId === id && !currentAudio.paused) {
-            currentAudio.pause();
-            return;
-          }
-
-          // Stop previous playback (if any)
-          if (!currentAudio.paused) {
-            currentAudio.pause();
-          }
-          if (currentAudioUrl) {
-            URL.revokeObjectURL(currentAudioUrl);
-            currentAudioUrl = null;
-          }
-          resetCurrentPlayingLabel();
-
-          const full = await getSessionById(id);
-          if (!full || !full.audioBlob) {
-            alert("No audio found for this session.");
-            return;
-          }
-
-          currentPlayingSessionId = id;
-          const url = URL.createObjectURL(full.audioBlob);
-          currentAudioUrl = url;
-          currentAudio.src = url;
-          currentAudio.load();
-          playBtn.textContent = "⏸ Pause";
-
           try {
-            await currentAudio.play();
-          } catch (err) {
-            console.error("Playback error:", err);
-            resetCurrentPlayingLabel();
-            currentPlayingSessionId = null;
+            const blob = await loadAudioBlob(session.id);
+            if (!blob) {
+              alert("Audio for this session is missing.");
+              return;
+            }
+            const url = URL.createObjectURL(blob);
+            currentAudio.pause();
+            currentAudio.src = url;
+            currentAudio.load();
+            currentAudio.play().catch((e) =>
+              console.error("Play error:", e)
+            );
+            currentAudio.onended = () => {
+              URL.revokeObjectURL(url);
+            };
+          } catch (e) {
+            console.error("Load audio error:", e);
+            alert("Could not play this session's audio.");
           }
         });
 
@@ -916,13 +915,18 @@
         dlAudioBtn.className = "btn-ghost";
         dlAudioBtn.textContent = "⬇ Audio";
         dlAudioBtn.addEventListener("click", async () => {
-          const full = await getSessionById(session.id);
-          if (!full || !full.audioBlob) {
-            alert("No audio available for this session.");
-            return;
+          try {
+            const blob = await loadAudioBlob(session.id);
+            if (!blob) {
+              alert("Audio for this session is missing.");
+              return;
+            }
+            const baseName = session.name || "Session_" + nowForName();
+            downloadBlob(blob, baseName + ".webm");
+          } catch (e) {
+            console.error("Download audio error:", e);
+            alert("Could not download this session's audio.");
           }
-          const baseName = session.name || "Session_" + nowForName();
-          downloadBlob(full.audioBlob, baseName + ".webm");
         });
 
         const dlTxtBtn = document.createElement("button");
@@ -937,9 +941,13 @@
         delBtn.className = "btn-danger";
         delBtn.textContent = "✕ Delete";
         delBtn.addEventListener("click", async () => {
-          await deleteSessionById(session.id);
-          if (currentPlayingSessionId === session.id && !currentAudio.paused) {
-            currentAudio.pause();
+          const sessionsAll = loadSessions();
+          const filtered = sessionsAll.filter((s) => s.id !== session.id);
+          saveSessionsToStorage(filtered);
+          try {
+            await deleteAudioBlob(session.id);
+          } catch (e) {
+            console.error("Delete audio blob error:", e);
           }
           renderSessions();
         });
@@ -968,19 +976,7 @@
       });
   }
 
-  // Keep Play button label in sync when audio stops/pauses
-  currentAudio.addEventListener("ended", () => {
-    resetCurrentPlayingLabel();
-    if (currentAudioUrl) {
-      URL.revokeObjectURL(currentAudioUrl);
-      currentAudioUrl = null;
-    }
-    currentPlayingSessionId = null;
-  });
-
-  currentAudio.addEventListener("pause", () => {
-    resetCurrentPlayingLabel();
-  });
+  renderSessions();
 
   // ---------------------------
   // Speech recognition setup
@@ -989,7 +985,7 @@
   function initRecognition() {
     if (!SpeechRecognition) return;
     recognition = new SpeechRecognition();
-    recognition.lang = "en-US"; // change if needed
+    recognition.lang = "en-US"; // adjust if needed
     recognition.interimResults = true;
     recognition.continuous = true;
 
@@ -1000,27 +996,71 @@
 
     recognition.onerror = (event) => {
       console.error("Speech recognition error:", event.error);
-      setStatus("Speech error: " + event.error, "idle");
+      // Don't kill recording; just log. Status stays live while audio is recording.
     };
 
     recognition.onend = () => {
       recognizing = false;
-      if (stopBtn.disabled === false) {
+      // Auto-restart while recording to reduce "hung" transcription
+      if (isRecording && SpeechRecognition) {
+        try {
+          recognition.start();
+        } catch (e) {
+          console.error("Failed to restart recognition:", e);
+          if (!isRecording) {
+            setStatus("Speech stopped. Click Start to resume.", "idle");
+          }
+        }
+      } else if (!isRecording) {
         setStatus("Speech stopped. Click Start to resume.", "idle");
       }
     };
 
     recognition.onresult = (event) => {
       interimTranscript = "";
+
       for (let i = event.resultIndex; i < event.results.length; i++) {
         const res = event.results[i];
+        const textChunk = res[0].transcript.trim();
+        if (!textChunk) continue;
+
         if (res.isFinal) {
-          finalTranscript += res[0].transcript + " ";
+          // Ensure we have a recording start reference
+          if (!recordStartTime) {
+            recordStartTime = Date.now();
+          }
+          const elapsedSeconds = Math.floor((Date.now() - recordStartTime) / 1000);
+          const minuteIndex = Math.floor(elapsedSeconds / 60);
+          const minuteStartSec = minuteIndex * 60;
+          const minuteEndSec = minuteStartSec + 60;
+
+          let block = srtBlocks.find((b) => b.startSec === minuteStartSec);
+          if (!block) {
+            block = {
+              index: srtBlocks.length + 1,
+              startSec: minuteStartSec,
+              endSec: minuteEndSec,
+              text: ""
+            };
+            srtBlocks.push(block);
+          }
+          block.text += (block.text ? " " : "") + textChunk;
         } else {
-          interimTranscript += res[0].transcript;
+          interimTranscript += textChunk + " ";
         }
       }
-      transcriptArea.value = finalTranscript + "\n" + interimTranscript;
+
+      // Build SRT-style final transcript
+      finalTranscript = buildSrtTranscript();
+
+      // Live view: SRT blocks + one extra blank line + current interim
+      if (finalTranscript) {
+        transcriptArea.value =
+          finalTranscript + (interimTranscript ? "\n\n" + interimTranscript.trim() : "");
+      } else {
+        transcriptArea.value = interimTranscript.trim();
+      }
+
       transcriptArea.scrollTop = transcriptArea.scrollHeight;
     };
   }
@@ -1038,12 +1078,12 @@
     }
 
     const constraints = { audio: true };
-
     const stream = await navigator.mediaDevices.getUserMedia(constraints);
     recordedChunks = [];
 
     let options = {};
-    if (window.MediaRecorder && MediaRecorder.isTypeSupported("audio/webm;codecs=opus")) {
+    if (window.MediaRecorder && MediaRecorder.isTypeSupported &&
+        MediaRecorder.isTypeSupported("audio/webm;codecs=opus")) {
       options.mimeType = "audio/webm;codecs=opus";
     }
 
@@ -1060,55 +1100,20 @@
         type: mediaRecorder.mimeType || "audio/webm",
       });
       currentAudioBlob = blob;
-
-      // Reset any previous session playback state
-      resetCurrentPlayingLabel();
-      currentPlayingSessionId = null;
-      if (currentAudioUrl) {
-        URL.revokeObjectURL(currentAudioUrl);
-        currentAudioUrl = null;
-      }
-
       const url = URL.createObjectURL(blob);
       currentAudio.src = url;
-      currentAudio.load();
-      currentAudioUrl = url;
-
       saveSessionBtn.disabled = false;
-
-      // Final timer update
-      if (recordingStartTime !== null) {
-        setRecordingTimer(Date.now() - recordingStartTime);
-      }
     };
 
     mediaRecorder.start();
-
-    // Start timer
-    recordingStartTime = Date.now();
-    setRecordingTimer(0);
-    if (recordingTimerInterval) {
-      clearInterval(recordingTimerInterval);
-    }
-    recordingTimerInterval = setInterval(() => {
-      if (recordingStartTime !== null) {
-        setRecordingTimer(Date.now() - recordingStartTime);
-      }
-    }, 1000);
   }
 
   function stopRecording() {
     if (mediaRecorder && mediaRecorder.state !== "inactive") {
       mediaRecorder.stop();
-      mediaRecorder.stream.getTracks().forEach((t) => t.stop());
-    }
-    if (recordingTimerInterval) {
-      clearInterval(recordingTimerInterval);
-      recordingTimerInterval = null;
-    }
-    if (recordingStartTime !== null) {
-      setRecordingTimer(Date.now() - recordingStartTime);
-      recordingStartTime = null;
+      if (mediaRecorder.stream) {
+        mediaRecorder.stream.getTracks().forEach((t) => t.stop());
+      }
     }
   }
 
@@ -1120,36 +1125,49 @@
     // reset current
     finalTranscript = "";
     interimTranscript = "";
+    srtBlocks = [];
     transcriptArea.value = "";
     currentAudio.src = "";
     currentAudioBlob = null;
     saveSessionBtn.disabled = true;
-    resetCurrentPlayingLabel();
-    currentPlayingSessionId = null;
-    if (currentAudioUrl) {
-      URL.revokeObjectURL(currentAudioUrl);
-      currentAudioUrl = null;
-    }
-    setRecordingTimer(0);
+    resetRecordTimer();
 
     try {
       await startRecording();
-      if (recognition && !recognizing) {
-        recognition.start();
+      isRecording = true;
+
+      if (recognition && SpeechRecognition) {
+        try {
+          recognition.start();
+        } catch (e) {
+          console.error("Recognition start error:", e);
+        }
+        setStatus("Listening + recording…", "live");
+      } else {
+        setStatus("Recording (speech-to-text not available).", "live");
       }
+
       startBtn.disabled = true;
       stopBtn.disabled = false;
-      setStatus("Listening + recording…", "live");
+      startRecordTimer();
     } catch (e) {
       console.error(e);
+      isRecording = false;
+      stopRecordTimer();
       setStatus("Could not start recording: " + e.message, "idle");
     }
   });
 
   stopBtn.addEventListener("click", () => {
+    isRecording = false;
+    stopRecordTimer();
     stopRecording();
     if (recognition && recognizing) {
-      recognition.stop();
+      try {
+        recognition.stop();
+      } catch (e) {
+        console.error("Recognition stop error:", e);
+      }
     }
     startBtn.disabled = false;
     stopBtn.disabled = true;
@@ -1162,25 +1180,32 @@
       return;
     }
 
-    const text = transcriptArea.value || "";
+    // Prefer SRT-style final transcript if available; fallback to text area
+    const text = finalTranscript || transcriptArea.value || "";
     const nameRaw = sessionNameInput.value.trim();
-    const name = nameRaw || "Session_" + nowForName(); // if no input, use date
+    const name = nameRaw || "Session_" + nowForName(); // if no input, use timestamp
     const createdAt = new Date().toISOString();
     const mimeType = currentAudioBlob.type || "audio/webm";
+    const id = createdAt + "_" + Math.random().toString(36).slice(2);
 
     setStatus("Saving session locally…", "idle");
     saveSessionBtn.disabled = true;
 
     try {
-      const session = {
-        id: createdAt + "_" + Math.random().toString(36).slice(2),
+      // 1) store audio blob in IndexedDB
+      await storeAudioBlob(id, currentAudioBlob);
+
+      // 2) store metadata + transcript in localStorage (small)
+      const sessions = loadSessions();
+      sessions.push({
+        id,
         name,
         createdAt,
         transcript: text,
         mimeType,
-        audioBlob: currentAudioBlob,
-      };
-      await putSession(session);
+      });
+      saveSessionsToStorage(sessions);
+
       await renderSessions();
       setStatus("Session saved locally.", "idle");
     } catch (e) {
@@ -1191,45 +1216,46 @@
     }
   });
 
-  // Backup: export all
+  // Backup: export all (metadata + audio blobs as base64)
   exportBtn.addEventListener("click", async () => {
-    const sessions = await getAllSessions();
-    const exportArr = [];
-    for (const s of sessions) {
-      let audioBase64 = null;
-      if (s.audioBlob) {
-        audioBase64 = await blobToBase64(s.audioBlob);
+    try {
+      const sessions = loadSessions();
+      const exportArr = [];
+      for (const s of sessions) {
+        const blob = await loadAudioBlob(s.id);
+        let audioBase64 = null;
+        if (blob) {
+          audioBase64 = await blobToBase64(blob);
+        }
+        exportArr.push({
+          ...s,
+          audioBase64,
+        });
       }
-      exportArr.push({
-        id: s.id,
-        name: s.name,
-        createdAt: s.createdAt,
-        transcript: s.transcript,
-        mimeType: s.mimeType,
-        audioBase64,
+      const blob = new Blob([JSON.stringify(exportArr, null, 2)], {
+        type: "application/json;charset=utf-8",
       });
+      const filename = "LiveNotebook_Backup_" + nowForName() + ".json";
+      downloadBlob(blob, filename);
+    } catch (e) {
+      console.error("Export error:", e);
+      alert("Export failed: " + e.message);
     }
-    const blob = new Blob([JSON.stringify(exportArr, null, 2)], {
-      type: "application/json;charset=utf-8",
-    });
-    const filename = "LiveNotebook_Backup_" + nowForName() + ".json";
-    downloadBlob(blob, filename);
   });
 
   // Clear all
   clearAllBtn.addEventListener("click", async () => {
     if (!confirm("Delete ALL saved sessions from this browser?")) return;
-    await clearAllSessions();
-    resetCurrentPlayingLabel();
-    currentPlayingSessionId = null;
-    if (currentAudioUrl) {
-      URL.revokeObjectURL(currentAudioUrl);
-      currentAudioUrl = null;
+    localStorage.removeItem(STORAGE_KEY);
+    try {
+      await clearAllAudioBlobs();
+    } catch (e) {
+      console.error("Clear audio blobs error:", e);
     }
-    await renderSessions();
+    renderSessions();
   });
 
-  // Import
+  // Import (includes audio)
   importFileInput.addEventListener("change", (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -1241,28 +1267,46 @@
           alert("Invalid file format (expected array).");
           return;
         }
+
+        const existing = loadSessions();
+        const merged = [...existing];
+
         for (const item of imported) {
-          if (!item.audioBase64) continue;
-          const blob = base64ToBlob(
-            item.audioBase64,
-            item.mimeType || "audio/webm"
-          );
-          const id =
-            item.id ||
-            item.createdAt ||
-            new Date().toISOString() +
+          if (!item.id) {
+            item.id =
+              (item.createdAt || new Date().toISOString()) +
               "_" +
               Math.random().toString(36).slice(2);
-          const obj = {
-            id,
-            name: item.name || "Imported_" + nowForName(),
-            createdAt: item.createdAt || new Date().toISOString(),
-            transcript: item.transcript || "",
-            mimeType: item.mimeType || blob.type || "audio/webm",
-            audioBlob: blob,
-          };
-          await putSession(obj);
+          }
+
+          // avoid duplicate IDs
+          if (merged.some((s) => s.id === item.id)) continue;
+
+          const { audioBase64, ...meta } = item;
+          // store meta
+          merged.push({
+            id: meta.id,
+            name: meta.name,
+            createdAt: meta.createdAt || new Date().toISOString(),
+            transcript: meta.transcript || "",
+            mimeType: meta.mimeType || "audio/webm",
+          });
+
+          // store audio
+          if (audioBase64) {
+            const blob = base64ToBlob(
+              audioBase64,
+              meta.mimeType || "audio/webm"
+            );
+            try {
+              await storeAudioBlob(meta.id, blob);
+            } catch (err) {
+              console.error("Store imported audio error:", err);
+            }
+          }
         }
+
+        saveSessionsToStorage(merged);
         await renderSessions();
         alert("Import complete. Sessions merged.");
       } catch (err) {
@@ -1274,16 +1318,6 @@
     // reset input so same file can be selected again if needed
     e.target.value = "";
   });
-
-  // ---------------------------
-  // Init
-  // ---------------------------
-
-  (async function initApp() {
-    setRecordingTimer(0);
-    await migrateLegacyLocalStorage();
-    await renderSessions();
-  })();
 </script>
 </body>
 </html>
