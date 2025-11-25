@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>HTML Pro Painter</title>
+  <title>HTML Pro Painter (Advanced)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <style>
     :root {
@@ -140,7 +140,7 @@
     .main {
       flex: 1;
       display: grid;
-      grid-template-columns: minmax(0, 1fr) 240px;
+      grid-template-columns: minmax(0, 1fr) 260px;
       min-height: 0;
     }
 
@@ -162,19 +162,6 @@
       width: 100%;
       height: 100%;
       touch-action: none;
-    }
-
-    .hint {
-      position: absolute;
-      left: 0.75rem;
-      bottom: 0.75rem;
-      padding: 0.35rem 0.6rem;
-      border-radius: 0.5rem;
-      background: rgba(0, 0, 0, 0.55);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      font-size: 0.7rem;
-      color: var(--text-soft);
-      max-width: min(90vw, 430px);
     }
 
     .side-panel {
@@ -241,7 +228,7 @@
     }
 
     .small-input {
-      width: 48px;
+      font-size: 0.75rem;
     }
 
   </style>
@@ -267,6 +254,28 @@
       <span class="toolbar-label">Size</span>
       <input type="range" id="sizeSlider" min="1" max="60" value="10" />
       <span id="sizeValue">10</span>px
+    </div>
+
+    <div class="toolbar-group">
+      <span class="toolbar-label">Stroke</span>
+      <span class="toolbar-label">Stab</span>
+      <input type="range" id="stabSlider" min="0" max="100" value="40" />
+      <select id="symmetryMode">
+        <option value="none">No Sym</option>
+        <option value="vertical">Vertical</option>
+        <option value="horizontal">Horizontal</option>
+        <option value="both">Both</option>
+      </select>
+      <button id="quickShapeBtn">QuickShape</button>
+    </div>
+
+    <div class="toolbar-group">
+      <span class="toolbar-label">Guides</span>
+      <select id="guideMode">
+        <option value="none">None</option>
+        <option value="grid">Grid</option>
+        <option value="persp1">1-Point</option>
+      </select>
     </div>
 
     <div class="toolbar-group">
@@ -309,14 +318,6 @@
   <div class="main">
     <div class="canvas-wrapper">
       <canvas id="paintCanvas"></canvas>
-      <div class="hint">
-        💡 Tips:<br/>
-        • Draw with Brush / Eraser on the active layer.<br/>
-        • Use <b>Select/Move</b> to drag parts of a layer.<br/>
-        • BG Fill always paints the Background layer only.<br/>
-        • Filters apply to the active layer.<br/>
-        • Time-lapse captures each stroke for playback.
-      </div>
     </div>
 
     <div class="side-panel">
@@ -359,9 +360,21 @@
         <div style="font-size:0.75rem;color:var(--text-soft);margin-bottom:0.25rem;">
           Use <b>Select/Move</b> tool:<br/>
           • Drag to create a rectangle.<br/>
-          • Tap inside to move it around.
+          • Tap inside to move it around (active layer only).
         </div>
         <button class="mini-btn" id="clearSelectionBtn">Clear Selection</button>
+      </div>
+
+      <div class="panel-section">
+        <div class="panel-title">Reference</div>
+        <div style="display:flex;flex-direction:column;gap:0.3rem;">
+          <input type="file" id="refImageInput" accept="image/*" class="small-input" />
+          <div style="display:flex;align-items:center;gap:0.3rem;">
+            <span class="toolbar-label">Size</span>
+            <input type="range" id="refSizeSlider" min="10" max="60" value="30" />
+          </div>
+          <button class="mini-btn" id="toggleRefBtn">Hide</button>
+        </div>
       </div>
     </div>
   </div>
@@ -370,7 +383,6 @@
     const canvas = document.getElementById("paintCanvas");
     const ctx = canvas.getContext("2d");
 
-    // Canvas size (fixed for session for simplicity)
     function setupCanvasSize() {
       const wrapper = canvas.parentElement;
       const rect = wrapper.getBoundingClientRect();
@@ -383,17 +395,14 @@
     }
     window.addEventListener("load", setupCanvasSize);
     window.addEventListener("resize", () => {
-      // For now, just keep existing size to avoid complexity on rotate
-      // You can reload page on orientation change.
+      // For simplicity, keep size; reload page if needed after rotation.
     });
 
-    // Base "world" resolution (virtual)
     const WORLD_WIDTH = 2048;
     const WORLD_HEIGHT = 2048;
 
-    // Layers: each layer has its own offscreen canvas
     const layers = [];
-    let activeLayerIndex = 1; // will set after creation
+    let activeLayerIndex = 1;
 
     function createLayer(name) {
       const c = document.createElement("canvas");
@@ -416,7 +425,6 @@
     function initLayers() {
       layers.length = 0;
       const bgLayer = createLayer("Background");
-      // Background default color from bgPicker
       bgLayer.ctx.fillStyle = document.getElementById("bgPicker").value;
       bgLayer.ctx.fillRect(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
       layers.push(bgLayer);
@@ -429,7 +437,7 @@
       render();
     }
 
-    // UI Elements
+    // UI elements
     const brushToolBtn = document.getElementById("brushTool");
     const erasorToolBtn = document.getElementById("erasorTool");
     const selectToolBtn = document.getElementById("selectTool");
@@ -437,6 +445,10 @@
     const colorPicker = document.getElementById("colorPicker");
     const sizeSlider = document.getElementById("sizeSlider");
     const sizeValue = document.getElementById("sizeValue");
+    const stabSlider = document.getElementById("stabSlider");
+    const symmetrySelect = document.getElementById("symmetryMode");
+    const quickShapeBtn = document.getElementById("quickShapeBtn");
+    const guideModeSelect = document.getElementById("guideMode");
     const eyedropperBtn = document.getElementById("eyedropperBtn");
     const bgPicker = document.getElementById("bgPicker");
     const fillBgBtn = document.getElementById("fillBgBtn");
@@ -451,7 +463,6 @@
     const blurSlider = document.getElementById("blurSlider");
     const applyFilterBtn = document.getElementById("applyFilterBtn");
     const resetFilterBtn = document.getElementById("resetFilterBtn");
-
     const layerListEl = document.getElementById("layerList");
     const addLayerBtn = document.getElementById("addLayerBtn");
     const delLayerBtn = document.getElementById("delLayerBtn");
@@ -461,18 +472,51 @@
     const layerOpacityValue = document.getElementById("layerOpacityValue");
     const layerBlendModeSelect = document.getElementById("layerBlendMode");
     const clearSelectionBtn = document.getElementById("clearSelectionBtn");
+    const refImageInput = document.getElementById("refImageInput");
+    const refSizeSlider = document.getElementById("refSizeSlider");
+    const toggleRefBtn = document.getElementById("toggleRefBtn");
 
     // Drawing state
-    let currentTool = "brush"; // "brush" | "eraser" | "select"
+    let currentTool = "brush";
     let brushMode = brushModeSelect.value;
     let brushColor = colorPicker.value;
     let brushSize = parseInt(sizeSlider.value, 10);
     let drawing = false;
     let lastWorldX = 0;
     let lastWorldY = 0;
+    let smoothX = 0;
+    let smoothY = 0;
+    let strokePoints = [];
+    let strokeStartX = 0;
+    let strokeStartY = 0;
+
+    let stabAmount = parseInt(stabSlider.value, 10) / 100; // 0..1
+    let symmetryMode = symmetrySelect.value; // none/vertical/horizontal/both
+    let quickShapeEnabled = false;
+    let guideMode = guideModeSelect.value; // none/grid/persp1
     let isEyedropper = false;
 
-    // View mapping (world to screen)
+    // Reference image
+    let refImage = null;
+    let refVisible = true;
+    let refSizePercent = parseInt(refSizeSlider.value, 10); // as % of canvas width
+
+    // Selection & move
+    const selection = {
+      active: false,
+      x: 0, y: 0, w: 0, h: 0,
+      dragging: false,
+      dragOffsetX: 0,
+      dragOffsetY: 0,
+      moveImage: null,
+      baseSnapshot: null,
+      layerIndex: -1
+    };
+
+    // Time-lapse
+    const timelapseFrames = [];
+    const MAX_TL_FRAMES = 240;
+
     function worldToScreen(wx, wy) {
       const rect = canvas.getBoundingClientRect();
       const scaleX = rect.width / WORLD_WIDTH;
@@ -495,7 +539,6 @@
       return { wx, wy };
     }
 
-    // Render all layers + selection overlay
     function render() {
       const rect = canvas.getBoundingClientRect();
       const dpr = window.devicePixelRatio || 1;
@@ -512,6 +555,7 @@
       ctx.translate(ox, oy);
       ctx.scale(s, s);
 
+      // Draw layers
       for (let i = 0; i < layers.length; i++) {
         const layer = layers[i];
         if (!layer.visible) continue;
@@ -520,11 +564,50 @@
         ctx.drawImage(layer.canvas, 0, 0);
       }
 
-      ctx.restore();
-      ctx.globalAlpha = 1.0;
-      ctx.globalCompositeOperation = "source-over";
+      // Guides
+      if (guideMode === "grid") {
+        ctx.save();
+        ctx.setLineDash([4, 4]);
+        ctx.strokeStyle = "rgba(255,255,255,0.05)";
+        ctx.lineWidth = 1;
+        for (let x = 0; x <= WORLD_WIDTH; x += 256) {
+          ctx.beginPath();
+          ctx.moveTo(x, 0);
+          ctx.lineTo(x, WORLD_HEIGHT);
+          ctx.stroke();
+        }
+        for (let y = 0; y <= WORLD_HEIGHT; y += 256) {
+          ctx.beginPath();
+          ctx.moveTo(0, y);
+          ctx.lineTo(WORLD_WIDTH, y);
+          ctx.stroke();
+        }
+        ctx.restore();
+      } else if (guideMode === "persp1") {
+        ctx.save();
+        ctx.setLineDash([6, 4]);
+        ctx.strokeStyle = "rgba(0,255,255,0.18)";
+        ctx.lineWidth = 1;
+        const vpX = WORLD_WIDTH / 2;
+        const vpY = WORLD_HEIGHT * 0.18;
+        // horizon line
+        ctx.beginPath();
+        ctx.moveTo(0, vpY);
+        ctx.lineTo(WORLD_WIDTH, vpY);
+        ctx.stroke();
+        // rays
+        for (let x = -WORLD_WIDTH; x <= WORLD_WIDTH * 2; x += 256) {
+          ctx.beginPath();
+          ctx.moveTo(vpX, vpY);
+          ctx.lineTo(x, WORLD_HEIGHT);
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
 
-      // Draw selection overlay (screen coords)
+      ctx.restore();
+
+      // Selection overlay (screen coords)
       if (selection.active) {
         ctx.save();
         ctx.strokeStyle = "cyan";
@@ -537,6 +620,20 @@
         const w = br.x - tl.x;
         const h = br.y - tl.y;
         ctx.strokeRect(x, y, w, h);
+        ctx.restore();
+      }
+
+      // Reference image overlay (top-right)
+      if (refImage && refVisible) {
+        const wRect = canvas.getBoundingClientRect();
+        const maxW = (wRect.width * refSizePercent) / 100;
+        const aspect = refImage.height / refImage.width;
+        const w = maxW;
+        const h = w * aspect;
+        ctx.save();
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.globalAlpha = 0.95;
+        ctx.drawImage(refImage, wRect.width - w - 10, 10, w, h);
         ctx.restore();
       }
     }
@@ -590,7 +687,7 @@
       layerBlendModeSelect.value = layer.blendMode;
     }
 
-    // Layer creation / deletion / reorder
+    // Layer controls
     addLayerBtn.addEventListener("click", () => {
       const newLayer = createLayer("Layer " + layers.length);
       layers.push(newLayer);
@@ -673,7 +770,33 @@
       sizeValue.textContent = brushSize;
     });
 
-    // Undo/Redo per active layer
+    stabSlider.addEventListener("input", (e) => {
+      stabAmount = parseInt(e.target.value, 10) / 100;
+    });
+
+    symmetrySelect.addEventListener("change", (e) => {
+      symmetryMode = e.target.value;
+    });
+
+    quickShapeBtn.addEventListener("click", () => {
+      quickShapeEnabled = !quickShapeEnabled;
+      quickShapeBtn.classList.toggle("active", quickShapeEnabled);
+    });
+
+    guideModeSelect.addEventListener("change", (e) => {
+      guideMode = e.target.value;
+      render();
+    });
+
+    clearSelectionBtn.addEventListener("click", () => {
+      selection.active = false;
+      selection.dragging = false;
+      selection.moveImage = null;
+      selection.baseSnapshot = null;
+      render();
+    });
+
+    // Undo/Redo
     function saveLayerState(layer) {
       try {
         const data = layer.ctx.getImageData(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
@@ -711,14 +834,13 @@
       saveLayerState(layer);
       layer.ctx.clearRect(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
       if (activeLayerIndex === 0) {
-        // if BG, refill with bgPicker color
         layer.ctx.fillStyle = bgPicker.value;
         layer.ctx.fillRect(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
       }
       render();
     });
 
-    // BG Fill – always on Background layer, fixed
+    // BG fill (fixed, background only)
     fillBgBtn.addEventListener("click", (e) => {
       e.preventDefault();
       e.stopPropagation();
@@ -731,7 +853,6 @@
     });
 
     bgPicker.addEventListener("input", () => {
-      // auto update BG color too
       const bgLayer = layers[0];
       saveLayerState(bgLayer);
       bgLayer.ctx.clearRect(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
@@ -763,7 +884,34 @@
       eyedropperBtn.classList.toggle("active", isEyedropper);
     });
 
-    // Drawing logic
+    // Reference image
+    refImageInput.addEventListener("change", (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        const img = new Image();
+        img.onload = () => {
+          refImage = img;
+          render();
+        };
+        img.src = reader.result;
+      };
+      reader.readAsDataURL(file);
+    });
+
+    refSizeSlider.addEventListener("input", (e) => {
+      refSizePercent = parseInt(e.target.value, 10);
+      render();
+    });
+
+    toggleRefBtn.addEventListener("click", () => {
+      refVisible = !refVisible;
+      toggleRefBtn.textContent = refVisible ? "Hide" : "Show";
+      render();
+    });
+
+    // Brush logic
     function applyBrushStyle(layerCtx, pressure = 1.0) {
       const p = pressure > 0 ? pressure : 1.0;
       const size = brushSize * (0.4 + p * 0.6);
@@ -777,14 +925,11 @@
       if (currentTool === "brush") {
         layerCtx.globalCompositeOperation = "source-over";
         layerCtx.strokeStyle = brushColor;
-
         if (brushMode === "texture") {
           layerCtx.globalAlpha = 0.85;
           layerCtx.setLineDash([size * 0.6, size * 0.5]);
         } else if (brushMode === "smooth") {
           layerCtx.globalAlpha = 1.0;
-        } else if (brushMode === "smudge") {
-          // handled specially in stroke
         }
       } else if (currentTool === "eraser") {
         layerCtx.globalCompositeOperation = "destination-out";
@@ -792,19 +937,43 @@
       }
     }
 
+    function forEachSymmetrySegments(x1, y1, x2, y2, fn) {
+      // base
+      fn(x1, y1, x2, y2);
+      const cx = WORLD_WIDTH / 2;
+      const cy = WORLD_HEIGHT / 2;
+
+      if (symmetryMode === "vertical" || symmetryMode === "both") {
+        const mx1 = 2 * cx - x1;
+        const mx2 = 2 * cx - x2;
+        fn(mx1, y1, mx2, y2);
+      }
+      if (symmetryMode === "horizontal" || symmetryMode === "both") {
+        const my1 = 2 * cy - y1;
+        const my2 = 2 * cy - y2;
+        fn(x1, my1, x2, my2);
+      }
+      if (symmetryMode === "both") {
+        const mx1 = 2 * cx - x1;
+        const mx2 = 2 * cx - x2;
+        const my1 = 2 * cy - y1;
+        const my2 = 2 * cy - y2;
+        fn(mx1, my1, mx2, my2);
+      }
+    }
+
     function beginStroke(wx, wy, pressure) {
       const layer = layers[activeLayerIndex];
       saveLayerState(layer);
-      const layerCtx = layer.ctx;
+
       drawing = true;
+      strokePoints = [{ x: wx, y: wy }];
+      strokeStartX = wx;
+      strokeStartY = wy;
+      smoothX = wx;
+      smoothY = wy;
       lastWorldX = wx;
       lastWorldY = wy;
-      layerCtx.beginPath();
-      layerCtx.moveTo(wx, wy);
-      applyBrushStyle(layerCtx, pressure);
-      if (currentTool === "brush" && brushMode === "smudge") {
-        // smudge: nothing special on begin
-      }
     }
 
     function drawStroke(wx, wy, pressure) {
@@ -812,8 +981,10 @@
       const layer = layers[activeLayerIndex];
       const layerCtx = layer.ctx;
 
+      strokePoints.push({ x: wx, y: wy });
+
+      // Smudge ignores symmetry & stabilization for now
       if (currentTool === "brush" && brushMode === "smudge") {
-        // Very simple smudge: sample color from around current point and draw with it
         const x = Math.floor(wx);
         const y = Math.floor(wy);
         const radius = Math.max(1, Math.floor(brushSize / 2));
@@ -846,54 +1017,119 @@
           layerCtx.lineJoin = "round";
           const p = pressure > 0 ? pressure : 1.0;
           layerCtx.lineWidth = brushSize * (0.4 + p * 0.6);
+          layerCtx.beginPath();
+          layerCtx.moveTo(lastWorldX, lastWorldY);
           layerCtx.lineTo(wx, wy);
           layerCtx.stroke();
-        } catch (e) {
-          // fallback
+        } catch {
           layerCtx.strokeStyle = brushColor;
+          layerCtx.beginPath();
+          layerCtx.moveTo(lastWorldX, lastWorldY);
           layerCtx.lineTo(wx, wy);
           layerCtx.stroke();
         }
-      } else {
-        applyBrushStyle(layerCtx, pressure);
-        layerCtx.lineTo(wx, wy);
-        layerCtx.stroke();
+        lastWorldX = wx;
+        lastWorldY = wy;
+        render();
+        return;
       }
 
-      lastWorldX = wx;
-      lastWorldY = wy;
+      // Stabilization
+      if (stabAmount > 0) {
+        smoothX = smoothX + stabAmount * (wx - smoothX);
+        smoothY = smoothY + stabAmount * (wy - smoothY);
+      } else {
+        smoothX = wx;
+        smoothY = wy;
+      }
+
+      const fromX = lastWorldX;
+      const fromY = lastWorldY;
+      const toX = smoothX;
+      const toY = smoothY;
+
+      applyBrushStyle(layerCtx, pressure);
+
+      const drawSegment = (ax, ay, bx, by) => {
+        layerCtx.beginPath();
+        layerCtx.moveTo(ax, ay);
+        layerCtx.lineTo(bx, by);
+        layerCtx.stroke();
+      };
+
+      forEachSymmetrySegments(fromX, fromY, toX, toY, drawSegment);
+
+      lastWorldX = toX;
+      lastWorldY = toY;
+
       render();
+    }
+
+    function shouldApplyQuickShape() {
+      if (!quickShapeEnabled) return false;
+      if (currentTool !== "brush") return false;
+      if (brushMode === "smudge") return false;
+      if (strokePoints.length < 3) return false;
+
+      const p0 = strokePoints[0];
+      const pN = strokePoints[strokePoints.length - 1];
+      const dx = pN.x - p0.x;
+      const dy = pN.y - p0.y;
+      const lineLen = Math.hypot(dx, dy);
+      if (lineLen < 20) return false;
+
+      let maxDev = 0;
+      for (let i = 1; i < strokePoints.length - 1; i++) {
+        const p = strokePoints[i];
+        const num = Math.abs((p.x - p0.x) * dy - (p.y - p0.y) * dx);
+        const dist = num / lineLen;
+        if (dist > maxDev) maxDev = dist;
+      }
+
+      const threshold = 25; // world units
+      return maxDev < threshold;
+    }
+
+    function applyQuickShapeIfNeeded() {
+      if (!shouldApplyQuickShape()) return false;
+
+      const layer = layers[activeLayerIndex];
+      const preStroke = layer.undoStack[layer.undoStack.length - 1];
+      if (!preStroke) return false;
+
+      const p0 = strokePoints[0];
+      const pN = strokePoints[strokePoints.length - 1];
+
+      layer.ctx.putImageData(preStroke, 0, 0);
+
+      const layerCtx = layer.ctx;
+      applyBrushStyle(layerCtx, 1.0);
+
+      const drawSegment = (ax, ay, bx, by) => {
+        layerCtx.beginPath();
+        layerCtx.moveTo(ax, ay);
+        layerCtx.lineTo(bx, by);
+        layerCtx.stroke();
+      };
+
+      forEachSymmetrySegments(p0.x, p0.y, pN.x, pN.y, drawSegment);
+
+      render();
+      captureTimelapseFrame();
+      return true;
     }
 
     function endStroke() {
       if (!drawing) return;
       drawing = false;
-      const layer = layers[activeLayerIndex];
-      layer.ctx.closePath();
+      if (applyQuickShapeIfNeeded()) {
+        return;
+      }
       captureTimelapseFrame();
       render();
     }
 
-    // Selection & move
-    const selection = {
-      active: false,
-      x: 0, y: 0, w: 0, h: 0,
-      dragging: false,
-      dragOffsetX: 0,
-      dragOffsetY: 0,
-      moveImage: null,
-      baseSnapshot: null,
-      layerIndex: -1
-    };
-
-    clearSelectionBtn.addEventListener("click", () => {
-      selection.active = false;
-      selection.dragging = false;
-      selection.moveImage = null;
-      selection.baseSnapshot = null;
-      render();
-    });
-
+    // Selection helpers
     function isPointInSelection(wx, wy) {
       if (!selection.active) return false;
       return (
@@ -947,7 +1183,7 @@
       try {
         selection.moveImage = layer.ctx.getImageData(sx, sy, sw, sh);
         selection.baseSnapshot = layer.ctx.getImageData(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
-      } catch (e) {
+      } catch {
         selection.moveImage = null;
         selection.baseSnapshot = null;
       }
@@ -1014,11 +1250,8 @@
       if (currentTool === "select") {
         if (selection.dragging) {
           moveSelectionTo(wx, wy);
-        } else if (selection.active && !selection.dragging && drawing === false) {
-          // while creating box
-          if (evt.buttons === 1) {
-            updateSelectionRect(wx, wy);
-          }
+        } else if (selection.active && evt.buttons === 1 && !drawing) {
+          updateSelectionRect(wx, wy);
         }
       } else {
         if (evt.buttons === 1 && drawing) {
@@ -1058,7 +1291,7 @@
       if (drawing || selection.dragging) e.preventDefault();
     }, { passive: false });
 
-    // Filters (active layer)
+    // Filters
     function applyFiltersToActiveLayer() {
       const layer = layers[activeLayerIndex];
       saveLayerState(layer);
@@ -1142,13 +1375,12 @@
       blurSlider.value = 0;
     });
 
-    // Save PNG – flatten all layers
+    // Save flattened PNG
     saveBtn.addEventListener("click", () => {
       const exportCanvas = document.createElement("canvas");
       exportCanvas.width = WORLD_WIDTH;
       exportCanvas.height = WORLD_HEIGHT;
       const ectx = exportCanvas.getContext("2d");
-
       for (let i = 0; i < layers.length; i++) {
         const layer = layers[i];
         if (!layer.visible) continue;
@@ -1165,12 +1397,8 @@
       document.body.removeChild(a);
     });
 
-    // Time-lapse recording
-    const timelapseFrames = [];
-    const MAX_TL_FRAMES = 240;
-
+    // Time-lapse
     function captureTimelapseFrame() {
-      // Flatten and store data URL
       const exportCanvas = document.createElement("canvas");
       exportCanvas.width = WORLD_WIDTH;
       exportCanvas.height = WORLD_HEIGHT;
