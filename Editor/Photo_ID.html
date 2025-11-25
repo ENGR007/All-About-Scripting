@@ -2,8 +2,13 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>ID / Passport Photo Maker</title>
+  <title>AI ID / Passport Photo Maker</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- TensorFlow.js + BodyPix (for AI background removal) -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.21.0/dist/tf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/body-pix@2.2.0"></script>
+
   <style>
     :root {
       --bg: #0b1020;
@@ -17,9 +22,7 @@
       --success: #5bd38a;
     }
 
-    * {
-      box-sizing: border-box;
-    }
+    * { box-sizing: border-box; }
 
     body {
       margin: 0;
@@ -72,7 +75,7 @@
       color: var(--accent);
     }
 
-    .panel h2 span.tag {
+    .tag {
       font-size: 0.7rem;
       padding: 2px 6px;
       border-radius: 999px;
@@ -117,33 +120,9 @@
       font-weight: 500;
     }
 
-    button.danger {
-      background: var(--danger);
-      color: #fff;
-    }
-
     button:disabled {
       opacity: 0.5;
       cursor: default;
-    }
-
-    select,
-    input[type="number"],
-    input[type="file"] {
-      background: #101628;
-      border-color: var(--border);
-      color: var(--soft);
-    }
-
-    label {
-      font-size: 0.82rem;
-      color: var(--soft);
-    }
-
-    .hint {
-      font-size: 0.75rem;
-      color: var(--soft);
-      margin-top: 4px;
     }
 
     video,
@@ -155,37 +134,15 @@
       border: 1px solid #212a46;
     }
 
-    .sliders {
-      margin-top: 8px;
-      display: grid;
-      gap: 6px;
-    }
-
-    .slider-row {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .slider-row span {
-      flex: 0 0 80px;
-      font-size: 0.8rem;
+    label {
+      font-size: 0.82rem;
       color: var(--soft);
     }
 
-    .slider-row input[type="range"] {
-      flex: 1;
-    }
-
-    .pill {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      padding: 3px 8px;
-      border-radius: 999px;
-      border: 1px solid var(--border);
-      font-size: 0.74rem;
+    .hint {
+      font-size: 0.75rem;
       color: var(--soft);
+      margin-top: 4px;
     }
 
     .sizes-list {
@@ -217,27 +174,39 @@
       font-weight: 600;
     }
 
+    .slider-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 6px;
+    }
+
+    .slider-row span {
+      flex: 0 0 80px;
+      font-size: 0.8rem;
+      color: var(--soft);
+    }
+
+    .slider-row input[type="range"] {
+      flex: 1;
+    }
+
     @media (max-width: 900px) {
-      .shell {
-        flex-direction: column;
-      }
+      .shell { flex-direction: column; }
     }
   </style>
 </head>
 <body>
   <div class="app">
-    <h1>ID / Passport Photo Maker</h1>
+    <h1>AI ID / Passport Photo Maker</h1>
     <div class="subtitle">
-      Take a photo or upload one, clean the background to pure white, enhance, choose a standard size, then download.
+      Take or upload a photo &mdash; AI keeps you, makes the background pure white, enhances, then exports in ID sizes.
     </div>
 
     <div class="shell">
-      <!-- LEFT: CAMERA / SOURCE -->
+      <!-- LEFT: CAMERA / UPLOAD -->
       <div class="panel">
-        <h2>
-          Source
-          <span class="tag">Camera / Upload</span>
-        </h2>
+        <h2>Source <span class="tag">Camera / Upload</span></h2>
 
         <div class="controls-row">
           <button id="startCameraBtn">Start Camera</button>
@@ -248,67 +217,37 @@
 
         <div class="controls-row" style="margin-top:8px;">
           <label for="fileInput">Or upload a photo:</label>
-          <input
-            type="file"
-            id="fileInput"
-            accept="image/*"
-            capture="environment"
-          />
+          <input type="file" id="fileInput" accept="image/*" capture="environment" />
         </div>
 
         <div class="hint">
-          Tip: Use a well-lit photo with a simple background for best “magic white” results.
+          Use a clear frontal face, good lighting. Background can be messy &mdash; AI will clean it.
         </div>
       </div>
 
       <!-- CENTER: EDITOR -->
       <div class="panel">
-        <h2>
-          Editor
-          <span class="tag">Magic White & Enhance</span>
-        </h2>
+        <h2>Editor <span class="tag">AI White Background</span></h2>
 
         <canvas id="editCanvas" width="480" height="640"></canvas>
 
-        <!-- Magic background -->
-        <div style="margin-top:8px;">
-          <div class="controls-row">
-            <label class="pill">
-              <input type="checkbox" id="magicToggle" />
-              Enable magic white background (click on background)
-            </label>
-          </div>
-
-          <div class="slider-row">
-            <span>Magic tolerance</span>
-            <input type="range" id="toleranceSlider" min="5" max="80" value="30" />
-          </div>
-
-          <div class="hint">
-            1. Check the box, 2. click on a background area in the photo, 3. adjust tolerance if needed.
-          </div>
+        <div class="hint" id="aiStatusHint">
+          AI model loading… please wait a moment.
         </div>
 
-        <!-- Enhancements -->
         <div style="margin-top:10px;">
           <div class="controls-row">
             <button id="quickEnhanceBtn" class="secondary">Quick Enhance</button>
             <button id="resetBtn" class="secondary">Reset to Original</button>
           </div>
 
-          <div class="sliders">
-            <div class="slider-row">
-              <span>Brightness</span>
-              <input type="range" id="brightnessSlider" min="-80" max="80" value="0" />
-            </div>
-            <div class="slider-row">
-              <span>Contrast</span>
-              <input type="range" id="contrastSlider" min="-80" max="80" value="0" />
-            </div>
-            <div class="slider-row">
-              <span>Saturation</span>
-              <input type="range" id="saturationSlider" min="-80" max="80" value="0" />
-            </div>
+          <div class="slider-row">
+            <span>Brightness</span>
+            <input type="range" id="brightnessSlider" min="-80" max="80" value="0" />
+          </div>
+          <div class="slider-row">
+            <span>Contrast</span>
+            <input type="range" id="contrastSlider" min="-80" max="80" value="0" />
           </div>
 
           <div class="controls-row" style="margin-top:6px;">
@@ -317,17 +256,14 @@
           </div>
 
           <div class="hint">
-            Use <b>Quick Enhance</b> for a one-click improvement, or fine-tune with sliders then click <b>Apply Adjustments</b>.
+            AI automatically makes the background white. Use <b>Quick Enhance</b> or sliders to polish the photo.
           </div>
         </div>
       </div>
 
-      <!-- RIGHT: SIZES & EXPORT -->
+      <!-- RIGHT: SIZES / EXPORT -->
       <div class="panel">
-        <h2>
-          Output
-          <span class="tag">Sizes & Export</span>
-        </h2>
+        <h2>Output <span class="tag">Sizes & Export</span></h2>
 
         <div class="controls-row">
           <label for="sizePreset">Size preset:</label>
@@ -342,12 +278,12 @@
 
         <div class="controls-row" id="customSizeRow" style="display:none;">
           <label>Custom (px):</label>
-          <input type="number" id="customWidth" placeholder="Width" min="50" max="3000" style="width:90px;" />
-          <input type="number" id="customHeight" placeholder="Height" min="50" max="3000" style="width:90px;" />
+          <input type="number" id="customWidth" placeholder="Width" min="50" max="3000" style="width:90px;">
+          <input type="number" id="customHeight" placeholder="Height" min="50" max="3000" style="width:90px;">
         </div>
 
         <div class="sizes-list">
-          <span class="label">Common sizes (at 300 dpi):</span>
+          <span class="label">Common sizes (300 dpi):</span>
           <span>• Passport 35×45 mm → ~413×531 px</span>
           <span>• 2×2 in (US visa/ID) → 600×600 px</span>
           <span>• 1×1 in → 300×300 px</span>
@@ -358,37 +294,33 @@
         </div>
 
         <div class="status" id="statusMsg">
-          Waiting for image…
+          Waiting for AI model to load…
         </div>
 
         <div class="hint" style="margin-top:10px;">
-          Export uses a “cover” fit: your edited photo is scaled and centered into the chosen size (some cropping may occur).
+          Export uses a “cover” fit: your edited photo fills the chosen size, centered (some cropping may occur).
         </div>
       </div>
     </div>
   </div>
 
   <script>
-    // --- DOM ELEMENTS ---
+    // DOM
     const video = document.getElementById("video");
     const startCameraBtn = document.getElementById("startCameraBtn");
     const captureBtn = document.getElementById("captureBtn");
     const fileInput = document.getElementById("fileInput");
-
     const canvas = document.getElementById("editCanvas");
     const ctx = canvas.getContext("2d");
-
-    const magicToggle = document.getElementById("magicToggle");
-    const toleranceSlider = document.getElementById("toleranceSlider");
 
     const quickEnhanceBtn = document.getElementById("quickEnhanceBtn");
     const resetBtn = document.getElementById("resetBtn");
     const brightnessSlider = document.getElementById("brightnessSlider");
     const contrastSlider = document.getElementById("contrastSlider");
-    const saturationSlider = document.getElementById("saturationSlider");
     const applyAdjustBtn = document.getElementById("applyAdjustBtn");
     const clearAdjustBtn = document.getElementById("clearAdjustBtn");
 
+    const aiStatusHint = document.getElementById("aiStatusHint");
     const sizePreset = document.getElementById("sizePreset");
     const customSizeRow = document.getElementById("customSizeRow");
     const customWidth = document.getElementById("customWidth");
@@ -396,83 +328,16 @@
     const downloadBtn = document.getElementById("downloadBtn");
     const statusMsg = document.getElementById("statusMsg");
 
-    // --- STATE ---
+    // State
     let stream = null;
     let hasImage = false;
-    let originalImageData = null; // full original pixels
+    let originalImageData = null;
     let originalWidth = canvas.width;
     let originalHeight = canvas.height;
+    let bodyPixModel = null;
+    let aiReady = false;
 
-    // --- CAMERA HANDLING ---
-    async function startCamera() {
-      try {
-        if (stream) {
-          // Already running
-          return;
-        }
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: "user" },
-          audio: false,
-        });
-        video.srcObject = stream;
-        captureBtn.disabled = false;
-        setStatus("Camera ready. Click <b>Capture Photo</b>.", "ok");
-      } catch (err) {
-        console.error(err);
-        setStatus("Cannot access camera. Check permissions or use file upload.", "err");
-      }
-    }
-
-    function capturePhoto() {
-      if (!video.videoWidth || !video.videoHeight) {
-        setStatus("Camera not ready yet. Wait a second then try again.", "err");
-        return;
-      }
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      onNewImage();
-      setStatus("Photo captured. You can now use magic white and enhancements.", "ok");
-    }
-
-    // --- FILE UPLOAD HANDLING ---
-    function handleFileUpload(event) {
-      const file = event.target.files && event.target.files[0];
-      if (!file) return;
-
-      const reader = new FileReader();
-      reader.onload = function (e) {
-        const img = new Image();
-        img.onload = function () {
-          // Fit image into canvas, keeping aspect ratio
-          const maxSide = 900;
-          let w = img.width;
-          let h = img.height;
-          const scale = Math.min(maxSide / w, maxSide / h, 1);
-          w = Math.round(w * scale);
-          h = Math.round(h * scale);
-
-          canvas.width = w;
-          canvas.height = h;
-          ctx.drawImage(img, 0, 0, w, h);
-          onNewImage();
-          setStatus("Photo loaded. Use magic white and enhancements.", "ok");
-        };
-        img.src = e.target.result;
-      };
-      reader.readAsDataURL(file);
-    }
-
-    // --- COMMON: NEW IMAGE ARRIVED ---
-    function onNewImage() {
-      hasImage = true;
-      originalWidth = canvas.width;
-      originalHeight = canvas.height;
-      originalImageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      resetSlidersOnly();
-    }
-
-    // --- STATUS DISPLAY ---
+    // ---- STATUS UI ----
     function setStatus(message, type) {
       if (!statusMsg) return;
       if (type === "ok") {
@@ -484,60 +349,145 @@
       }
     }
 
-    // --- MAGIC WHITE BACKGROUND (CLICK) ---
-    canvas.addEventListener("click", function (e) {
-      if (!hasImage || !magicToggle.checked) return;
+    // ---- AI MODEL LOADING ----
+    async function loadBodyPixModel() {
+      try {
+        aiStatusHint.textContent = "Loading AI model (BodyPix)…";
+        bodyPixModel = await bodyPix.load({
+          architecture: "MobileNetV1",
+          outputStride: 16,
+          multiplier: 0.75,
+          quantBytes: 2
+        });
+        aiReady = true;
+        aiStatusHint.textContent = "AI ready. Every new photo will auto-get white background.";
+        setStatus("AI model loaded. Capture or upload a photo.", "ok");
+      } catch (e) {
+        console.error(e);
+        aiStatusHint.textContent = "Failed to load AI model. Check internet connection.";
+        setStatus("AI model failed to load. Background will not be auto-removed.", "err");
+      }
+    }
 
-      const rect = canvas.getBoundingClientRect();
-      const scaleX = canvas.width / rect.width;
-      const scaleY = canvas.height / rect.height;
-      const x = Math.floor((e.clientX - rect.left) * scaleX);
-      const y = Math.floor((e.clientY - rect.top) * scaleY);
+    // ---- CAMERA ----
+    async function startCamera() {
+      try {
+        if (stream) return;
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: "user" },
+          audio: false
+        });
+        video.srcObject = stream;
+        captureBtn.disabled = false;
+        setStatus("Camera ready. Click Capture Photo.", "ok");
+      } catch (err) {
+        console.error(err);
+        setStatus("Cannot access camera. Check permissions or use file upload.", "err");
+      }
+    }
 
-      let imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      const data = imageData.data;
-      const idx = (y * canvas.width + x) * 4;
-      const baseR = data[idx];
-      const baseG = data[idx + 1];
-      const baseB = data[idx + 2];
-      const tolerance = parseInt(toleranceSlider.value, 10) || 30;
+    function capturePhoto() {
+      if (!video.videoWidth || !video.videoHeight) {
+        setStatus("Camera not ready. Try again in a moment.", "err");
+        return;
+      }
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      onNewImage();
+    }
 
-      const maxDist = tolerance * 3; // simple Manhattan distance threshold
+    // ---- FILE UPLOAD ----
+    function handleFileUpload(e) {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
 
-      for (let i = 0; i < data.length; i += 4) {
-        const r = data[i];
-        const g = data[i + 1];
-        const b = data[i + 2];
+      const reader = new FileReader();
+      reader.onload = function(ev) {
+        const img = new Image();
+        img.onload = function() {
+          const maxSide = 900;
+          let w = img.width;
+          let h = img.height;
+          const scale = Math.min(maxSide / w, maxSide / h, 1);
+          w = Math.round(w * scale);
+          h = Math.round(h * scale);
+          canvas.width = w;
+          canvas.height = h;
+          ctx.drawImage(img, 0, 0, w, h);
+          onNewImage();
+        };
+        img.src = ev.target.result;
+      };
+      reader.readAsDataURL(file);
+    }
 
-        const dist =
-          Math.abs(r - baseR) + Math.abs(g - baseG) + Math.abs(b - baseB);
+    // ---- WHEN NEW IMAGE ARRIVES ----
+    async function onNewImage() {
+      hasImage = true;
+      originalWidth = canvas.width;
+      originalHeight = canvas.height;
+      originalImageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      resetSlidersOnly();
 
-        if (dist < maxDist) {
-          // Turn this pixel to pure white
-          data[i] = 255;
-          data[i + 1] = 255;
-          data[i + 2] = 255;
+      if (aiReady && bodyPixModel) {
+        setStatus("Running AI background removal…", "");
+        await applyAIWhiteBackground();
+        setStatus("Background set to white using AI. You can now enhance and export.", "ok");
+      } else {
+        setStatus("AI not ready. Image loaded without background change.", "err");
+      }
+    }
+
+    // ---- AI WHITE BACKGROUND ----
+    async function applyAIWhiteBackground() {
+      // Use an offscreen canvas so BodyPix can read it
+      const off = document.createElement("canvas");
+      off.width = canvas.width;
+      off.height = canvas.height;
+      const offCtx = off.getContext("2d");
+      offCtx.drawImage(canvas, 0, 0);
+
+      // Segment person
+      const segmentation = await bodyPixModel.segmentPerson(off, {
+        internalResolution: "medium",
+        segmentationThreshold: 0.7
+      });
+
+      const mask = segmentation.data; // Uint8Array of 0/1 values (1 = person)
+      const srcImageData = offCtx.getImageData(0, 0, off.width, off.height);
+      const src = srcImageData.data;
+
+      for (let i = 0; i < mask.length; i++) {
+        const isPerson = mask[i] === 1;
+        const idx = i * 4;
+        if (!isPerson) {
+          // non-person → pure white
+          src[idx] = 255;     // R
+          src[idx + 1] = 255; // G
+          src[idx + 2] = 255; // B
         }
       }
 
-      ctx.putImageData(imageData, 0, 0);
-      setStatus("Magic white applied. If it ate too much, undo via Reset or use lower tolerance.", "ok");
-    });
+      ctx.putImageData(srcImageData, 0, 0);
 
-    // --- ENHANCEMENT HELPERS ---
+      // Update "original" to the AI cleaned version so reset goes back to white background
+      originalImageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    }
+
+    // ---- ENHANCEMENTS ----
     function resetToOriginal() {
       if (!hasImage || !originalImageData) return;
       canvas.width = originalWidth;
       canvas.height = originalHeight;
       ctx.putImageData(originalImageData, 0, 0);
       resetSlidersOnly();
-      setStatus("Reset to original image.", "ok");
+      setStatus("Reset to AI-cleaned original (white background).", "ok");
     }
 
     function resetSlidersOnly() {
       brightnessSlider.value = 0;
       contrastSlider.value = 0;
-      saturationSlider.value = 0;
     }
 
     function applyQuickEnhance() {
@@ -548,10 +498,8 @@
       let imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
       const data = imageData.data;
 
-      // Simple “make it better”:
-      // slightly brighter + mild contrast boost
       const brightnessOffset = 10;
-      const contrastFactor = 1.06; // small
+      const contrastFactor = 1.07;
 
       for (let i = 0; i < data.length; i += 4) {
         for (let c = 0; c < 3; c++) {
@@ -574,59 +522,28 @@
       }
       const b = parseInt(brightnessSlider.value, 10) || 0;
       const c = parseInt(contrastSlider.value, 10) || 0;
-      const s = parseInt(saturationSlider.value, 10) || 0;
 
-      if (!originalImageData) {
-        originalImageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        originalWidth = canvas.width;
-        originalHeight = canvas.height;
-      }
-
-      // Start from current canvas pixels (not from original) so you can stack actions
       let imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
       const data = imageData.data;
 
-      // Convert slider values to factors
-      const brightnessOffset = b;             // -80 .. 80
-      const contrastFactor = 1 + c / 100;     // 0.2 .. 1.8
-      const satFactor = 1 + s / 100;          // 0.2 .. 1.8
+      const brightnessOffset = b;
+      const contrastFactor = 1 + c / 100;
 
       for (let i = 0; i < data.length; i += 4) {
-        let r = data[i];
-        let g = data[i + 1];
-        let b_ = data[i + 2];
-
-        // Apply brightness & contrast in RGB
-        r = r * contrastFactor + brightnessOffset;
-        g = g * contrastFactor + brightnessOffset;
-        b_ = b_ * contrastFactor + brightnessOffset;
-
-        // Clamp
-        r = r < 0 ? 0 : r > 255 ? 255 : r;
-        g = g < 0 ? 0 : g > 255 ? 255 : g;
-        b_ = b_ < 0 ? 0 : b_ > 255 ? 255 : b_;
-
-        // Convert to HSL-ish to change saturation (simple method)
-        const avg = (r + g + b_) / 3;
-        r = avg + (r - avg) * satFactor;
-        g = avg + (g - avg) * satFactor;
-        b_ = avg + (b_ - avg) * satFactor;
-
-        // Clamp again
-        r = r < 0 ? 0 : r > 255 ? 255 : r;
-        g = g < 0 ? 0 : g > 255 ? 255 : g;
-        b_ = b_ < 0 ? 0 : b_ > 255 ? 255 : b_;
-
-        data[i] = r;
-        data[i + 1] = g;
-        data[i + 2] = b_;
+        for (let ch = 0; ch < 3; ch++) {
+          let v = data[i + ch];
+          v = v * contrastFactor + brightnessOffset;
+          if (v < 0) v = 0;
+          if (v > 255) v = 255;
+          data[i + ch] = v;
+        }
       }
 
       ctx.putImageData(imageData, 0, 0);
       setStatus("Adjustments applied.", "ok");
     }
 
-    // --- SIZE PRESET HANDLING ---
+    // ---- SIZE PRESET / EXPORT ----
     sizePreset.addEventListener("change", () => {
       if (sizePreset.value === "custom") {
         customSizeRow.style.display = "flex";
@@ -635,7 +552,6 @@
       }
     });
 
-    // --- EXPORT / DOWNLOAD ---
     function downloadFinal() {
       if (!hasImage) {
         setStatus("No image to download. Capture or upload first.", "err");
@@ -660,7 +576,7 @@
           targetW = parseInt(customWidth.value, 10);
           targetH = parseInt(customHeight.value, 10);
           if (!targetW || !targetH || targetW <= 0 || targetH <= 0) {
-            setStatus("Enter a valid custom width and height in pixels.", "err");
+            setStatus("Enter valid custom width/height.", "err");
             return;
           }
           break;
@@ -671,16 +587,15 @@
           break;
       }
 
-      const exportCanvas = document.createElement("canvas");
-      exportCanvas.width = targetW;
-      exportCanvas.height = targetH;
-      const exCtx = exportCanvas.getContext("2d");
+      const out = document.createElement("canvas");
+      out.width = targetW;
+      out.height = targetH;
+      const outCtx = out.getContext("2d");
 
-      // Fill with white just in case
-      exCtx.fillStyle = "#ffffff";
-      exCtx.fillRect(0, 0, targetW, targetH);
+      // fill with white
+      outCtx.fillStyle = "#ffffff";
+      outCtx.fillRect(0, 0, targetW, targetH);
 
-      // “Cover” fit: scale so the photo fills, may crop
       const srcW = canvas.width;
       const srcH = canvas.height;
       const scale = Math.max(targetW / srcW, targetH / srcH);
@@ -689,9 +604,9 @@
       const dx = (targetW - drawW) / 2;
       const dy = (targetH - drawH) / 2;
 
-      exCtx.drawImage(canvas, dx, dy, drawW, drawH);
+      outCtx.drawImage(canvas, dx, dy, drawW, drawH);
 
-      const dataURL = exportCanvas.toDataURL("image/jpeg", 0.95);
+      const dataURL = out.toDataURL("image/jpeg", 0.95);
       const link = document.createElement("a");
       link.href = dataURL;
       link.download = "id_photo_" + sizePreset.value + ".jpg";
@@ -699,10 +614,10 @@
       link.click();
       document.body.removeChild(link);
 
-      setStatus("JPEG downloaded. You can now print it at the chosen size (300 dpi).", "ok");
+      setStatus("JPEG downloaded. Save it to Photos / Gallery and print at 300 dpi.", "ok");
     }
 
-    // --- EVENT WIRING ---
+    // ---- EVENTS ----
     startCameraBtn.addEventListener("click", startCamera);
     captureBtn.addEventListener("click", capturePhoto);
     fileInput.addEventListener("change", handleFileUpload);
@@ -710,12 +625,16 @@
     quickEnhanceBtn.addEventListener("click", applyQuickEnhance);
     resetBtn.addEventListener("click", resetToOriginal);
     applyAdjustBtn.addEventListener("click", applyAdjustments);
-    clearAdjustBtn.addEventListener("click", resetSlidersOnly);
+    clearAdjustBtn.addEventListener("click", () => {
+      resetSlidersOnly();
+      setStatus("Sliders cleared. No extra adjustments applied yet.", "");
+    });
 
     downloadBtn.addEventListener("click", downloadFinal);
 
-    // Initialize status
-    setStatus("Waiting for image…", "");
+    // Load AI model on start
+    setStatus("Waiting for AI model to load…", "");
+    loadBodyPixModel();
   </script>
 </body>
 </html>
