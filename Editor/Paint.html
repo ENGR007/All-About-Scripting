@@ -1,0 +1,841 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>HTML Advanced Painter (iPad)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <style>
+    :root {
+      --bg: #0b1020;
+      --panel: #151b2e;
+      --accent: #ffb84d;
+      --accent-soft: rgba(255, 184, 77, 0.15);
+      --border: #273251;
+      --text: #f5f7ff;
+      --text-soft: #9eaad0;
+      --danger: #ff4d6a;
+    }
+
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont,
+        "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.4rem 0.6rem;
+      background: linear-gradient(to right, #151b2e, #101629);
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    .toolbar-title {
+      font-weight: 600;
+      margin-right: 0.5rem;
+      white-space: nowrap;
+    }
+
+    .toolbar-group {
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.25rem 0.55rem;
+      border-radius: 999px;
+      background: rgba(11, 16, 32, 0.7);
+      border: 1px solid var(--border);
+    }
+
+    .toolbar-label {
+      font-size: 0.75rem;
+      color: var(--text-soft);
+      white-space: nowrap;
+    }
+
+    button,
+    .chip-toggle {
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      padding: 0.25rem 0.7rem;
+      font-size: 0.8rem;
+      background: #101629;
+      color: var(--text);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.35rem;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    button:active,
+    .chip-toggle:active {
+      transform: translateY(1px);
+    }
+
+    button.primary {
+      background: var(--accent-soft);
+      border-color: var(--accent);
+    }
+
+    button.danger {
+      background: rgba(255, 77, 106, 0.1);
+      border-color: var(--danger);
+    }
+
+    .chip-toggle.active {
+      background: var(--accent-soft);
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    input[type="color"] {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      border: 1px solid var(--border);
+      padding: 0;
+      background: transparent;
+      cursor: pointer;
+    }
+
+    input[type="range"] {
+      width: 70px;
+    }
+
+    select {
+      font-size: 0.8rem;
+      background: #101629;
+      color: var(--text);
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      padding: 0.1rem 0.4rem;
+    }
+
+    #pressureIndicator {
+      font-size: 0.7rem;
+      color: var(--text-soft);
+      min-width: 3.1rem;
+      text-align: right;
+    }
+
+    .canvas-wrapper {
+      flex: 1;
+      position: relative;
+      background: #050814;
+      overflow: hidden;
+    }
+
+    canvas {
+      display: block;
+      touch-action: none; /* Important for iPad pencil & gestures */
+    }
+
+    .hint {
+      position: absolute;
+      left: 0.75rem;
+      bottom: 0.75rem;
+      padding: 0.35rem 0.6rem;
+      border-radius: 0.5rem;
+      background: rgba(0, 0, 0, 0.55);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      font-size: 0.7rem;
+      color: var(--text-soft);
+      max-width: min(90vw, 430px);
+    }
+
+    @media (max-width: 900px) {
+      .toolbar {
+        gap: 0.3rem;
+      }
+      .toolbar-group {
+        padding: 0.2rem 0.45rem;
+      }
+      .toolbar-title {
+        font-size: 0.9rem;
+      }
+      input[type="range"] {
+        width: 60px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="toolbar">
+    <div class="toolbar-title">HTML Advanced Painter</div>
+
+    <div class="toolbar-group">
+      <span class="toolbar-label">Tool</span>
+      <button class="chip-toggle active" id="brushTool">Brush</button>
+      <button class="chip-toggle" id="eraserTool">Eraser</button>
+    </div>
+
+    <div class="toolbar-group">
+      <span class="toolbar-label">Brush</span>
+      <select id="brushMode">
+        <option value="smooth">Smooth</option>
+        <option value="texture">Texture</option>
+        <option value="spray">Spray</option>
+      </select>
+      <span class="toolbar-label">Size</span>
+      <input type="range" id="sizeSlider" min="1" max="60" value="12" />
+      <span id="sizeValue">12</span>px
+    </div>
+
+    <div class="toolbar-group">
+      <span class="toolbar-label">Color</span>
+      <input type="color" id="colorPicker" value="#ffb84d" />
+      <button id="eyedropperBtn">Pick ❖</button>
+    </div>
+
+    <div class="toolbar-group">
+      <span class="toolbar-label">BG</span>
+      <input type="color" id="bgPicker" value="#050814" />
+      <button id="fillBgBtn">Fill</button>
+    </div>
+
+    <div class="toolbar-group">
+      <button id="undoBtn">Undo</button>
+      <button id="redoBtn">Redo</button>
+      <button class="danger" id="clearBtn">Clear</button>
+    </div>
+
+    <div class="toolbar-group">
+      <span class="toolbar-label">Filters</span>
+      <span class="toolbar-label">Brt</span>
+      <input type="range" id="brightnessSlider" min="-100" max="100" value="0" />
+      <span class="toolbar-label">Ctr</span>
+      <input type="range" id="contrastSlider" min="-100" max="100" value="0" />
+      <span class="toolbar-label">Blur</span>
+      <input type="range" id="blurSlider" min="0" max="5" value="0" />
+      <button id="applyFilterBtn">Apply</button>
+      <button id="resetFilterBtn">Reset</button>
+    </div>
+
+    <div class="toolbar-group">
+      <button class="primary" id="saveBtn">Save PNG</button>
+      <span id="pressureIndicator">P: 1.0</span>
+    </div>
+  </div>
+
+  <div class="canvas-wrapper">
+    <canvas id="paintCanvas"></canvas>
+    <div class="hint">
+      💡 Tips:
+      <br />• Draw with Apple Pencil or one finger.
+      <br />• Use <b>two-finger pinch</b> to zoom and <b>two-finger drag</b> to pan.
+      <br />• Try different brush modes: Smooth, Texture, Spray.
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById("paintCanvas");
+    const ctx = canvas.getContext("2d");
+
+    // Offscreen buffer for actual drawing (world space)
+    const bufferCanvas = document.createElement("canvas");
+    const bufferCtx = bufferCanvas.getContext("2d");
+
+    // Choose a decent base size (virtual canvas)
+    bufferCanvas.width = 2048;
+    bufferCanvas.height = 2048;
+
+    // UI elements
+    const brushToolBtn = document.getElementById("brushTool");
+    const eraserToolBtn = document.getElementById("eraserTool");
+    const brushModeSelect = document.getElementById("brushMode");
+    const colorPicker = document.getElementById("colorPicker");
+    const sizeSlider = document.getElementById("sizeSlider");
+    const sizeValue = document.getElementById("sizeValue");
+    const undoBtn = document.getElementById("undoBtn");
+    const redoBtn = document.getElementById("redoBtn");
+    const clearBtn = document.getElementById("clearBtn");
+    const saveBtn = document.getElementById("saveBtn");
+    const pressureIndicator = document.getElementById("pressureIndicator");
+    const bgPicker = document.getElementById("bgPicker");
+    const fillBgBtn = document.getElementById("fillBgBtn");
+    const eyedropperBtn = document.getElementById("eyedropperBtn");
+
+    const brightnessSlider = document.getElementById("brightnessSlider");
+    const contrastSlider = document.getElementById("contrastSlider");
+    const blurSlider = document.getElementById("blurSlider");
+    const applyFilterBtn = document.getElementById("applyFilterBtn");
+    const resetFilterBtn = document.getElementById("resetFilterBtn");
+
+    // Drawing state
+    let drawing = false;
+    let currentTool = "brush"; // "brush" or "eraser"
+    let brushColor = colorPicker.value;
+    let brushSize = parseInt(sizeSlider.value, 10);
+    let brushMode = brushModeSelect.value;
+    let lastWorldX = 0;
+    let lastWorldY = 0;
+    let isEyedropper = false;
+
+    // Zoom & pan state (screen transform)
+    let scale = 1.0;
+    let offsetX = 0;
+    let offsetY = 0;
+
+    // Pinch zoom state
+    let isPinching = false;
+    let startScale = 1.0;
+    let startOffsetX = 0;
+    let startOffsetY = 0;
+    let pinchStartDist = 0;
+
+    // Undo / Redo on the buffer (world canvas)
+    const undoStack = [];
+    const redoStack = [];
+    const MAX_HISTORY = 40;
+
+    function initBufferBackground() {
+      bufferCtx.save();
+      bufferCtx.setTransform(1, 0, 0, 1, 0, 0);
+      bufferCtx.fillStyle = bgPicker.value;
+      bufferCtx.fillRect(0, 0, bufferCanvas.width, bufferCanvas.height);
+      bufferCtx.restore();
+    }
+
+    initBufferBackground();
+
+    function fitCanvasToWindow() {
+      const wrapper = canvas.parentElement;
+      const rect = wrapper.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+      canvas.style.width = rect.width + "px";
+      canvas.style.height = rect.height + "px";
+
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+      // Start centered
+      if (!fitCanvasToWindow.initialized) {
+        scale = Math.min(
+          rect.width / bufferCanvas.width,
+          rect.height / bufferCanvas.height
+        );
+        // Center image
+        offsetX = (rect.width - bufferCanvas.width * scale) / 2;
+        offsetY = (rect.height - bufferCanvas.height * scale) / 2;
+        fitCanvasToWindow.initialized = true;
+      }
+
+      render();
+    }
+    fitCanvasToWindow.initialized = false;
+
+    window.addEventListener("load", fitCanvasToWindow);
+    window.addEventListener("resize", fitCanvasToWindow);
+
+    function render() {
+      const rect = canvas.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      const w = rect.width;
+      const h = rect.height;
+
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, w, h);
+
+      ctx.save();
+      ctx.translate(offsetX, offsetY);
+      ctx.scale(scale, scale);
+      ctx.drawImage(bufferCanvas, 0, 0);
+      ctx.restore();
+    }
+
+    function saveState() {
+      try {
+        const snapshot = bufferCtx.getImageData(
+          0,
+          0,
+          bufferCanvas.width,
+          bufferCanvas.height
+        );
+        undoStack.push(snapshot);
+        if (undoStack.length > MAX_HISTORY) undoStack.shift();
+        redoStack.length = 0;
+      } catch (e) {
+        console.warn("Unable to save state:", e);
+      }
+    }
+
+    function restoreState(snapshot) {
+      if (!snapshot) return;
+      bufferCtx.putImageData(snapshot, 0, 0);
+      render();
+    }
+
+    function setTool(tool) {
+      currentTool = tool;
+      if (tool === "brush") {
+        brushToolBtn.classList.add("active");
+        eraserToolBtn.classList.remove("active");
+      } else {
+        eraserToolBtn.classList.add("active");
+        brushToolBtn.classList.remove("active");
+      }
+    }
+
+    function getCanvasCoords(evt) {
+      const rect = canvas.getBoundingClientRect();
+      const x = evt.clientX - rect.left;
+      const y = evt.clientY - rect.top;
+      const pressure =
+        typeof evt.pressure === "number" && evt.pressure > 0
+          ? evt.pressure
+          : 1.0;
+      // Convert to world coords
+      const worldX = (x - offsetX) / scale;
+      const worldY = (y - offsetY) / scale;
+      return { x, y, worldX, worldY, pressure };
+    }
+
+    function applyBrushStyle(pressure = 1.0) {
+      const p = pressure && pressure > 0 ? pressure : 1.0;
+      const size = brushSize * (0.4 + p * 0.6); // 40–100% scaling
+      bufferCtx.lineCap = "round";
+      bufferCtx.lineJoin = "round";
+      bufferCtx.lineWidth = size;
+      bufferCtx.setLineDash([]);
+      bufferCtx.globalAlpha = 1.0;
+      bufferCtx.filter = "none";
+
+      if (currentTool === "brush") {
+        bufferCtx.globalCompositeOperation = "source-over";
+        bufferCtx.strokeStyle = brushColor;
+
+        if (brushMode === "texture") {
+          bufferCtx.globalAlpha = 0.8;
+          bufferCtx.setLineDash([size * 0.5, size * 0.6]);
+        } else if (brushMode === "smooth") {
+          bufferCtx.globalAlpha = 1.0;
+        } else if (brushMode === "spray") {
+          // handled separately in draw
+        }
+      } else if (currentTool === "eraser") {
+        bufferCtx.globalCompositeOperation = "destination-out";
+        bufferCtx.strokeStyle = "rgba(0,0,0,1)";
+      }
+    }
+
+    function beginStroke(worldX, worldY, pressure) {
+      drawing = true;
+      lastWorldX = worldX;
+      lastWorldY = worldY;
+      saveState(); // snapshot before each stroke
+      bufferCtx.beginPath();
+      bufferCtx.moveTo(worldX, worldY);
+      applyBrushStyle(pressure);
+    }
+
+    function drawStroke(worldX, worldY, pressure) {
+      if (!drawing) return;
+
+      if (currentTool === "brush" && brushMode === "spray") {
+        // Spray paint style
+        const p = pressure && pressure > 0 ? pressure : 1.0;
+        const size = brushSize * (0.4 + p * 0.6);
+        const radius = size * 0.9;
+        const dots = Math.max(10, Math.floor(radius * 2.5));
+
+        bufferCtx.save();
+        bufferCtx.globalCompositeOperation =
+          currentTool === "brush" ? "source-over" : "destination-out";
+        bufferCtx.fillStyle =
+          currentTool === "brush" ? brushColor : "rgba(0,0,0,1)";
+        bufferCtx.globalAlpha = currentTool === "brush" ? 0.5 : 1.0;
+
+        for (let i = 0; i < dots; i++) {
+          const angle = Math.random() * Math.PI * 2;
+          const r = Math.random() * radius;
+          const sx = worldX + Math.cos(angle) * r;
+          const sy = worldY + Math.sin(angle) * r;
+          const dotR = Math.random() * (size * 0.2);
+          bufferCtx.beginPath();
+          bufferCtx.arc(sx, sy, dotR, 0, Math.PI * 2);
+          bufferCtx.fill();
+        }
+        bufferCtx.restore();
+      } else {
+        applyBrushStyle(pressure);
+        bufferCtx.lineTo(worldX, worldY);
+        bufferCtx.stroke();
+      }
+
+      lastWorldX = worldX;
+      lastWorldY = worldY;
+      render();
+    }
+
+    function endStroke() {
+      if (!drawing) return;
+      drawing = false;
+      bufferCtx.closePath();
+      bufferCtx.globalCompositeOperation = "source-over";
+      bufferCtx.setLineDash([]);
+      bufferCtx.globalAlpha = 1.0;
+      render();
+    }
+
+    // Pointer events (Pencil / mouse / single finger drawing)
+    canvas.addEventListener("pointerdown", (evt) => {
+      // If currently pinching with touch, ignore drawing
+      if (isPinching) return;
+      evt.preventDefault();
+      canvas.setPointerCapture(evt.pointerId);
+      const { worldX, worldY, pressure } = getCanvasCoords(evt);
+
+      if (isEyedropper) {
+        pickColorAt(worldX, worldY);
+        isEyedropper = false;
+        eyedropperBtn.classList.remove("active");
+        render();
+        return;
+      }
+
+      beginStroke(worldX, worldY, pressure);
+      pressureIndicator.textContent = `P: ${pressure.toFixed(2)}`;
+    });
+
+    canvas.addEventListener("pointermove", (evt) => {
+      if (!drawing && !isEyedropper) return;
+      if (isPinching) return;
+      evt.preventDefault();
+      const { worldX, worldY, pressure } = getCanvasCoords(evt);
+
+      if (isEyedropper) {
+        pressureIndicator.textContent = `P: ${pressure.toFixed(2)}`;
+        return;
+      }
+
+      drawStroke(worldX, worldY, pressure);
+      pressureIndicator.textContent = `P: ${pressure.toFixed(2)}`;
+    });
+
+    canvas.addEventListener("pointerup", (evt) => {
+      evt.preventDefault();
+      canvas.releasePointerCapture(evt.pointerId);
+      endStroke();
+    });
+
+    canvas.addEventListener("pointercancel", (evt) => {
+      evt.preventDefault();
+      canvas.releasePointerCapture(evt.pointerId);
+      endStroke();
+    });
+
+    // Prevent iOS scrolling while drawing
+    canvas.addEventListener(
+      "touchmove",
+      (e) => {
+        if (drawing || isPinching) e.preventDefault();
+      },
+      { passive: false }
+    );
+
+    // Eyedropper (sample from buffer)
+    function pickColorAt(worldX, worldY) {
+      const x = Math.floor(worldX);
+      const y = Math.floor(worldY);
+      if (x < 0 || y < 0 || x >= bufferCanvas.width || y >= bufferCanvas.height) return;
+      const data = bufferCtx.getImageData(x, y, 1, 1).data;
+      const [r, g, b, a] = data;
+      if (a === 0) return; // transparent
+      const hex =
+        "#" +
+        [r, g, b]
+          .map((v) => v.toString(16).padStart(2, "0"))
+          .join("");
+      brushColor = hex;
+      colorPicker.value = hex;
+    }
+
+    eyedropperBtn.addEventListener("click", () => {
+      isEyedropper = !isEyedropper;
+      eyedropperBtn.classList.toggle("active", isEyedropper);
+    });
+
+    // Tool switching
+    brushToolBtn.addEventListener("click", () => setTool("brush"));
+    eraserToolBtn.addEventListener("click", () => setTool("eraser"));
+
+    // Brush mode & size
+    brushModeSelect.addEventListener("change", (e) => {
+      brushMode = e.target.value;
+    });
+
+    colorPicker.addEventListener("input", (e) => {
+      brushColor = e.target.value;
+    });
+
+    sizeSlider.addEventListener("input", (e) => {
+      brushSize = parseInt(e.target.value, 10);
+      sizeValue.textContent = brushSize;
+    });
+
+    // Background controls (fill behind existing drawing)
+    fillBgBtn.addEventListener("click", () => {
+      saveState();
+      bufferCtx.save();
+      bufferCtx.globalCompositeOperation = "destination-over";
+      bufferCtx.fillStyle = bgPicker.value;
+      bufferCtx.fillRect(0, 0, bufferCanvas.width, bufferCanvas.height);
+      bufferCtx.restore();
+      render();
+    });
+
+    // Undo / Redo
+    undoBtn.addEventListener("click", () => {
+      if (!undoStack.length) return;
+      const snapshot = undoStack.pop();
+      const current = bufferCtx.getImageData(
+        0,
+        0,
+        bufferCanvas.width,
+        bufferCanvas.height
+      );
+      redoStack.push(current);
+      restoreState(snapshot);
+    });
+
+    redoBtn.addEventListener("click", () => {
+      if (!redoStack.length) return;
+      const snapshot = redoStack.pop();
+      const current = bufferCtx.getImageData(
+        0,
+        0,
+        bufferCanvas.width,
+        bufferCanvas.height
+      );
+      undoStack.push(current);
+      restoreState(snapshot);
+    });
+
+    // Clear canvas
+    clearBtn.addEventListener("click", () => {
+      if (
+        !confirm(
+          "Clear the canvas? This cannot be undone (except via Undo if history exists)."
+        )
+      ) {
+        return;
+      }
+      saveState();
+      bufferCtx.setTransform(1, 0, 0, 1, 0, 0);
+      bufferCtx.clearRect(0, 0, bufferCanvas.width, bufferCanvas.height);
+      bufferCtx.fillStyle = bgPicker.value;
+      bufferCtx.fillRect(0, 0, bufferCanvas.width, bufferCanvas.height);
+      render();
+    });
+
+    // Save PNG (from full-resolution buffer)
+    saveBtn.addEventListener("click", () => {
+      const dataURL = bufferCanvas.toDataURL("image/png");
+      const a = document.createElement("a");
+      a.href = dataURL;
+      a.download = "drawing.png";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    });
+
+    // ====== Filters (Brightness / Contrast / Blur) ======
+    function applyFiltersToBuffer() {
+      const bVal = parseInt(brightnessSlider.value, 10); // -100..100
+      const cVal = parseInt(contrastSlider.value, 10); // -100..100
+      const blurAmount = parseInt(blurSlider.value, 10); // 0..5
+
+      saveState();
+
+      let imageData = bufferCtx.getImageData(
+        0,
+        0,
+        bufferCanvas.width,
+        bufferCanvas.height
+      );
+      const data = imageData.data;
+      const len = data.length;
+
+      const brightnessOffset = (bVal / 100) * 255;
+      const contrastFactor = 1 + cVal / 100;
+
+      // Brightness & contrast
+      for (let i = 0; i < len; i += 4) {
+        let r = data[i];
+        let g = data[i + 1];
+        let b = data[i + 2];
+
+        r = (r - 128) * contrastFactor + 128 + brightnessOffset;
+        g = (g - 128) * contrastFactor + 128 + brightnessOffset;
+        b = (b - 128) * contrastFactor + 128 + brightnessOffset;
+
+        data[i] = Math.max(0, Math.min(255, r));
+        data[i + 1] = Math.max(0, Math.min(255, g));
+        data[i + 2] = Math.max(0, Math.min(255, b));
+      }
+
+      // Simple box blur based on blurAmount (0..5)
+      if (blurAmount > 0) {
+        const passes = blurAmount; // number of passes
+        const w = imageData.width;
+        const h = imageData.height;
+
+        let src = data;
+        let tmp = new Uint8ClampedArray(src.length);
+
+        const kernel = [1, 2, 1, 2, 4, 2, 1, 2, 1];
+        const ksum = 16;
+
+        for (let pass = 0; pass < passes; pass++) {
+          for (let y = 0; y < h; y++) {
+            for (let x = 0; x < w; x++) {
+              let rSum = 0,
+                gSum = 0,
+                bSum = 0,
+                aSum = 0;
+              let ki = 0;
+
+              for (let ky = -1; ky <= 1; ky++) {
+                const ny = y + ky;
+                if (ny < 0 || ny >= h) {
+                  ki += 3;
+                  continue;
+                }
+                for (let kx = -1; kx <= 1; kx++) {
+                  const nx = x + kx;
+                  if (nx < 0 || nx >= w) {
+                    ki++;
+                    continue;
+                  }
+                  const idx = (ny * w + nx) * 4;
+                  const weight = kernel[ki++];
+                  rSum += src[idx] * weight;
+                  gSum += src[idx + 1] * weight;
+                  bSum += src[idx + 2] * weight;
+                  aSum += src[idx + 3] * weight;
+                }
+              }
+
+              const i = (y * w + x) * 4;
+              tmp[i] = rSum / ksum;
+              tmp[i + 1] = gSum / ksum;
+              tmp[i + 2] = bSum / ksum;
+              tmp[i + 3] = aSum / ksum;
+            }
+          }
+          // Swap buffers
+          const swap = src;
+          src = tmp;
+          tmp = swap;
+        }
+
+        // After final pass, src holds blurred data
+        for (let i = 0; i < len; i++) {
+          data[i] = src[i];
+        }
+      }
+
+      bufferCtx.putImageData(imageData, 0, 0);
+      render();
+    }
+
+    applyFilterBtn.addEventListener("click", applyFiltersToBuffer);
+    resetFilterBtn.addEventListener("click", () => {
+      brightnessSlider.value = 0;
+      contrastSlider.value = 0;
+      blurSlider.value = 0;
+    });
+
+    // ====== Zoom & Pan with two-finger pinch (touch) ======
+    function getTouchInfo(t1, t2) {
+      const rect = canvas.getBoundingClientRect();
+      const x1 = t1.clientX - rect.left;
+      const y1 = t1.clientY - rect.top;
+      const x2 = t2.clientX - rect.left;
+      const y2 = t2.clientY - rect.top;
+      const centerX = (x1 + x2) / 2;
+      const centerY = (y1 + y2) / 2;
+      const dist = Math.hypot(x2 - x1, y2 - y1);
+      return { centerX, centerY, dist };
+    }
+
+    canvas.addEventListener(
+      "touchstart",
+      (e) => {
+        if (e.touches.length === 2) {
+          e.preventDefault();
+          isPinching = true;
+          const [t1, t2] = e.touches;
+          const { centerX, centerY, dist } = getTouchInfo(t1, t2);
+          pinchStartDist = dist;
+          startScale = scale;
+          startOffsetX = offsetX;
+          startOffsetY = offsetY;
+
+          // world coordinates under center
+          const worldX = (centerX - startOffsetX) / startScale;
+          const worldY = (centerY - startOffsetY) / startScale;
+          canvas._pinchWorldX = worldX;
+          canvas._pinchWorldY = worldY;
+        }
+      },
+      { passive: false }
+    );
+
+    canvas.addEventListener(
+      "touchmove",
+      (e) => {
+        if (!isPinching || e.touches.length < 2) return;
+        e.preventDefault();
+
+        const [t1, t2] = e.touches;
+        const { centerX, centerY, dist } = getTouchInfo(t1, t2);
+        if (pinchStartDist === 0) return;
+
+        let newScale = (startScale * dist) / pinchStartDist;
+        newScale = Math.max(0.3, Math.min(5, newScale));
+
+        const worldX = canvas._pinchWorldX;
+        const worldY = canvas._pinchWorldY;
+
+        scale = newScale;
+        offsetX = centerX - worldX * scale;
+        offsetY = centerY - worldY * scale;
+
+        render();
+      },
+      { passive: false }
+    );
+
+    canvas.addEventListener(
+      "touchend",
+      (e) => {
+        if (e.touches.length < 2) {
+          isPinching = false;
+        }
+      },
+      { passive: false }
+    );
+  </script>
+</body>
+</html>
