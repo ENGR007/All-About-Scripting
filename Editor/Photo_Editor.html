@@ -1,0 +1,1488 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Hybrid Web Photo Editor</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+        sans-serif;
+      background: #0b1020;
+      color: #f5f7ff;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    #app {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+    header {
+      height: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 12px;
+      background: #141b2f;
+      border-bottom: 1px solid #26324d;
+      font-size: 14px;
+    }
+    header .left,
+    header .right {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    header button,
+    header input[type="file"]::file-selector-button {
+      cursor: pointer;
+      border: none;
+      border-radius: 4px;
+      padding: 6px 10px;
+      background: #1f2942;
+      color: #f5f7ff;
+      font-size: 12px;
+    }
+    header button:hover {
+      background: #26324d;
+    }
+    header .label {
+      opacity: 0.7;
+    }
+    .main {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 52px minmax(0, 1fr) 280px;
+      grid-template-rows: minmax(0, 1fr);
+      min-height: 0;
+    }
+    .toolbar {
+      background: #101629;
+      border-right: 1px solid #26324d;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 6px 0;
+      gap: 4px;
+    }
+    .tool-btn {
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      border: none;
+      background: transparent;
+      color: #f5f7ff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 16px;
+      position: relative;
+    }
+    .tool-btn[data-active="true"] {
+      background: #1f2942;
+      box-shadow: 0 0 0 1px #ffb84d;
+    }
+    .tool-btn:hover {
+      background: #1a2339;
+    }
+    .tool-btn span {
+      font-size: 18px;
+    }
+    .tool-section-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-top: 6px;
+      margin-bottom: 2px;
+      opacity: 0.6;
+    }
+
+    .canvas-wrapper {
+      position: relative;
+      background: #050814;
+      display: flex;
+      flex-direction: column;
+    }
+    .canvas-toolbar {
+      height: 36px;
+      display: flex;
+      align-items: center;
+      padding: 0 10px;
+      gap: 12px;
+      border-bottom: 1px solid #26324d;
+      background: #101629;
+      font-size: 12px;
+    }
+    .canvas-toolbar span.label {
+      opacity: 0.7;
+    }
+    .canvas-toolbar button {
+      cursor: pointer;
+      border: none;
+      border-radius: 4px;
+      padding: 4px 8px;
+      background: #1f2942;
+      color: #f5f7ff;
+      font-size: 11px;
+    }
+    .canvas-toolbar button:hover {
+      background: #26324d;
+    }
+    .canvas-toolbar input[type="range"] {
+      width: 100px;
+    }
+
+    #canvas-container {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      position: relative;
+    }
+    #editor-canvas {
+      border: 1px solid #26324d;
+      background: #ffffff;
+    }
+
+    .sidepanel {
+      background: #101629;
+      border-left: 1px solid #26324d;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+    .sidepanel-tabs {
+      display: flex;
+      border-bottom: 1px solid #26324d;
+    }
+    .sidepanel-tab {
+      flex: 1;
+      text-align: center;
+      padding: 8px 4px;
+      font-size: 12px;
+      cursor: pointer;
+      background: #101629;
+      border: none;
+      color: #f5f7ff;
+    }
+    .sidepanel-tab[data-active="true"] {
+      background: #141b2f;
+      box-shadow: inset 0 -2px 0 #ffb84d;
+    }
+    .sidepanel-body {
+      flex: 1;
+      overflow: auto;
+      padding: 8px;
+      font-size: 12px;
+    }
+
+    .panel-section {
+      margin-bottom: 10px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid #26324d;
+    }
+    .panel-section:last-child {
+      border-bottom: none;
+    }
+    .panel-section-title {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      opacity: 0.7;
+      margin-bottom: 4px;
+    }
+    .panel-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 6px;
+      gap: 6px;
+    }
+    .panel-row label {
+      font-size: 11px;
+      opacity: 0.8;
+      white-space: nowrap;
+    }
+    .panel-row input[type="range"] {
+      flex: 1;
+    }
+    .panel-row input[type="color"] {
+      width: 42px;
+      height: 24px;
+      padding: 0;
+      border-radius: 4px;
+      border: 1px solid #26324d;
+      background: transparent;
+    }
+    .panel-row input[type="number"],
+    .panel-row input[type="text"],
+    .panel-row select {
+      flex: 1;
+      padding: 2px 4px;
+      border-radius: 4px;
+      border: 1px solid #26324d;
+      background: #0b1020;
+      color: #f5f7ff;
+      font-size: 11px;
+    }
+    .panel-row button {
+      border: none;
+      border-radius: 4px;
+      padding: 4px 6px;
+      background: #1f2942;
+      color: #f5f7ff;
+      cursor: pointer;
+      font-size: 11px;
+      white-space: nowrap;
+    }
+    .panel-row button:hover {
+      background: #26324d;
+    }
+
+    .layers-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+    .layers-list li {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 3px 4px;
+      margin-bottom: 2px;
+      border-radius: 4px;
+      background: #0b1020;
+      cursor: pointer;
+    }
+    .layers-list li[data-active="true"] {
+      background: #1f2942;
+      box-shadow: 0 0 0 1px #ffb84d;
+    }
+    .layer-name {
+      flex: 1;
+      margin-right: 4px;
+      font-size: 11px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .layer-controls {
+      display: flex;
+      gap: 4px;
+      align-items: center;
+    }
+    .layer-controls button {
+      border: none;
+      border-radius: 4px;
+      width: 20px;
+      height: 20px;
+      font-size: 11px;
+      background: #141b2f;
+      color: #f5f7ff;
+      cursor: pointer;
+      padding: 0;
+    }
+    .layer-controls button:hover {
+      background: #26324d;
+    }
+
+    .status-bar {
+      font-size: 11px;
+      padding: 2px 8px;
+      border-top: 1px solid #26324d;
+      background: #0b1020;
+      opacity: 0.8;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 0 6px;
+      font-size: 10px;
+      border-radius: 999px;
+      background: rgba(255, 184, 77, 0.1);
+      border: 1px solid rgba(255, 184, 77, 0.8);
+      color: #ffb84d;
+    }
+
+    @media (max-width: 900px) {
+      .main {
+        grid-template-columns: 52px minmax(0, 1fr);
+        grid-template-rows: minmax(0, 1fr) 260px;
+      }
+      .sidepanel {
+        grid-column: 1 / 3;
+        grid-row: 2 / 3;
+        border-left: none;
+        border-top: 1px solid #26324d;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <header>
+      <div class="left">
+        <span class="label">Hybrid Web Photo Editor</span>
+        <span class="badge">Fabric + Canvas + BodyPix</span>
+      </div>
+      <div class="right">
+        <input type="file" id="file-input" accept="image/*" />
+        <button id="btn-export-png">Export PNG</button>
+        <button id="btn-export-jpg">Export JPG</button>
+        <button id="btn-reset">Reset Canvas</button>
+      </div>
+    </header>
+
+    <div class="main">
+      <aside class="toolbar">
+        <div class="tool-section-label">Tools</div>
+        <button class="tool-btn" data-tool="select" data-active="true" title="Select / Move">
+          <span>✥</span>
+        </button>
+        <button class="tool-btn" data-tool="hand" title="Pan / Hand">
+          <span>✋</span>
+        </button>
+        <button class="tool-btn" data-tool="brush" title="Brush">
+          <span>🖌️</span>
+        </button>
+        <button class="tool-btn" data-tool="eraser" title="Simple Eraser (draw background color)">
+          <span>🧽</span>
+        </button>
+        <button class="tool-btn" data-tool="text" title="Text">
+          <span>T</span>
+        </button>
+        <button class="tool-btn" data-tool="rect" title="Rectangle">
+          <span>▭</span>
+        </button>
+        <button class="tool-btn" data-tool="ellipse" title="Ellipse">
+          <span>⬭</span>
+        </button>
+        <button class="tool-btn" data-tool="crop" title="Crop">
+          <span>✂️</span>
+        </button>
+
+        <div class="tool-section-label">BG</div>
+        <button class="tool-btn" data-tool="bg-white" title="Force white background">
+          <span>⬜</span>
+        </button>
+        <button class="tool-btn" data-tool="bg-auto" title="Auto remove background">
+          <span>AI</span>
+        </button>
+      </aside>
+
+      <div class="canvas-wrapper">
+        <div class="canvas-toolbar">
+          <span class="label">Zoom</span>
+          <button id="zoom-out">-</button>
+          <input type="range" id="zoom-range" min="10" max="400" value="100" />
+          <button id="zoom-in">+</button>
+          <button id="zoom-fit">Fit</button>
+          <span class="label">Brush</span>
+          <input type="range" id="brush-size" min="1" max="80" value="10" />
+          <input type="color" id="brush-color" value="#ffb84d" />
+          <span class="label">Eraser uses background color</span>
+        </div>
+        <div id="canvas-container">
+          <canvas id="editor-canvas" width="1200" height="800"></canvas>
+        </div>
+        <div class="status-bar" id="status-bar">
+          Ready. Load an image to begin.
+        </div>
+      </div>
+
+      <aside class="sidepanel">
+        <div class="sidepanel-tabs">
+          <button class="sidepanel-tab" data-tab="layers" data-active="true">
+            Layers
+          </button>
+          <button class="sidepanel-tab" data-tab="adjust">
+            Adjust
+          </button>
+          <button class="sidepanel-tab" data-tab="background">
+            Background
+          </button>
+        </div>
+        <div class="sidepanel-body">
+          <!-- Layers Panel -->
+          <div class="panel" data-panel="layers">
+            <div class="panel-section">
+              <div class="panel-section-title">Layers</div>
+              <ul class="layers-list" id="layers-list"></ul>
+              <div class="panel-row">
+                <button id="btn-layer-up">Move Up</button>
+                <button id="btn-layer-down">Move Down</button>
+              </div>
+              <div class="panel-row">
+                <button id="btn-layer-delete">Delete Layer</button>
+                <button id="btn-layer-duplicate">Duplicate</button>
+              </div>
+            </div>
+            <div class="panel-section">
+              <div class="panel-section-title">Active Layer</div>
+              <div class="panel-row">
+                <label>Opacity</label>
+                <input type="range" id="layer-opacity" min="0" max="100" value="100" />
+              </div>
+              <div class="panel-row">
+                <label>Lock</label>
+                <button id="btn-layer-toggle-lock">Toggle Lock</button>
+              </div>
+              <div class="panel-row">
+                <label>Visibility</label>
+                <button id="btn-layer-toggle-visible">Show/Hide</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Adjust Panel -->
+          <div class="panel" data-panel="adjust" style="display:none;">
+            <div class="panel-section">
+              <div class="panel-section-title">Image Adjustments (Active Image)</div>
+              <div class="panel-row">
+                <label>Brightness</label>
+                <input type="range" id="adj-brightness" min="-1" max="1" step="0.05" value="0" />
+              </div>
+              <div class="panel-row">
+                <label>Contrast</label>
+                <input type="range" id="adj-contrast" min="-1" max="1" step="0.05" value="0" />
+              </div>
+              <div class="panel-row">
+                <label>Saturation</label>
+                <input type="range" id="adj-saturation" min="-1" max="1" step="0.05" value="0" />
+              </div>
+              <div class="panel-row">
+                <label>Hue</label>
+                <input type="range" id="adj-hue" min="-1" max="1" step="0.05" value="0" />
+              </div>
+              <div class="panel-row">
+                <label>Blur</label>
+                <input type="range" id="adj-blur" min="0" max="1" step="0.05" value="0" />
+              </div>
+              <div class="panel-row">
+                <button id="btn-adj-grayscale">Grayscale</button>
+                <button id="btn-adj-sepia">Sepia</button>
+              </div>
+              <div class="panel-row">
+                <button id="btn-adj-invert">Invert</button>
+                <button id="btn-adj-clear">Clear Filters</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Background Panel -->
+          <div class="panel" data-panel="background" style="display:none;">
+            <div class="panel-section">
+              <div class="panel-section-title">Canvas Background</div>
+              <div class="panel-row">
+                <label>Mode</label>
+                <select id="bg-mode">
+                  <option value="color">Color</option>
+                  <option value="transparent">Transparent</option>
+                  <option value="image">Image</option>
+                </select>
+              </div>
+              <div class="panel-row">
+                <label>Color</label>
+                <input type="color" id="bg-color" value="#ffffff" />
+              </div>
+              <div class="panel-row">
+                <label>Set white</label>
+                <button id="btn-bg-white">White</button>
+              </div>
+              <div class="panel-row">
+                <label>BG Image</label>
+                <button id="btn-bg-image">Load image</button>
+                <input type="file" id="bg-image-input" accept="image/*" style="display:none;" />
+              </div>
+              <div class="panel-row">
+                <button id="btn-bg-transparent">Transparent</button>
+              </div>
+            </div>
+
+            <div class="panel-section">
+              <div class="panel-section-title">
+                Smart Background Removal (Active Image)
+              </div>
+              <div class="panel-row">
+                <label>Status</label>
+                <span id="ai-status" style="font-size:11px;opacity:0.8;">Loading model…</span>
+              </div>
+              <div class="panel-row">
+                <label>Threshold</label>
+                <input type="range" id="ai-threshold" min="50" max="95" value="75" />
+              </div>
+              <div class="panel-row">
+                <label>Result BG</label>
+                <select id="ai-bg-mode">
+                  <option value="transparent">Transparent</option>
+                  <option value="white" selected>White</option>
+                  <option value="color">Custom Color</option>
+                </select>
+              </div>
+              <div class="panel-row">
+                <label>Custom BG</label>
+                <input type="color" id="ai-bg-color" value="#ffffff" />
+              </div>
+              <div class="panel-row">
+                <button id="btn-ai-remove-bg">Auto Remove Background</button>
+              </div>
+              <div class="panel-row">
+                <small>
+                  Note: Uses BodyPix in browser; needs internet the first time to download the model.
+                </small>
+              </div>
+            </div>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <!-- Fabric.js -->
+  <script src="https://cdn.jsdelivr.net/npm/fabric@5.3.0/dist/fabric.min.js"></script>
+  <!-- TensorFlow.js + BodyPix (for smart segmentation) -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.21.0/dist/tf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/body-pix@2.0.5/dist/body-pix.min.js"></script>
+
+  <script>
+    // ==============================
+    // GLOBALS
+    // ==============================
+    const canvasEl = document.getElementById("editor-canvas");
+    const canvas = new fabric.Canvas(canvasEl, {
+      backgroundColor: "#ffffff",
+      preserveObjectStacking: true,
+      selection: true,
+    });
+
+    let activeTool = "select";
+    let isPanning = false;
+    let lastPosX, lastPosY;
+    let undoStack = [];
+    let redoStack = [];
+    const MAX_HISTORY = 40;
+
+    let brush = new fabric.PencilBrush(canvas);
+    brush.width = 10;
+    brush.color = "#ffb84d";
+    canvas.freeDrawingBrush = brush;
+
+    let bodyPixNet = null;
+
+    const statusBar = document.getElementById("status-bar");
+
+    function setStatus(msg) {
+      statusBar.textContent = msg;
+    }
+
+    // ==============================
+    // HISTORY (UNDO/REDO)
+    // ==============================
+    function saveHistory() {
+      const json = canvas.toDatalessJSON();
+      undoStack.push(json);
+      if (undoStack.length > MAX_HISTORY) undoStack.shift();
+      redoStack = [];
+    }
+
+    function loadFromJSON(json) {
+      canvas.loadFromJSON(json, () => {
+        canvas.renderAll();
+        refreshLayersPanel();
+      });
+    }
+
+    function undo() {
+      if (undoStack.length < 2) return;
+      const current = undoStack.pop();
+      redoStack.push(current);
+      const prev = undoStack[undoStack.length - 1];
+      loadFromJSON(prev);
+    }
+
+    function redo() {
+      if (redoStack.length === 0) return;
+      const next = redoStack.pop();
+      undoStack.push(next);
+      loadFromJSON(next);
+    }
+
+    // Initial history state
+    saveHistory();
+
+    // ==============================
+    // TOOLBAR HANDLING
+    // ==============================
+    const toolButtons = document.querySelectorAll(".tool-btn");
+    toolButtons.forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const tool = btn.getAttribute("data-tool");
+
+        // Quick BG tools
+        if (tool === "bg-white") {
+          setCanvasBackgroundColor("#ffffff");
+          return;
+        }
+        if (tool === "bg-auto") {
+          autoRemoveBackgroundForActive();
+          return;
+        }
+
+        toolButtons.forEach((b) => b.setAttribute("data-active", "false"));
+        btn.setAttribute("data-active", "true");
+        setTool(tool);
+      });
+    });
+
+    function setTool(tool) {
+      activeTool = tool;
+      canvas.isDrawingMode = false;
+      isPanning = false;
+      canvas.selection = true;
+
+      switch (tool) {
+        case "select":
+          canvas.defaultCursor = "default";
+          break;
+        case "hand":
+          canvas.defaultCursor = "grab";
+          canvas.selection = false;
+          break;
+        case "brush":
+          canvas.isDrawingMode = true;
+          canvas.freeDrawingBrush = brush;
+          break;
+        case "eraser":
+          // Simple: draw using background color as "eraser"
+          canvas.isDrawingMode = true;
+          const bgColor = canvas.backgroundColor || "#ffffff";
+          canvas.freeDrawingBrush = new fabric.PencilBrush(canvas);
+          canvas.freeDrawingBrush.width = brush.width;
+          canvas.freeDrawingBrush.color = bgColor;
+          break;
+        case "text":
+          canvas.defaultCursor = "text";
+          break;
+        case "rect":
+        case "ellipse":
+        case "crop":
+          canvas.defaultCursor = "crosshair";
+          break;
+      }
+      setStatus(`Tool: ${tool}`);
+    }
+
+    // ==============================
+    // ZOOM & PAN
+    // ==============================
+    const zoomRange = document.getElementById("zoom-range");
+    const zoomInBtn = document.getElementById("zoom-in");
+    const zoomOutBtn = document.getElementById("zoom-out");
+    const zoomFitBtn = document.getElementById("zoom-fit");
+
+    function setZoom(zoomPercent) {
+      const zoom = zoomPercent / 100;
+      const center = canvas.getCenter();
+      canvas.zoomToPoint(new fabric.Point(center.left, center.top), zoom);
+      zoomRange.value = zoomPercent;
+      setStatus(`Zoom: ${zoomPercent}%`);
+    }
+
+    zoomRange.addEventListener("input", () => {
+      setZoom(parseInt(zoomRange.value, 10));
+    });
+    zoomInBtn.addEventListener("click", () => {
+      let val = parseInt(zoomRange.value, 10);
+      val = Math.min(400, val + 10);
+      setZoom(val);
+    });
+    zoomOutBtn.addEventListener("click", () => {
+      let val = parseInt(zoomRange.value, 10);
+      val = Math.max(10, val - 10);
+      setZoom(val);
+    });
+    zoomFitBtn.addEventListener("click", fitToCanvas);
+
+    function fitToCanvas() {
+      const objects = canvas.getObjects();
+      if (!objects.length) {
+        setZoom(100);
+        return;
+      }
+      const bounds = canvas.getObjects().reduce(
+        (acc, obj) => {
+          const rect = obj.getBoundingRect(true);
+          acc.left = Math.min(acc.left, rect.left);
+          acc.top = Math.min(acc.top, rect.top);
+          acc.right = Math.max(acc.right, rect.left + rect.width);
+          acc.bottom = Math.max(acc.bottom, rect.top + rect.height);
+          return acc;
+        },
+        { left: Infinity, top: Infinity, right: -Infinity, bottom: -Infinity }
+      );
+      const width = bounds.right - bounds.left;
+      const height = bounds.bottom - bounds.top;
+      const canvasWidth = canvas.getWidth();
+      const canvasHeight = canvas.getHeight();
+      let zoom = Math.min(canvasWidth / width, canvasHeight / height) * 0.9;
+      zoom = Math.max(0.1, Math.min(zoom, 4));
+      canvas.zoomToPoint(
+        new fabric.Point(canvasWidth / 2, canvasHeight / 2),
+        zoom
+      );
+      canvas.renderAll();
+      zoomRange.value = Math.round(zoom * 100);
+      setStatus("Zoom: Fit to content");
+    }
+
+    canvas.on("mouse:down", function (opt) {
+      if (activeTool === "hand") {
+        isPanning = true;
+        const evt = opt.e;
+        this.setCursor("grabbing");
+        lastPosX = evt.clientX;
+        lastPosY = evt.clientY;
+      } else if (activeTool === "text") {
+        const pointer = canvas.getPointer(opt.e);
+        const text = new fabric.IText("Text", {
+          left: pointer.x,
+          top: pointer.y,
+          fill: brush.color,
+          fontSize: 24,
+        });
+        canvas.add(text).setActiveObject(text);
+        saveHistory();
+        refreshLayersPanel();
+      } else if (activeTool === "rect" || activeTool === "ellipse") {
+        startShapeDrawing(opt);
+      } else if (activeTool === "crop") {
+        startCropBox(opt);
+      }
+    });
+
+    canvas.on("mouse:move", function (opt) {
+      if (isPanning && activeTool === "hand") {
+        const e = opt.e;
+        const vpt = this.viewportTransform;
+        vpt[4] += e.clientX - lastPosX;
+        vpt[5] += e.clientY - lastPosY;
+        this.requestRenderAll();
+        lastPosX = e.clientX;
+        lastPosY = e.clientY;
+      } else if (activeTool === "rect" || activeTool === "ellipse") {
+        updateShapeDrawing(opt);
+      } else if (activeTool === "crop") {
+        updateCropBox(opt);
+      }
+    });
+
+    canvas.on("mouse:up", function () {
+      if (isPanning) {
+        isPanning = false;
+        this.setCursor("grab");
+      }
+      if (activeTool === "rect" || activeTool === "ellipse") {
+        finalizeShapeDrawing();
+      } else if (activeTool === "crop") {
+        finalizeCropBox();
+      }
+    });
+
+    canvas.on("object:modified", () => {
+      saveHistory();
+      refreshLayersPanel();
+    });
+    canvas.on("object:added", () => {
+      saveHistory();
+      refreshLayersPanel();
+    });
+    canvas.on("object:removed", () => {
+      saveHistory();
+      refreshLayersPanel();
+    });
+    canvas.on("selection:created", refreshLayersPanel);
+    canvas.on("selection:updated", refreshLayersPanel);
+
+    // ==============================
+    // SHAPES
+    // ==============================
+    let drawingShape = null;
+    let drawingOrigin = null;
+
+    function startShapeDrawing(opt) {
+      const pointer = canvas.getPointer(opt.e);
+      drawingOrigin = { x: pointer.x, y: pointer.y };
+      const common = {
+        left: pointer.x,
+        top: pointer.y,
+        fill: "rgba(255,184,77,0.2)",
+        stroke: brush.color,
+        strokeWidth: 2,
+        selectable: true,
+        objectCaching: false,
+      };
+      if (activeTool === "rect") {
+        drawingShape = new fabric.Rect({
+          ...common,
+          width: 1,
+          height: 1,
+        });
+      } else if (activeTool === "ellipse") {
+        drawingShape = new fabric.Ellipse({
+          ...common,
+          rx: 1,
+          ry: 1,
+        });
+      }
+      canvas.add(drawingShape);
+    }
+
+    function updateShapeDrawing(opt) {
+      if (!drawingShape || !drawingOrigin) return;
+      const pointer = canvas.getPointer(opt.e);
+      const w = pointer.x - drawingOrigin.x;
+      const h = pointer.y - drawingOrigin.y;
+      if (activeTool === "rect") {
+        drawingShape.set({
+          left: w < 0 ? pointer.x : drawingOrigin.x,
+          top: h < 0 ? pointer.y : drawingOrigin.y,
+          width: Math.abs(w),
+          height: Math.abs(h),
+        });
+      } else if (activeTool === "ellipse") {
+        drawingShape.set({
+          left: w < 0 ? pointer.x : drawingOrigin.x,
+          top: h < 0 ? pointer.y : drawingOrigin.y,
+          rx: Math.abs(w) / 2,
+          ry: Math.abs(h) / 2,
+        });
+      }
+      canvas.renderAll();
+    }
+
+    function finalizeShapeDrawing() {
+      if (!drawingShape) return;
+      drawingShape.setCoords();
+      drawingShape = null;
+      drawingOrigin = null;
+      saveHistory();
+      refreshLayersPanel();
+    }
+
+    // ==============================
+    // CROP
+    // ==============================
+    let cropRect = null;
+    let cropOrigin = null;
+
+    function startCropBox(opt) {
+      const pointer = canvas.getPointer(opt.e);
+      cropOrigin = { x: pointer.x, y: pointer.y };
+      cropRect = new fabric.Rect({
+        left: pointer.x,
+        top: pointer.y,
+        width: 1,
+        height: 1,
+        fill: "rgba(0,0,0,0.1)",
+        stroke: "#ffb84d",
+        strokeDashArray: [5, 3],
+        strokeWidth: 1,
+        selectable: false,
+        evented: false,
+      });
+      canvas.add(cropRect);
+    }
+
+    function updateCropBox(opt) {
+      if (!cropRect || !cropOrigin) return;
+      const pointer = canvas.getPointer(opt.e);
+      const w = pointer.x - cropOrigin.x;
+      const h = pointer.y - cropOrigin.y;
+      cropRect.set({
+        left: w < 0 ? pointer.x : cropOrigin.x,
+        top: h < 0 ? pointer.y : cropOrigin.y,
+        width: Math.abs(w),
+        height: Math.abs(h),
+      });
+      canvas.renderAll();
+    }
+
+    function finalizeCropBox() {
+      if (!cropRect) return;
+      const rect = cropRect.getBoundingRect(true);
+      canvas.remove(cropRect);
+      cropRect = null;
+      cropOrigin = null;
+      performCrop(rect);
+      saveHistory();
+    }
+
+    function performCrop(rect) {
+      const dataURL = canvas.toDataURL({
+        left: rect.left,
+        top: rect.top,
+        width: rect.width,
+        height: rect.height,
+        format: "png",
+      });
+      canvas.clear();
+      fabric.Image.fromURL(dataURL, (img) => {
+        img.set({ left: 0, top: 0 });
+        canvas.add(img);
+        canvas.setWidth(rect.width);
+        canvas.setHeight(rect.height);
+        canvas.renderAll();
+        refreshLayersPanel();
+        setStatus("Cropped to selection");
+      });
+    }
+
+    // ==============================
+    // FILE IMPORT/EXPORT
+    // ==============================
+    const fileInput = document.getElementById("file-input");
+    const btnExportPng = document.getElementById("btn-export-png");
+    const btnExportJpg = document.getElementById("btn-export-jpg");
+    const btnReset = document.getElementById("btn-reset");
+
+    fileInput.addEventListener("change", (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function (f) {
+        const data = f.target.result;
+        fabric.Image.fromURL(
+          data,
+          (img) => {
+            img.set({
+              left: canvas.getWidth() / 2,
+              top: canvas.getHeight() / 2,
+              originX: "center",
+              originY: "center",
+            });
+            const scale = Math.min(
+              canvas.getWidth() / img.width,
+              canvas.getHeight() / img.height,
+              1
+            );
+            img.scale(scale);
+            canvas.add(img).setActiveObject(img);
+            canvas.renderAll();
+            saveHistory();
+            refreshLayersPanel();
+            setStatus("Image loaded");
+          },
+          { crossOrigin: "anonymous" }
+        );
+      };
+      reader.readAsDataURL(file);
+    });
+
+    function downloadDataURL(dataURL, filename) {
+      const a = document.createElement("a");
+      a.href = dataURL;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    }
+
+    btnExportPng.addEventListener("click", () => {
+      const dataURL = canvas.toDataURL({
+        format: "png",
+        enableRetinaScaling: true,
+      });
+      downloadDataURL(dataURL, "exported-image.png");
+      setStatus("Exported PNG");
+    });
+
+    btnExportJpg.addEventListener("click", () => {
+      const dataURL = canvas.toDataURL({
+        format: "jpeg",
+        quality: 0.9,
+        enableRetinaScaling: true,
+      });
+      downloadDataURL(dataURL, "exported-image.jpg");
+      setStatus("Exported JPG");
+    });
+
+    btnReset.addEventListener("click", () => {
+      canvas.clear();
+      canvas.setBackgroundColor("#ffffff", canvas.renderAll.bind(canvas));
+      saveHistory();
+      refreshLayersPanel();
+      setStatus("Canvas reset");
+    });
+
+    // ==============================
+    // LAYERS PANEL
+    // ==============================
+    const layersList = document.getElementById("layers-list");
+    const btnLayerUp = document.getElementById("btn-layer-up");
+    const btnLayerDown = document.getElementById("btn-layer-down");
+    const btnLayerDelete = document.getElementById("btn-layer-delete");
+    const btnLayerDuplicate = document.getElementById("btn-layer-duplicate");
+    const layerOpacityInput = document.getElementById("layer-opacity");
+    const btnLayerToggleLock = document.getElementById("btn-layer-toggle-lock");
+    const btnLayerToggleVisible = document.getElementById(
+      "btn-layer-toggle-visible"
+    );
+
+    function refreshLayersPanel() {
+      const objs = canvas.getObjects();
+      const active = canvas.getActiveObject();
+      layersList.innerHTML = "";
+      // Top-most first in list
+      const reversed = [...objs].reverse();
+      reversed.forEach((obj, index) => {
+        const li = document.createElement("li");
+        const nameSpan = document.createElement("span");
+        nameSpan.className = "layer-name";
+        const typeName = obj.type || "object";
+        nameSpan.textContent = typeName.toUpperCase();
+
+        const controls = document.createElement("div");
+        controls.className = "layer-controls";
+
+        const visBtn = document.createElement("button");
+        visBtn.textContent = obj.visible ? "👁" : "🚫";
+        visBtn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          obj.visible = !obj.visible;
+          visBtn.textContent = obj.visible ? "👁" : "🚫";
+          canvas.renderAll();
+          saveHistory();
+        });
+
+        controls.appendChild(visBtn);
+
+        li.appendChild(nameSpan);
+        li.appendChild(controls);
+
+        li.addEventListener("click", () => {
+          canvas.setActiveObject(obj);
+          canvas.renderAll();
+          refreshLayersPanel();
+        });
+
+        if (active === obj) li.setAttribute("data-active", "true");
+        layersList.appendChild(li);
+      });
+
+      if (active) {
+        layerOpacityInput.value = Math.round(active.opacity * 100);
+      }
+    }
+
+    layerOpacityInput.addEventListener("input", () => {
+      const active = canvas.getActiveObject();
+      if (!active) return;
+      active.set("opacity", layerOpacityInput.value / 100);
+      canvas.renderAll();
+      saveHistory();
+    });
+
+    btnLayerUp.addEventListener("click", () => {
+      const active = canvas.getActiveObject();
+      if (!active) return;
+      canvas.bringForward(active);
+      canvas.renderAll();
+      saveHistory();
+      refreshLayersPanel();
+    });
+    btnLayerDown.addEventListener("click", () => {
+      const active = canvas.getActiveObject();
+      if (!active) return;
+      canvas.sendBackwards(active);
+      canvas.renderAll();
+      saveHistory();
+      refreshLayersPanel();
+    });
+    btnLayerDelete.addEventListener("click", () => {
+      const active = canvas.getActiveObject();
+      if (!active) return;
+      canvas.remove(active);
+      canvas.discardActiveObject();
+      canvas.renderAll();
+      saveHistory();
+      refreshLayersPanel();
+    });
+    btnLayerDuplicate.addEventListener("click", () => {
+      const active = canvas.getActiveObject();
+      if (!active) return;
+      active.clone((clone) => {
+        clone.set({
+          left: active.left + 20,
+          top: active.top + 20,
+        });
+        canvas.add(clone).setActiveObject(clone);
+        canvas.renderAll();
+        saveHistory();
+        refreshLayersPanel();
+      });
+    });
+    btnLayerToggleLock.addEventListener("click", () => {
+      const active = canvas.getActiveObject();
+      if (!active) return;
+      active.lockMovementX = !active.lockMovementX;
+      active.lockMovementY = !active.lockMovementY;
+      active.lockScalingX = !active.lockScalingX;
+      active.lockScalingY = !active.lockScalingY;
+      active.lockRotation = !active.lockRotation;
+      canvas.renderAll();
+      saveHistory();
+    });
+    btnLayerToggleVisible.addEventListener("click", () => {
+      const active = canvas.getActiveObject();
+      if (!active) return;
+      active.visible = !active.visible;
+      canvas.renderAll();
+      saveHistory();
+      refreshLayersPanel();
+    });
+
+    // ==============================
+    // SIDE PANEL TABS
+    // ==============================
+    const sideTabs = document.querySelectorAll(".sidepanel-tab");
+    const panels = document.querySelectorAll(".panel");
+
+    sideTabs.forEach((tab) => {
+      tab.addEventListener("click", () => {
+        const tabName = tab.getAttribute("data-tab");
+        sideTabs.forEach((t) => t.setAttribute("data-active", "false"));
+        tab.setAttribute("data-active", "true");
+        panels.forEach((p) => {
+          if (p.getAttribute("data-panel") === tabName) {
+            p.style.display = "";
+          } else {
+            p.style.display = "none";
+          }
+        });
+      });
+    });
+
+    // ==============================
+    // BRUSH CONTROLS
+    // ==============================
+    const brushSizeInput = document.getElementById("brush-size");
+    const brushColorInput = document.getElementById("brush-color");
+
+    brushSizeInput.addEventListener("input", () => {
+      brush.width = parseInt(brushSizeInput.value, 10);
+      if (canvas.freeDrawingBrush) {
+        canvas.freeDrawingBrush.width = brush.width;
+      }
+    });
+
+    brushColorInput.addEventListener("input", () => {
+      brush.color = brushColorInput.value;
+      if (activeTool === "brush" && canvas.freeDrawingBrush) {
+        canvas.freeDrawingBrush.color = brush.color;
+      }
+    });
+
+    // ==============================
+    // ADJUSTMENTS (Fabric image filters)
+    // ==============================
+    const adjBrightness = document.getElementById("adj-brightness");
+    const adjContrast = document.getElementById("adj-contrast");
+    const adjSaturation = document.getElementById("adj-saturation");
+    const adjHue = document.getElementById("adj-hue");
+    const adjBlur = document.getElementById("adj-blur");
+    const btnAdjGray = document.getElementById("btn-adj-grayscale");
+    const btnAdjSepia = document.getElementById("btn-adj-sepia");
+    const btnAdjInvert = document.getElementById("btn-adj-invert");
+    const btnAdjClear = document.getElementById("btn-adj-clear");
+
+    function applyImageFilters() {
+      const obj = canvas.getActiveObject();
+      if (!obj || obj.type !== "image") return;
+
+      const filters = [];
+
+      const b = parseFloat(adjBrightness.value || "0");
+      if (b !== 0) {
+        filters.push(new fabric.Image.filters.Brightness({ brightness: b }));
+      }
+      const c = parseFloat(adjContrast.value || "0");
+      if (c !== 0) {
+        filters.push(new fabric.Image.filters.Contrast({ contrast: c }));
+      }
+      const s = parseFloat(adjSaturation.value || "0");
+      if (s !== 0) {
+        filters.push(new fabric.Image.filters.Saturation({ saturation: s }));
+      }
+      const h = parseFloat(adjHue.value || "0");
+      if (h !== 0) {
+        filters.push(new fabric.Image.filters.HueRotation({ rotation: h * Math.PI }));
+      }
+      const bl = parseFloat(adjBlur.value || "0");
+      if (bl > 0) {
+        filters.push(new fabric.Image.filters.Blur({ blur: bl }));
+      }
+
+      if (obj._isGray) {
+        filters.push(new fabric.Image.filters.Grayscale());
+      }
+      if (obj._isSepia) {
+        filters.push(new fabric.Image.filters.Sepia());
+      }
+      if (obj._isInvert) {
+        filters.push(new fabric.Image.filters.Invert());
+      }
+
+      obj.filters = filters;
+      obj.applyFilters();
+      canvas.renderAll();
+      saveHistory();
+    }
+
+    [adjBrightness, adjContrast, adjSaturation, adjHue, adjBlur].forEach(
+      (el) => el.addEventListener("input", applyImageFilters)
+    );
+
+    btnAdjGray.addEventListener("click", () => {
+      const obj = canvas.getActiveObject();
+      if (!obj || obj.type !== "image") return;
+      obj._isGray = !obj._isGray;
+      applyImageFilters();
+    });
+    btnAdjSepia.addEventListener("click", () => {
+      const obj = canvas.getActiveObject();
+      if (!obj || obj.type !== "image") return;
+      obj._isSepia = !obj._isSepia;
+      applyImageFilters();
+    });
+    btnAdjInvert.addEventListener("click", () => {
+      const obj = canvas.getActiveObject();
+      if (!obj || obj.type !== "image") return;
+      obj._isInvert = !obj._isInvert;
+      applyImageFilters();
+    });
+    btnAdjClear.addEventListener("click", () => {
+      adjBrightness.value = 0;
+      adjContrast.value = 0;
+      adjSaturation.value = 0;
+      adjHue.value = 0;
+      adjBlur.value = 0;
+      const obj = canvas.getActiveObject();
+      if (!obj || obj.type !== "image") return;
+      obj._isGray = false;
+      obj._isSepia = false;
+      obj._isInvert = false;
+      obj.filters = [];
+      obj.applyFilters();
+      canvas.renderAll();
+      saveHistory();
+    });
+
+    // ==============================
+    // BACKGROUND PANEL
+    // ==============================
+    const bgModeSelect = document.getElementById("bg-mode");
+    const bgColorInput = document.getElementById("bg-color");
+    const btnBgWhite = document.getElementById("btn-bg-white");
+    const btnBgTransparent = document.getElementById("btn-bg-transparent");
+    const btnBgImage = document.getElementById("btn-bg-image");
+    const bgImageInput = document.getElementById("bg-image-input");
+
+    function setCanvasBackgroundColor(color) {
+      canvas.setBackgroundColor(color, canvas.renderAll.bind(canvas));
+      saveHistory();
+      setStatus(`Background color set to ${color}`);
+    }
+
+    bgColorInput.addEventListener("input", () => {
+      if (bgModeSelect.value === "color") {
+        setCanvasBackgroundColor(bgColorInput.value);
+      }
+    });
+
+    btnBgWhite.addEventListener("click", () => {
+      bgModeSelect.value = "color";
+      bgColorInput.value = "#ffffff";
+      setCanvasBackgroundColor("#ffffff");
+    });
+
+    btnBgTransparent.addEventListener("click", () => {
+      bgModeSelect.value = "transparent";
+      canvas.setBackgroundColor(null, canvas.renderAll.bind(canvas));
+      saveHistory();
+      setStatus("Background set to transparent");
+    });
+
+    btnBgImage.addEventListener("click", () => {
+      bgImageInput.click();
+    });
+
+    bgImageInput.addEventListener("change", (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function (f) {
+        const data = f.target.result;
+        fabric.Image.fromURL(
+          data,
+          (img) => {
+            const canvasWidth = canvas.getWidth();
+            const canvasHeight = canvas.getHeight();
+            const scale = Math.max(
+              canvasWidth / img.width,
+              canvasHeight / img.height
+            );
+            img.scale(scale);
+            canvas.setBackgroundImage(
+              img,
+              canvas.renderAll.bind(canvas),
+              {
+                originX: "left",
+                originY: "top",
+              }
+            );
+            saveHistory();
+            setStatus("Background image set");
+          },
+          { crossOrigin: "anonymous" }
+        );
+      };
+      reader.readAsDataURL(file);
+    });
+
+    // ==============================
+    // SMART BACKGROUND REMOVAL (BodyPix)
+    // ==============================
+    const aiStatus = document.getElementById("ai-status");
+    const aiThresholdInput = document.getElementById("ai-threshold");
+    const aiBgModeSelect = document.getElementById("ai-bg-mode");
+    const aiBgColorInput = document.getElementById("ai-bg-color");
+    const btnAiRemoveBg = document.getElementById("btn-ai-remove-bg");
+
+    async function loadBodyPix() {
+      try {
+        aiStatus.textContent = "Loading BodyPix model…";
+        bodyPixNet = await bodyPix.load({
+          architecture: "MobileNetV1",
+          outputStride: 16,
+          multiplier: 0.75,
+          quantBytes: 2,
+        });
+        aiStatus.textContent = "Model ready.";
+      } catch (err) {
+        console.error(err);
+        aiStatus.textContent = "Model failed to load.";
+      }
+    }
+
+    loadBodyPix();
+
+    async function autoRemoveBackgroundForActive() {
+      const obj = canvas.getActiveObject();
+      if (!obj || obj.type !== "image") {
+        alert("Select an image layer first.");
+        return;
+      }
+      if (!bodyPixNet) {
+        alert("BodyPix model not ready yet. Wait a bit or check connection.");
+        return;
+      }
+      const threshold = parseInt(aiThresholdInput.value, 10) / 100;
+      const bgMode = aiBgModeSelect.value;
+      const bgColorHex = aiBgColorInput.value;
+
+      aiStatus.textContent = "Processing segmentation… (this may take a few seconds)";
+      setStatus("Auto removing background…");
+
+      // Use underlying <img> element
+      const imgEl = obj._originalElement || obj._element;
+      if (!imgEl) {
+        alert("Could not access underlying image element.");
+        return;
+      }
+
+      const segmentation = await bodyPixNet.segmentPerson(imgEl, {
+        internalResolution: "medium",
+        segmentationThreshold: threshold,
+      });
+
+      const width = imgEl.naturalWidth || imgEl.width;
+      const height = imgEl.naturalHeight || imgEl.height;
+
+      const offCanvas = document.createElement("canvas");
+      offCanvas.width = width;
+      offCanvas.height = height;
+      const offCtx = offCanvas.getContext("2d");
+      offCtx.drawImage(imgEl, 0, 0, width, height);
+
+      const imgData = offCtx.getImageData(0, 0, width, height);
+      const data = imgData.data;
+      const mask = segmentation.data; // Uint8Array, 1 = person, 0 = background
+
+      let bgR = 255,
+        bgG = 255,
+        bgB = 255;
+      if (bgMode === "color") {
+        const hex = bgColorHex.replace("#", "");
+        bgR = parseInt(hex.slice(0, 2), 16);
+        bgG = parseInt(hex.slice(2, 4), 16);
+        bgB = parseInt(hex.slice(4, 6), 16);
+      }
+
+      for (let i = 0; i < mask.length; i++) {
+        const m = mask[i];
+        const j = i * 4;
+        if (m === 0) {
+          // background
+          if (bgMode === "transparent") {
+            data[j + 3] = 0; // alpha
+          } else {
+            data[j] = bgR;
+            data[j + 1] = bgG;
+            data[j + 2] = bgB;
+            data[j + 3] = 255;
+          }
+        }
+      }
+
+      offCtx.putImageData(imgData, 0, 0);
+      const dataURL = offCanvas.toDataURL("image/png");
+
+      obj.setSrc(dataURL, () => {
+        obj.filters = obj.filters || [];
+        obj.applyFilters();
+        canvas.renderAll();
+        saveHistory();
+        aiStatus.textContent = "Background removed.";
+        setStatus("Background removed using BodyPix.");
+      });
+    }
+
+    btnAiRemoveBg.addEventListener("click", autoRemoveBackgroundForActive);
+
+    // ==============================
+    // KEYBOARD SHORTCUTS (Undo/Redo)
+    // ==============================
+    window.addEventListener("keydown", (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "z") {
+        e.preventDefault();
+        undo();
+      } else if ((e.metaKey || e.ctrlKey) && (e.key === "y" || (e.shiftKey && e.key === "Z"))) {
+        e.preventDefault();
+        redo();
+      }
+    });
+
+    // Make sure we always have at least one history state
+    canvas.renderAll();
+  </script>
+</body>
+</html>
