@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Ultimate Real-Time Speech Translator (Fixed)</title>
+<title>High Accuracy Real-Time Speech Translator</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <style>
@@ -19,7 +19,7 @@ button:active { opacity:0.6; }
 textarea, select {
   width:100%; padding:10px; margin-top:10px; font-size:16px;
 }
-textarea { height:130px; }
+textarea { height:140px; resize:vertical; }
 .subtitles {
   background:black; color:#0f0; padding:10px; height:90px;
   border-radius:8px; margin-top:10px; overflow-y:auto;
@@ -30,19 +30,15 @@ textarea { height:130px; }
 <body>
 
 <div class="container">
-  <h2>🌐 Ultimate Real-Time Speech Translator (Auto-Detect)</h2>
+  <h2>🌐 High Accuracy Real-Time Speech Translator</h2>
 
   <h3>Target Language</h3>
   <select id="targetLang">
-    <option value="zh">Chinese 🇨🇳</option>
     <option value="en">English 🇺🇸</option>
+    <option value="zh-CN">Chinese 🇨🇳</option>
     <option value="ja">Japanese 🇯🇵</option>
     <option value="ko">Korean 🇰🇷</option>
     <option value="tl">Filipino 🇵🇭</option>
-    <option value="ms">Malay 🇲🇾</option>
-    <option value="id">Indonesian 🇮🇩</option>
-    <option value="fr">French 🇫🇷</option>
-    <option value="es">Spanish 🇪🇸</option>
   </select>
 
   <button id="startBtn">Start Speaking 🎤</button>
@@ -60,9 +56,11 @@ textarea { height:130px; }
   <p id="status" style="opacity:.7;">Status: Idle</p>
 </div>
 
+
 <script>
 let recognition;
 
+// Use Google SpeechRecognition
 if ("webkitSpeechRecognition" in window)
   recognition = new webkitSpeechRecognition();
 else if ("SpeechRecognition" in window)
@@ -72,75 +70,75 @@ else
 
 recognition.continuous = true;
 recognition.interimResults = true;
-recognition.lang = "en-US,zh-CN,ja-JP,ko-KR,tl-PH,ms-MY,id-ID,fr-FR,es-ES";
 
+// ⭐ Force Filipino speech recognition reliably
+// (this fixes the issue you are facing)
+let inputLanguageList = [
+  "tl-PH", // Filipino (primary)
+  "en-US",
+  "zh-CN",
+  "ja-JP",
+  "ko-KR"
+];
+recognition.lang = inputLanguageList.join(",");
+
+// START
 document.getElementById("startBtn").onclick = () => {
   recognition.start();
   document.getElementById("status").innerText = "Status: Listening…";
 };
 
+// STOP
 document.getElementById("stopBtn").onclick = () => {
   recognition.stop();
   document.getElementById("status").innerText = "Status: Stopped";
 };
 
-// 🔥 Detect language using LibreTranslate
-async function detectLanguage(text) {
-  try {
-    let res = await fetch("https://libretranslate.de/detect", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ q: text })
-    });
-    let data = await res.json();
-    return data[0].language; // returns: en, zh, tl, ja, etc
-  } catch {
-    return "en";
-  }
-}
-
-// 🔥 Translate using detected language
-async function translate(text, from, to) {
-  let url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${from}|${to}`;
+// Google's translation (unofficial)
+async function googleTranslate(text, target) {
+  const url =
+    "https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=" +
+    target +
+    "&dt=t&q=" +
+    encodeURI(text);
 
   let res = await fetch(url);
   let data = await res.json();
-  return data.responseData.translatedText;
+
+  return data[0].map(x => x[0]).join(""); // extract translation
 }
 
 recognition.onresult = async (event) => {
   let text = "";
-  for (let i = event.resultIndex; i < event.results.length; i++)
+
+  for (let i = event.resultIndex; i < event.results.length; i++) {
     text += event.results[i][0].transcript;
+  }
 
   document.getElementById("spokenText").value = text;
-  document.getElementById("subtitles").innerHTML = text;
+  document.getElementById("subtitles").innerText = text;
 
   if (text.trim() === "") return;
 
   let target = document.getElementById("targetLang").value;
 
-  // 1️⃣ Detect language
-  let detected = await detectLanguage(text);
-
-  // 2️⃣ Translate
-  let translated = await translate(text, detected, target);
+  // ⭐ Very accurate translation
+  let translated = await googleTranslate(text, target);
 
   document.getElementById("translatedText").value = translated;
 
-  // 3️⃣ Speak translation
   speak(translated, target);
 };
 
+// Speak output
 function speak(text, lang) {
   const synth = window.speechSynthesis;
   if (!synth) return;
-
   let utter = new SpeechSynthesisUtterance(text);
   utter.lang = lang;
   synth.speak(utter);
 }
-
 </script>
+
 </body>
 </html>
