@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Ultimate Real-Time Speech Translator</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<style>
+body {
+  background: #e8eef5;
+  font-family: Arial, sans-serif;
+  padding: 18px;
+}
+.container {
+  max-width: 900px;
+  margin: auto;
+  background: white;
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 3px 12px rgba(0,0,0,0.1);
+}
+h2 { margin-top: 0; }
+
+button {
+  width: 100%;
+  padding: 12px;
+  font-size: 18px;
+  border: none;
+  margin-top: 10px;
+  border-radius: 8px;
+  background: #007bff;
+  color: white;
+}
+button:active { opacity: 0.6; }
+
+select, textarea {
+  width: 100%;
+  padding: 10px;
+  font-size: 16px;
+  margin-top: 10px;
+}
+textarea { height: 120px; resize: vertical; }
+
+.subtitles {
+  background: #000;
+  color: #0f0;
+  padding: 10px;
+  border-radius: 6px;
+  margin-top: 10px;
+  font-family: monospace;
+  height: 80px;
+  overflow-y: auto;
+}
+.status { opacity: 0.6; margin-top: 6px; }
+</style>
+</head>
+
+<body>
+
+<div class="container">
+  <h2>🌐 Ultimate Real-Time Speech Translator (Auto-Detect)</h2>
+
+  <h3>Translation Target Language</h3>
+  <select id="targetLang">
+    <option value="zh">Chinese 🇨🇳</option>
+    <option value="en">English 🇺🇸</option>
+    <option value="ja">Japanese 🇯🇵</option>
+    <option value="ko">Korean 🇰🇷</option>
+    <option value="tl">Filipino 🇵🇭</option>
+    <option value="ms">Malay 🇲🇾</option>
+    <option value="id">Indonesian 🇮🇩</option>
+    <option value="fr">French 🇫🇷</option>
+    <option value="es">Spanish 🇪🇸</option>
+  </select>
+
+  <button id="startBtn">Start Speaking 🎙</button>
+  <button id="stopBtn" style="background:#dc3545;">Stop</button>
+
+  <h3>Your Speech (Auto Detected)</h3>
+  <textarea id="spokenText" readonly></textarea>
+
+  <h3>Translation</h3>
+  <textarea id="translatedText" readonly></textarea>
+
+  <h3>Live Subtitles</h3>
+  <div class="subtitles" id="subtitles"></div>
+
+  <div class="status" id="status">Status: Idle</div>
+</div>
+
+
+<script>
+let recognition;
+let listening = false;
+
+// Auto-detection → let browser guess language
+const autoDetectLanguages = [
+  "en-US", "zh-CN", "ja-JP", "ko-KR", "tl-PH", "ms-MY", "id-ID", "fr-FR", "es-ES"
+];
+
+// Setup speech recognition
+if ("webkitSpeechRecognition" in window)
+  recognition = new webkitSpeechRecognition();
+else if ("SpeechRecognition" in window)
+  recognition = new SpeechRecognition();
+else
+  alert("Speech Recognition not supported on your browser.");
+
+recognition.continuous = true;
+recognition.interimResults = true;
+recognition.lang = autoDetectLanguages.join(","); // multi-language recognition
+
+document.getElementById("startBtn").onclick = () => {
+  recognition.start();
+  listening = true;
+  document.getElementById("status").innerText = "Status: Listening…";
+};
+
+document.getElementById("stopBtn").onclick = () => {
+  recognition.stop();
+  listening = false;
+  document.getElementById("status").innerText = "Status: Stopped";
+};
+
+recognition.onresult = async (event) => {
+  let text = "";
+
+  for (let i = event.resultIndex; i < event.results.length; i++) {
+    text += event.results[i][0].transcript;
+  }
+
+  document.getElementById("spokenText").value = text;
+  document.getElementById("subtitles").innerHTML = text;
+
+  autoTranslate(text);
+};
+
+// Free translation API
+async function autoTranslate(text) {
+  if (!text.trim()) return;
+
+  let to = document.getElementById("targetLang").value;
+
+  try {
+    let url =
+      "https://api.mymemory.translated.net/get?q=" +
+      encodeURIComponent(text) +
+      "&langpair=auto|" + to;
+
+    let res = await fetch(url);
+    let data = await res.json();
+
+    let translated = data.responseData.translatedText;
+
+    document.getElementById("translatedText").value = translated;
+
+    speak(translated, to);
+
+  } catch (e) {
+    document.getElementById("translatedText").value =
+      "⚠ Translation Failed";
+  }
+}
+
+// Voice output for translated text
+function speak(text, lang) {
+  const synth = window.speechSynthesis;
+  if (!synth) return;
+
+  let utter = new SpeechSynthesisUtterance(text);
+
+  const voiceMap = {
+    en: "en-US",
+    zh: "zh-CN",
+    ja: "ja-JP",
+    ko: "ko-KR",
+    tl: "fil-PH",
+    ms: "ms-MY",
+    id: "id-ID",
+    fr: "fr-FR",
+    es: "es-ES",
+  };
+
+  utter.lang = voiceMap[lang] || "en-US";
+  synth.speak(utter);
+}
+
+recognition.onerror = (e) =>
+  (document.getElementById("status").innerText = "Error: " + e.error);
+</script>
+
+</body>
+</html>
