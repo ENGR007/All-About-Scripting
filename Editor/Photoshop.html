@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Simple Photo Editor</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<style>
+    body {
+        margin: 0;
+        background:#111;
+        font-family: system-ui;
+        color: white;
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+    }
+
+    /* TOP BAR */
+    .topbar {
+        width: 100%;
+        padding: 10px 15px;
+        display: flex;
+        justify-content: flex-end;
+        gap: 18px;
+        font-size: 22px;
+        background:#111;
+    }
+    .topbar button {
+        background: none;
+        border: none;
+        color: white;
+        cursor: pointer;
+    }
+
+    /* MAIN EDIT AREA */
+    .editor-area {
+        flex: 1;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        background: white;
+        position: relative;
+    }
+    #mainImage {
+        max-width: 100%;
+        max-height: 100%;
+        object-fit: contain;
+        background: white;
+    }
+
+    /* BOTTOM TOOL PANEL */
+    .panel {
+        padding: 15px;
+        background: #000;
+        border-top: 1px solid #222;
+    }
+
+    .slider-container {
+        width: 100%;
+        padding: 10px 0;
+    }
+
+    input[type="range"] {
+        width: 100%;
+    }
+
+    /* Heal mode button row */
+    .heal-buttons {
+        display: flex;
+        gap: 12px;
+        margin-top: 15px;
+        flex-wrap: wrap;
+    }
+
+    .heal-buttons button {
+        background: #1a1a1a;
+        border: 1px solid #444;
+        padding: 8px 14px;
+        border-radius: 6px;
+        color: #ddd;
+        cursor: pointer;
+    }
+
+    .instruction {
+        margin-top: 12px;
+        color:#aaa;
+        font-size: 14px;
+    }
+
+    /* Bottom Nav (Heal only for now) */
+    .bottom-nav {
+        width: 100%;
+        display: flex;
+        justify-content: center;
+        gap: 50px;
+        padding: 12px;
+        background: #0c0c0c;
+        border-top: 1px solid #222;
+        font-size: 16px;
+    }
+
+    .bottom-nav div {
+        opacity: 1;
+        color: #fff;
+        font-weight: 600;
+    }
+</style>
+</head>
+
+<body>
+
+<!-- TOP RIGHT ICONS -->
+<div class="topbar">
+    <button id="autoEnhanceBtn">✨</button>
+    <button id="uploadBtn">📤</button>
+    <button id="downloadBtn">⬇️</button>
+</div>
+
+<!-- MAIN IMAGE DISPLAY -->
+<div class="editor-area">
+    <img id="mainImage" src="" alt="Image Area">
+</div>
+
+<!-- HEAL TOOL PANEL -->
+<div class="panel">
+    <div class="slider-container">
+        <input id="healSlider" type="range" min="0" max="100" value="50">
+    </div>
+
+    <div class="heal-buttons">
+        <button>Remove</button>
+        <button>Patch</button>
+        <button>Clone</button>
+        <button>Remove Object</button>
+        <button>Eraser</button>
+    </div>
+
+    <div class="instruction">
+        Tap or drag the area to remove unwanted objects or blemishes.  
+        Use the slider to adjust the brush size.
+    </div>
+</div>
+
+<!-- BOTTOM NAVIGATION (Heal only for now) -->
+<div class="bottom-nav">
+    <div>Heal</div>
+</div>
+
+<script>
+    const uploadBtn = document.getElementById("uploadBtn");
+    const downloadBtn = document.getElementById("downloadBtn");
+    const mainImage = document.getElementById("mainImage");
+
+    /* UPLOAD IMAGE */
+    uploadBtn.addEventListener("click", () => {
+        let input = document.createElement("input");
+        input.type = "file";
+        input.accept = "image/*";
+        input.onchange = e => {
+            let file = e.target.files[0];
+            mainImage.src = URL.createObjectURL(file);
+        };
+        input.click();
+    });
+
+    /* DOWNLOAD IMAGE */
+    downloadBtn.addEventListener("click", () => {
+        if (!mainImage.src) return;
+
+        const link = document.createElement("a");
+        link.download = "edited_photo.png";
+        link.href = mainImage.src;
+        link.click();
+    });
+
+    /* AUTO ENHANCE (simple brightness boost placeholder) */
+    document.getElementById("autoEnhanceBtn").addEventListener("click", () => {
+        mainImage.style.filter = "brightness(1.1) contrast(1.05)";
+        setTimeout(() => {
+            alert("Auto Enhancement Applied");
+        }, 150);
+    });
+</script>
+
+</body>
+</html>
