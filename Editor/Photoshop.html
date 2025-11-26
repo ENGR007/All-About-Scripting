@@ -24,11 +24,11 @@
     display: flex;
     justify-content: flex-end;
     align-items: center;
-    gap: 16px;
+    gap: 14px;
     padding: 8px 16px;
     background: #111;
     border-bottom: 1px solid #222;
-    font-size: 20px;
+    font-size: 18px;
     flex: 0 0 auto;
   }
 
@@ -38,6 +38,7 @@
     color: #fff;
     cursor: pointer;
     padding: 4px;
+    font-size: 18px;
   }
 
   .topbar button:hover { opacity: 0.8; }
@@ -166,6 +167,8 @@
 <!-- TOP RIGHT ICONS -->
 <div class="topbar">
   <button id="autoEnhanceBtn" title="Auto Enhance">✨</button>
+  <button id="undoBtn"        title="Undo">↩️</button>
+  <button id="redoBtn"        title="Redo">↪️</button>
   <button id="uploadBtn"      title="Upload Image">📤</button>
   <button id="downloadBtn"    title="Download Image">⬇️</button>
 </div>
@@ -194,9 +197,9 @@
   </div>
 
   <div class="instruction">
-    • <b>Heal</b> & <b>Remove</b>: just drag over blemishes (auto-source like PS Express).<br>
+    • <b>Heal</b> & <b>Remove</b>: drag over blemishes (auto-source like Photoshop Express).<br>
     • <b>Clone</b> / <b>Patch</b>: tap once to set the source circle, then drag to apply.<br>
-    • Tap the tool button again to reset its source. The slider changes meaning per tool.
+    • Tap Clone/Patch again to reset its source. Slider changes meaning per tool.
   </div>
 </div>
 
@@ -214,16 +217,27 @@
   const uploadBtn      = document.getElementById("uploadBtn");
   const downloadBtn    = document.getElementById("downloadBtn");
   const autoEnhanceBtn = document.getElementById("autoEnhanceBtn");
-  const slider         = document.getElementById("toolSlider");
-  const sliderLabel    = document.getElementById("sliderLabel");
+  const undoBtn        = document.getElementById("undoBtn");
+  const redoBtn        = document.getElementById("redoBtn");
+
+  const slider      = document.getElementById("toolSlider");
+  const sliderLabel = document.getElementById("sliderLabel");
 
   let currentTool = "heal";
   let sliderValue = 50;
 
   let isDrawing   = false;
-  let cloneSource = null;   // {x,y} in canvas coords
+  let cloneSource = null;   // {x,y}
   let patchSource = null;
   let baseImage   = null;
+
+  let lastPos     = null;   // for stroke smoothing
+  let strokeHasDrawn = false;
+
+  // Undo/Redo stacks (full snapshots)
+  let history    = [];
+  let redoStack  = [];
+  const MAX_HISTORY = 30;
 
   /* -------- Layout: fit canvas to middle area -------- */
   function fitCanvasToEditor(redraw = true) {
@@ -257,8 +271,57 @@
     ctx.drawImage(baseImage, x, y, w, h);
   }
 
-  window.addEventListener("resize", () => fitCanvasToEditor(true));
+  window.addEventListener("resize", () => {
+    fitCanvasToEditor(true);
+    // After a resize, history is no longer valid (sizes changed), so reset:
+    if (baseImage) {
+      history = [];
+      redoStack = [];
+      saveState();
+    }
+  });
+
   fitCanvasToEditor(false);
+
+  /* -------- History helpers (Undo / Redo) -------- */
+  function saveState() {
+    try {
+      const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      history.push(imgData);
+      if (history.length > MAX_HISTORY) history.shift();
+    } catch (e) {
+      console.error("saveState error:", e);
+    }
+  }
+
+  function restoreState(imgData) {
+    if (!imgData) return;
+    try {
+      canvas.width  = imgData.width;
+      canvas.height = imgData.height;
+      ctx.putImageData(imgData, 0, 0);
+    } catch (e) {
+      console.error("restoreState error:", e);
+    }
+  }
+
+  function handleUndo() {
+    if (history.length <= 1) return; // nothing to undo
+    const last = history.pop();
+    redoStack.push(last);
+    const prev = history[history.length - 1];
+    restoreState(prev);
+  }
+
+  function handleRedo() {
+    if (redoStack.length === 0) return;
+    const state = redoStack.pop();
+    history.push(state);
+    restoreState(state);
+  }
+
+  undoBtn.addEventListener("click", handleUndo);
+  redoBtn.addEventListener("click", handleRedo);
 
   /* -------- Slider + label -------- */
   function updateSliderLabel() {
@@ -282,7 +345,7 @@
   });
   updateSliderLabel();
 
-  /* -------- Tool buttons (tap again = reset source) -------- */
+  /* -------- Tool buttons (tap again = reset source for clone/patch) -------- */
   document.querySelectorAll(".heal-buttons button").forEach(btn => {
     btn.addEventListener("click", () => {
       const selectedTool = btn.dataset.tool;
@@ -321,11 +384,11 @@
     const rect = editorArea.getBoundingClientRect();
     const scaleX = rect.width / canvas.width;
     const scaleY = rect.height / canvas.height;
-    const cx = rect.left + canvasX * scaleX;
-    const cy = rect.top  + canvasY * scaleY;
+    const cx = canvasX * scaleX;
+    const cy = canvasY * scaleY;
 
-    sourceCircle.style.left = `${cx - rect.left}px`;
-    sourceCircle.style.top  = `${cy - rect.top}px`;
+    sourceCircle.style.left = `${cx}px`;
+    sourceCircle.style.top  = `${cy}px`;
 
     sourceCircle.classList.toggle("patch", tool === "patch");
 
@@ -354,6 +417,9 @@
       img.onload = () => {
         baseImage = img;
         fitCanvasToEditor(true);
+        history = [];
+        redoStack = [];
+        saveState(); // initial image state
       };
       img.src = URL.createObjectURL(file);
     };
@@ -378,6 +444,8 @@
       d[i+2] = contrast * (d[i+2] - 128) + 128 + brightness;
     }
     ctx.putImageData(imgData, 0, 0);
+    saveState();
+    redoStack = [];
     showToast("Auto Enhance applied");
   });
 
@@ -498,6 +566,11 @@
     drawSoftBrush(x, y, radius, color, alpha);
   }
 
+  function getBrushRadiusApprox() {
+    // Approximate radius used by most tools, for spacing
+    return 10 + sliderValue * 0.5;
+  }
+
   function applyToolStroke(x, y) {
     const s = sliderValue;
     switch (currentTool) {
@@ -508,12 +581,14 @@
       case "removeObject": applyRemoveObject(x, y, s);        break;
       case "erase":        applyErase(x, y, s);               break;
     }
+    strokeHasDrawn = true;
   }
 
-  /* -------- Pointer events (mobile friendly) -------- */
+  /* -------- Pointer events with smoothing -------- */
   canvas.addEventListener("pointerdown", e => {
     const pos = getCanvasPos(e);
 
+    // For clone/patch, if source not set yet: set and show circle (no stroke yet)
     if (currentTool === "clone" && !cloneSource) {
       cloneSource = pos;
       showSourceCircleAt("clone", pos.x, pos.y);
@@ -529,18 +604,50 @@
     }
 
     isDrawing = true;
-    applyToolStroke(pos.x, pos.y);
+    strokeHasDrawn = false;
+    lastPos = pos;
+    applyToolStroke(pos.x, pos.y); // initial dab
   });
 
   canvas.addEventListener("pointermove", e => {
     if (!isDrawing) return;
     const pos = getCanvasPos(e);
-    applyToolStroke(pos.x, pos.y);
+    if (!lastPos) {
+      lastPos = pos;
+      applyToolStroke(pos.x, pos.y);
+      return;
+    }
+
+    const dx = pos.x - lastPos.x;
+    const dy = pos.y - lastPos.y;
+    const dist = Math.hypot(dx, dy);
+    const radius = getBrushRadiusApprox();
+    const spacing = Math.max(4, radius * 0.35);  // brush spacing
+
+    if (dist <= 0) return;
+
+    // interpolate points along the path for smoother stroke
+    const steps = Math.max(1, Math.floor(dist / spacing));
+    for (let i = 1; i <= steps; i++) {
+      const t = i / steps;
+      const ix = lastPos.x + dx * t;
+      const iy = lastPos.y + dy * t;
+      applyToolStroke(ix, iy);
+    }
+
+    lastPos = pos;
   });
 
   function endDraw() {
+    if (isDrawing && strokeHasDrawn) {
+      saveState();
+      redoStack = [];
+    }
     isDrawing = false;
+    lastPos = null;
+    strokeHasDrawn = false;
   }
+
   canvas.addEventListener("pointerup", endDraw);
   canvas.addEventListener("pointerleave", endDraw);
   canvas.addEventListener("pointercancel", endDraw);
