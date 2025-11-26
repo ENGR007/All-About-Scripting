@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<title>Photo Editor - Heal & Tools</title>
+<title>Photo Editor - Mobile Heal & Tools</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
 <style>
@@ -15,7 +15,8 @@
     font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     display: flex;
     flex-direction: column;
-    height: 100vh;
+    height: 100dvh;          /* mobile-safe full height */
+    overflow: hidden;        /* no scrolling */
   }
 
   /* TOP BAR */
@@ -28,6 +29,7 @@
     background: #111;
     border-bottom: 1px solid #222;
     font-size: 20px;
+    flex: 0 0 auto;
   }
 
   .topbar button {
@@ -38,13 +40,12 @@
     padding: 4px;
   }
 
-  .topbar button:hover {
-    opacity: 0.8;
-  }
+  .topbar button:hover { opacity: 0.8; }
 
   /* MAIN CANVAS AREA */
   .editor-area {
-    flex: 1;
+    flex: 1 1 auto;
+    min-height: 0;           /* flex fix */
     background: #fff;
     display: flex;
     justify-content: center;
@@ -54,50 +55,68 @@
   }
 
   #canvas {
-    max-width: 100%;
-    max-height: 100%;
+    width: 100%;             /* visually fill area */
+    height: 100%;
     background: #fff;
-    touch-action: none; /* allow drawing on touch */
+    touch-action: none;
+    display: block;
+  }
+
+  /* Source circle overlay (for Clone / Patch) */
+  .source-circle {
+    position: absolute;
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    border: 2px solid #4d8aff;
+    box-shadow: 0 0 6px rgba(0,0,0,0.6);
+    pointer-events: none;
+    transform: translate(-50%, -50%);
+    opacity: 0;
+    transition: opacity 0.15s;
+  }
+
+  .source-circle.patch {
+    border-color: #ffb84d;
   }
 
   /* BOTTOM TOOL PANEL */
   .panel {
     background: #000;
     border-top: 1px solid #222;
-    padding: 10px 16px 8px;
+    padding: 8px 16px 6px;
+    flex: 0 0 auto;
   }
 
   .slider-row {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 10px;
   }
 
   #sliderLabel {
     min-width: 130px;
-    font-size: 13px;
+    font-size: 12px;
     color: #ccc;
   }
 
-  #toolSlider {
-    flex: 1;
-  }
+  #toolSlider { flex: 1; }
 
   .heal-buttons {
     display: flex;
     flex-wrap: wrap;
-    gap: 10px;
-    margin-top: 10px;
+    gap: 8px;
+    margin-top: 8px;
   }
 
   .heal-buttons button {
     background: #1a1a1a;
     border: 1px solid #444;
-    padding: 7px 13px;
+    padding: 6px 11px;
     border-radius: 999px;
     color: #ddd;
     cursor: pointer;
-    font-size: 13px;
+    font-size: 12px;
   }
 
   .heal-buttons button.active {
@@ -107,9 +126,9 @@
   }
 
   .instruction {
-    margin-top: 10px;
+    margin-top: 6px;
     color: #aaa;
-    font-size: 12px;
+    font-size: 11px;
     line-height: 1.4;
   }
 
@@ -117,26 +136,25 @@
   .bottom-nav {
     background: #080808;
     border-top: 1px solid #222;
-    padding: 8px 16px 10px;
-    font-size: 14px;
+    padding: 6px 16px 8px;
+    font-size: 13px;
     display: flex;
     justify-content: center;
+    flex: 0 0 auto;
   }
 
-  .bottom-nav span {
-    font-weight: 600;
-  }
+  .bottom-nav span { font-weight: 600; }
 
-  /* Small inline “toast” message */
+  /* Toast message */
   .toast {
     position: absolute;
     left: 50%;
-    bottom: 80px;
+    bottom: 70px;
     transform: translateX(-50%);
-    background: rgba(0, 0, 0, 0.8);
+    background: rgba(0,0,0,0.8);
     padding: 6px 12px;
     border-radius: 999px;
-    font-size: 12px;
+    font-size: 11px;
     pointer-events: none;
     opacity: 0;
     transition: opacity 0.2s ease;
@@ -155,20 +173,19 @@
 <!-- MAIN EDIT AREA -->
 <div class="editor-area">
   <canvas id="canvas"></canvas>
+  <div id="sourceCircle" class="source-circle"></div>
   <div id="toast" class="toast"></div>
 </div>
 
 <!-- HEAL TOOL PANEL -->
 <div class="panel">
-  <!-- Shared slider + dynamic label -->
   <div class="slider-row">
     <div id="sliderLabel">Heal Strength: 50%</div>
     <input id="toolSlider" type="range" min="0" max="100" value="50" />
   </div>
 
-  <!-- Tools row: Heal, Remove, Patch, Clone, Remove Object, Eraser -->
   <div class="heal-buttons">
-    <button data-tool="heal"        class="active">Heal</button>
+    <button data-tool="heal" class="active">Heal</button>
     <button data-tool="remove">Remove</button>
     <button data-tool="patch">Patch</button>
     <button data-tool="clone">Clone</button>
@@ -177,142 +194,172 @@
   </div>
 
   <div class="instruction">
-    1) Tap a tool (Heal, Remove, Patch, Clone, Remove Object, Eraser).<br>
-    2) Use the slider to adjust size / strength / blend for that tool.<br>
-    3) For <b>Clone</b> and <b>Patch</b>, first tap sets the source area, then drag to apply.<br>
-    Note: This is a lightweight browser version, not full Photoshop, but all tools really edit pixels.
+    • <b>Heal</b> & <b>Remove</b>: just drag over blemishes (auto-source like PS Express).<br>
+    • <b>Clone</b> / <b>Patch</b>: tap once to set the source circle, then drag to apply.<br>
+    • Tap the tool button again to reset its source. The slider changes meaning per tool.
   </div>
 </div>
 
-<!-- MAIN FEATURE BAR -->
 <div class="bottom-nav">
-  <span>Main feature: Heal (other tools will grow here later)</span>
+  <span>Main feature: Heal (other tabs can be added later)</span>
 </div>
 
 <script>
-  const canvas = document.getElementById("canvas");
-  const ctx     = canvas.getContext("2d");
+  const canvas      = document.getElementById("canvas");
+  const ctx         = canvas.getContext("2d");
+  const editorArea  = document.querySelector(".editor-area");
+  const sourceCircle = document.getElementById("sourceCircle");
+  const toast       = document.getElementById("toast");
+
   const uploadBtn      = document.getElementById("uploadBtn");
   const downloadBtn    = document.getElementById("downloadBtn");
   const autoEnhanceBtn = document.getElementById("autoEnhanceBtn");
   const slider         = document.getElementById("toolSlider");
   const sliderLabel    = document.getElementById("sliderLabel");
-  const toast          = document.getElementById("toast");
 
-  // Set initial canvas size
-  function resizeCanvas() {
-    const h = window.innerHeight - 120; // approx top+bottom
-    canvas.width  = window.innerWidth;
-    canvas.height = h > 200 ? h : 200;
-    // Fill white background initially
-    ctx.fillStyle = "#ffffff";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-  }
-  resizeCanvas();
-  window.addEventListener("resize", resizeCanvas);
-
-  // Current tool state
   let currentTool = "heal";
   let sliderValue = 50;
 
-  let isDrawing = false;
-  let cloneSource = null;
+  let isDrawing   = false;
+  let cloneSource = null;   // {x,y} in canvas coords
   let patchSource = null;
+  let baseImage   = null;
 
-  // For pointer handling
-  function getPos(evt) {
-    const rect = canvas.getBoundingClientRect();
-    return {
-      x: (evt.clientX - rect.left) * (canvas.width / rect.width),
-      y: (evt.clientY - rect.top)  * (canvas.height / rect.height)
-    };
+  /* -------- Layout: fit canvas to middle area -------- */
+  function fitCanvasToEditor(redraw = true) {
+    const rect = editorArea.getBoundingClientRect();
+    const w = Math.max(1, rect.width);
+    const h = Math.max(1, rect.height);
+    canvas.width  = w;
+    canvas.height = h;
+
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, w, h);
+
+    if (redraw && baseImage) drawImageFit();
   }
 
-  function showToast(msg) {
-    toast.textContent = msg;
-    toast.style.opacity = 1;
-    clearTimeout(showToast._timer);
-    showToast._timer = setTimeout(() => {
-      toast.style.opacity = 0;
-    }, 1500);
+  function drawImageFit() {
+    if (!baseImage) return;
+    const iw = baseImage.width;
+    const ih = baseImage.height;
+    const cw = canvas.width;
+    const ch = canvas.height;
+
+    const scale = Math.min(cw / iw, ch / ih);
+    const w = iw * scale;
+    const h = ih * scale;
+    const x = (cw - w) / 2;
+    const y = (ch - h) / 2;
+
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, cw, ch);
+    ctx.drawImage(baseImage, x, y, w, h);
   }
 
-  // ---- TOOLS + SLIDER LABEL ----
+  window.addEventListener("resize", () => fitCanvasToEditor(true));
+  fitCanvasToEditor(false);
+
+  /* -------- Slider + label -------- */
   function updateSliderLabel() {
     const v = sliderValue;
     let text;
     switch (currentTool) {
-      case "heal":
-        text = `Heal Strength: ${v}%`;
-        break;
-      case "remove":
-        text = `Remove Strength: ${v}%`;
-        break;
-      case "patch":
-        text = `Patch Blend: ${v}%`;
-        break;
-      case "clone":
-        text = `Clone Softness: ${v}%`;
-        break;
-      case "removeObject":
-        text = `AI Removal Strength: ${v}%`;
-        break;
-      case "erase":
-        text = `Eraser Opacity: ${v}%`;
-        break;
-      default:
-        text = `Level: ${v}%`;
+      case "heal":         text = `Heal Strength: ${v}%`; break;
+      case "remove":       text = `Remove Strength: ${v}%`; break;
+      case "patch":        text = `Patch Blend: ${v}%`; break;
+      case "clone":        text = `Clone Softness: ${v}%`; break;
+      case "removeObject": text = `AI Removal Strength: ${v}%`; break;
+      case "erase":        text = `Eraser Opacity: ${v}%`; break;
+      default:             text = `Level: ${v}%`;
     }
     sliderLabel.textContent = text;
   }
 
-  slider.addEventListener("input", (e) => {
+  slider.addEventListener("input", e => {
     sliderValue = parseInt(e.target.value, 10);
     updateSliderLabel();
   });
+  updateSliderLabel();
 
-  // tool buttons
+  /* -------- Tool buttons (tap again = reset source) -------- */
   document.querySelectorAll(".heal-buttons button").forEach(btn => {
     btn.addEventListener("click", () => {
+      const selectedTool = btn.dataset.tool;
+
+      if (selectedTool === currentTool && (selectedTool === "clone" || selectedTool === "patch")) {
+        // reset source on re-tap
+        if (selectedTool === "clone") cloneSource = null;
+        if (selectedTool === "patch") patchSource = null;
+        hideSourceCircle();
+        showToast("Source reset. Tap on photo to set new source.");
+        return;
+      }
+
       document.querySelectorAll(".heal-buttons button").forEach(b => b.classList.remove("active"));
       btn.classList.add("active");
-      currentTool = btn.dataset.tool;
-      // Reset special sources when switching tools
+      currentTool = selectedTool;
+
       if (currentTool !== "clone") cloneSource = null;
       if (currentTool !== "patch") patchSource = null;
+      if (currentTool !== "clone" && currentTool !== "patch") hideSourceCircle();
+
       updateSliderLabel();
     });
   });
 
-  // ---- IMAGE UPLOAD ----
+  /* -------- Toast helper -------- */
+  function showToast(msg) {
+    toast.textContent = msg;
+    toast.style.opacity = 1;
+    clearTimeout(showToast._timer);
+    showToast._timer = setTimeout(() => toast.style.opacity = 0, 1500);
+  }
+
+  /* -------- Source circle helpers -------- */
+  function showSourceCircleAt(tool, canvasX, canvasY) {
+    const rect = editorArea.getBoundingClientRect();
+    const scaleX = rect.width / canvas.width;
+    const scaleY = rect.height / canvas.height;
+    const cx = rect.left + canvasX * scaleX;
+    const cy = rect.top  + canvasY * scaleY;
+
+    sourceCircle.style.left = `${cx - rect.left}px`;
+    sourceCircle.style.top  = `${cy - rect.top}px`;
+
+    sourceCircle.classList.toggle("patch", tool === "patch");
+
+    // size approx = brush radius
+    const radius = 20 + sliderValue * 0.4;
+    const cssR = radius * scaleX;
+    sourceCircle.style.width  = `${cssR * 2}px`;
+    sourceCircle.style.height = `${cssR * 2}px`;
+
+    sourceCircle.style.opacity = 1;
+  }
+
+  function hideSourceCircle() {
+    sourceCircle.style.opacity = 0;
+  }
+
+  /* -------- Upload / Download / Auto Enhance -------- */
   uploadBtn.addEventListener("click", () => {
     const input = document.createElement("input");
     input.type = "file";
     input.accept = "image/*";
-    input.onchange = (e) => {
+    input.onchange = e => {
       const file = e.target.files[0];
       if (!file) return;
       const img = new Image();
       img.onload = () => {
-        // Resize canvas to fit image as best as possible
-        const maxW = window.innerWidth;
-        const maxH = window.innerHeight - 120;
-        let w = img.width, h = img.height;
-        const scale = Math.min(maxW / w, maxH / h, 1);
-        w *= scale; h *= scale;
-
-        canvas.width  = w;
-        canvas.height = h;
-        ctx.fillStyle = "#ffffff";
-        ctx.fillRect(0, 0, w, h);
-        ctx.drawImage(img, 0, 0, w, h);
+        baseImage = img;
+        fitCanvasToEditor(true);
       };
       img.src = URL.createObjectURL(file);
     };
     input.click();
   });
 
-  // ---- DOWNLOAD ----
   downloadBtn.addEventListener("click", () => {
     const a = document.createElement("a");
     a.download = "edited_photo.png";
@@ -320,85 +367,86 @@
     a.click();
   });
 
-  // ---- AUTO ENHANCE (simple brightness + contrast) ----
   autoEnhanceBtn.addEventListener("click", () => {
     const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    const data = imgData.data;
-    const brightness = 10;   // +10
-    const contrast = 1.1;    // +10%
-
-    for (let i = 0; i < data.length; i += 4) {
-      // apply contrast
-      data[i]   = contrast * (data[i]   - 128) + 128 + brightness; // R
-      data[i+1] = contrast * (data[i+1] - 128) + 128 + brightness; // G
-      data[i+2] = contrast * (data[i+2] - 128) + 128 + brightness; // B
+    const d = imgData.data;
+    const brightness = 10;
+    const contrast = 1.1;
+    for (let i = 0; i < d.length; i += 4) {
+      d[i]   = contrast * (d[i]   - 128) + 128 + brightness;
+      d[i+1] = contrast * (d[i+1] - 128) + 128 + brightness;
+      d[i+2] = contrast * (d[i+2] - 128) + 128 + brightness;
     }
     ctx.putImageData(imgData, 0, 0);
     showToast("Auto Enhance applied");
   });
 
-  // ---- BRUSH HELPERS ----
-
+  /* -------- Drawing helpers -------- */
   function clamp(v, min, max) {
     return Math.max(min, Math.min(max, v));
+  }
+
+  function getCanvasPos(evt) {
+    const rect = canvas.getBoundingClientRect();
+    return {
+      x: (evt.clientX - rect.left) * (canvas.width / rect.width),
+      y: (evt.clientY - rect.top)  * (canvas.height / rect.height)
+    };
   }
 
   function sampleAverageColor(x, y, radius) {
     radius = Math.max(2, radius | 0);
     const x0 = clamp(x - radius, 0, canvas.width - 1);
     const y0 = clamp(y - radius, 0, canvas.height - 1);
-    const w  = clamp(radius * 2, 1, canvas.width - x0);
+    const w  = clamp(radius * 2, 1, canvas.width  - x0);
     const h  = clamp(radius * 2, 1, canvas.height - y0);
 
     const imgData = ctx.getImageData(x0, y0, w, h);
     const d = imgData.data;
     let r = 0, g = 0, b = 0, count = 0;
     for (let i = 0; i < d.length; i += 4) {
-      r += d[i];
-      g += d[i+1];
-      b += d[i+2];
-      count++;
+      r += d[i]; g += d[i+1]; b += d[i+2]; count++;
     }
-    if (count === 0) return { r: 255, g: 255, b: 255 };
+    if (!count) return { r: 255, g: 255, b: 255 };
     return { r: r / count, g: g / count, b: b / count };
   }
 
-  // soft round brush filling
   function drawSoftBrush(x, y, radius, color, alpha) {
     ctx.save();
-    const grd = ctx.createRadialGradient(x, y, 0, x, y, radius);
+    const g = ctx.createRadialGradient(x, y, 0, x, y, radius);
     const c0 = `rgba(${color.r}, ${color.g}, ${color.b}, ${alpha})`;
     const c1 = `rgba(${color.r}, ${color.g}, ${color.b}, 0)`;
-    grd.addColorStop(0, c0);
-    grd.addColorStop(1, c1);
-    ctx.fillStyle = grd;
+    g.addColorStop(0, c0);
+    g.addColorStop(1, c1);
+    ctx.fillStyle = g;
     ctx.beginPath();
     ctx.arc(x, y, radius, 0, Math.PI * 2);
     ctx.fill();
     ctx.restore();
   }
 
-  // simple "AI remove" = average from surrounding, strong heal
   function applyRemoveObject(x, y, strength) {
     const baseRadius = 12;
-    const radius = baseRadius + strength * 0.6; // 12–72
+    const radius = baseRadius + strength * 0.6;
     const sampled = sampleAverageColor(x, y, radius * 1.3);
-    const alpha   = 0.6 + 0.4 * strength / 100; // 0.6–1.0
+    const alpha = 0.6 + 0.4 * strength / 100;
     drawSoftBrush(x, y, radius, sampled, alpha);
   }
 
-  // heal / remove = softer local smoothing
   function applyHealOrRemove(x, y, strength, isRemove) {
     const baseRadius = 10;
-    const radius = baseRadius + strength * 0.5; // 10–60
+    const radius = baseRadius + strength * 0.5;
     const sampled = sampleAverageColor(x, y, radius * 1.1);
     let alphaBase = isRemove ? 0.7 : 0.4;
-    const alpha   = alphaBase + 0.3 * strength / 100;
+    const alpha = alphaBase + 0.3 * strength / 100;
     drawSoftBrush(x, y, radius, sampled, alpha);
   }
 
   function applyClone(x, y, strength) {
-    if (!cloneSource) return;
+    if (!cloneSource) {
+      showToast("Tap once to set Clone source.");
+      return;
+    }
     const baseRadius = 12;
     const radius = baseRadius + strength * 0.5;
     const r = radius;
@@ -412,14 +460,17 @@
     const dy = clamp(y - r, 0, canvas.height - h);
 
     ctx.save();
-    const softness = 0.3 + 0.7 * strength / 100; // 0.3–1.0
+    const softness = 0.3 + 0.7 * strength / 100;
     ctx.globalAlpha = softness;
     ctx.drawImage(canvas, sx, sy, w, h, dx, dy, w, h);
     ctx.restore();
   }
 
   function applyPatch(x, y, strength) {
-    if (!patchSource) return;
+    if (!patchSource) {
+      showToast("Tap once to set Patch source.");
+      return;
+    }
     const baseRadius = 20;
     const radius = baseRadius + strength * 0.4;
     const r = radius;
@@ -433,7 +484,7 @@
     const dy = clamp(y - r, 0, canvas.height - h);
 
     ctx.save();
-    const blend = 0.5 + 0.5 * strength / 100; // 0.5–1.0
+    const blend = 0.5 + 0.5 * strength / 100;
     ctx.globalAlpha = blend;
     ctx.drawImage(canvas, sx, sy, w, h, dx, dy, w, h);
     ctx.restore();
@@ -442,25 +493,37 @@
   function applyErase(x, y, strength) {
     const baseRadius = 10;
     const radius = baseRadius + strength * 0.6;
-    const alpha = strength / 100; // 0–1
-
-    // erase toward white background
-    const color = { r: 255, g: 255, b: 255 };
+    const alpha  = strength / 100;
+    const color  = { r: 255, g: 255, b: 255 };
     drawSoftBrush(x, y, radius, color, alpha);
   }
 
-  // ---- POINTER EVENTS ----
-  canvas.addEventListener("pointerdown", (e) => {
-    const pos = getPos(e);
+  function applyToolStroke(x, y) {
+    const s = sliderValue;
+    switch (currentTool) {
+      case "heal":         applyHealOrRemove(x, y, s, false); break;
+      case "remove":       applyHealOrRemove(x, y, s, true);  break;
+      case "patch":        applyPatch(x, y, s);               break;
+      case "clone":        applyClone(x, y, s);               break;
+      case "removeObject": applyRemoveObject(x, y, s);        break;
+      case "erase":        applyErase(x, y, s);               break;
+    }
+  }
 
-    // First tap for clone/patch sets source
+  /* -------- Pointer events (mobile friendly) -------- */
+  canvas.addEventListener("pointerdown", e => {
+    const pos = getCanvasPos(e);
+
     if (currentTool === "clone" && !cloneSource) {
-      cloneSource = { x: pos.x, y: pos.y };
-      showToast("Clone source set. Now drag to copy.");
+      cloneSource = pos;
+      showSourceCircleAt("clone", pos.x, pos.y);
+      showToast("Clone source set. Drag to apply.");
       return;
     }
+
     if (currentTool === "patch" && !patchSource) {
-      patchSource = { x: pos.x, y: pos.y };
+      patchSource = pos;
+      showSourceCircleAt("patch", pos.x, pos.y);
       showToast("Patch source set. Drag to apply.");
       return;
     }
@@ -469,9 +532,9 @@
     applyToolStroke(pos.x, pos.y);
   });
 
-  canvas.addEventListener("pointermove", (e) => {
+  canvas.addEventListener("pointermove", e => {
     if (!isDrawing) return;
-    const pos = getPos(e);
+    const pos = getCanvasPos(e);
     applyToolStroke(pos.x, pos.y);
   });
 
@@ -481,34 +544,6 @@
   canvas.addEventListener("pointerup", endDraw);
   canvas.addEventListener("pointerleave", endDraw);
   canvas.addEventListener("pointercancel", endDraw);
-
-  function applyToolStroke(x, y) {
-    const strength = sliderValue;
-
-    switch (currentTool) {
-      case "heal":
-        applyHealOrRemove(x, y, strength, false);
-        break;
-      case "remove":
-        applyHealOrRemove(x, y, strength, true);
-        break;
-      case "patch":
-        applyPatch(x, y, strength);
-        break;
-      case "clone":
-        applyClone(x, y, strength);
-        break;
-      case "removeObject":
-        applyRemoveObject(x, y, strength);
-        break;
-      case "erase":
-        applyErase(x, y, strength);
-        break;
-    }
-  }
-
-  // initial label
-  updateSliderLabel();
 </script>
 
 </body>
