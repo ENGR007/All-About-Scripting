@@ -1,31 +1,27 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
 <meta charset="UTF-8">
-<title>Simple Photo Editor</title>
+<title>Advanced Photo Editor</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <style>
     body {
         margin: 0;
-        background:#111;
-        font-family: system-ui;
+        background: #111;
+        overflow: hidden;
         color: white;
-        display: flex;
-        flex-direction: column;
-        height: 100vh;
+        font-family: system-ui;
     }
 
-    /* TOP BAR */
     .topbar {
-        width: 100%;
-        padding: 10px 15px;
+        padding: 10px 10px;
         display: flex;
         justify-content: flex-end;
-        gap: 18px;
+        gap: 15px;
         font-size: 22px;
-        background:#111;
     }
+
     .topbar button {
         background: none;
         border: none;
@@ -33,154 +29,190 @@
         cursor: pointer;
     }
 
-    /* MAIN EDIT AREA */
-    .editor-area {
-        flex: 1;
+    .editor {
+        width: 100vw;
+        height: calc(100vh - 180px);
+        background: white;
         display: flex;
         justify-content: center;
         align-items: center;
-        background: white;
-        position: relative;
     }
-    #mainImage {
+
+    canvas {
         max-width: 100%;
         max-height: 100%;
-        object-fit: contain;
         background: white;
     }
 
-    /* BOTTOM TOOL PANEL */
     .panel {
         padding: 15px;
         background: #000;
-        border-top: 1px solid #222;
+        border-top: 1px solid #333;
     }
 
-    .slider-container {
-        width: 100%;
-        padding: 10px 0;
-    }
-
-    input[type="range"] {
-        width: 100%;
-    }
-
-    /* Heal mode button row */
-    .heal-buttons {
+    .tool-buttons {
         display: flex;
         gap: 12px;
-        margin-top: 15px;
-        flex-wrap: wrap;
+        margin-bottom: 10px;
     }
 
-    .heal-buttons button {
-        background: #1a1a1a;
+    .tool-buttons button {
+        background: #222;
         border: 1px solid #444;
+        color: white;
         padding: 8px 14px;
         border-radius: 6px;
-        color: #ddd;
         cursor: pointer;
     }
 
+    .tool-buttons button.active {
+        background: #4d8aff;
+        border-color: #4d8aff;
+    }
+
     .instruction {
-        margin-top: 12px;
-        color:#aaa;
-        font-size: 14px;
-    }
-
-    /* Bottom Nav (Heal only for now) */
-    .bottom-nav {
-        width: 100%;
-        display: flex;
-        justify-content: center;
-        gap: 50px;
-        padding: 12px;
-        background: #0c0c0c;
-        border-top: 1px solid #222;
-        font-size: 16px;
-    }
-
-    .bottom-nav div {
-        opacity: 1;
-        color: #fff;
-        font-weight: 600;
+        color: #aaa;
+        font-size: 12px;
+        margin-top: 8px;
     }
 </style>
 </head>
-
 <body>
 
-<!-- TOP RIGHT ICONS -->
+<!-- TOP BAR -->
 <div class="topbar">
-    <button id="autoEnhanceBtn">✨</button>
     <button id="uploadBtn">📤</button>
     <button id="downloadBtn">⬇️</button>
 </div>
 
-<!-- MAIN IMAGE DISPLAY -->
-<div class="editor-area">
-    <img id="mainImage" src="" alt="Image Area">
+<!-- CANVAS AREA -->
+<div class="editor">
+    <canvas id="canvas"></canvas>
 </div>
 
-<!-- HEAL TOOL PANEL -->
+<!-- TOOL PANEL -->
 <div class="panel">
-    <div class="slider-container">
-        <input id="healSlider" type="range" min="0" max="100" value="50">
+    <div class="tool-buttons">
+        <button id="healBtn">Heal</button>
+        <button id="cloneBtn">Clone</button>
+        <button id="eraseBtn">Eraser</button>
     </div>
 
-    <div class="heal-buttons">
-        <button>Remove</button>
-        <button>Patch</button>
-        <button>Clone</button>
-        <button>Remove Object</button>
-        <button>Eraser</button>
-    </div>
+    <input id="sizeSlider" type="range" min="5" max="80" value="30">
 
     <div class="instruction">
-        Tap or drag the area to remove unwanted objects or blemishes.  
-        Use the slider to adjust the brush size.
+        • Clone = ALT + click to select source → paint to clone<br>
+        • Heal = Soft blur blend over painted area<br>
+        • Eraser = Remove pixels (white)
     </div>
-</div>
-
-<!-- BOTTOM NAVIGATION (Heal only for now) -->
-<div class="bottom-nav">
-    <div>Heal</div>
 </div>
 
 <script>
-    const uploadBtn = document.getElementById("uploadBtn");
-    const downloadBtn = document.getElementById("downloadBtn");
-    const mainImage = document.getElementById("mainImage");
+let canvas = document.getElementById("canvas");
+let ctx = canvas.getContext("2d");
 
-    /* UPLOAD IMAGE */
-    uploadBtn.addEventListener("click", () => {
-        let input = document.createElement("input");
-        input.type = "file";
-        input.accept = "image/*";
-        input.onchange = e => {
-            let file = e.target.files[0];
-            mainImage.src = URL.createObjectURL(file);
+let img = new Image();
+let drawing = false;
+let tool = "heal";
+let cloneSource = null;
+
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight - 180;
+
+/* ===== Upload Image ===== */
+document.getElementById("uploadBtn").onclick = () => {
+    let input = document.createElement("input");
+    input.type = "file";
+    input.accept = "image/*";
+    input.onchange = e => {
+        img.src = URL.createObjectURL(e.target.files[0]);
+        img.onload = () => {
+            canvas.width = img.width;
+            canvas.height = img.height;
+            ctx.drawImage(img, 0, 0);
         };
-        input.click();
-    });
+    };
+    input.click();
+};
 
-    /* DOWNLOAD IMAGE */
-    downloadBtn.addEventListener("click", () => {
-        if (!mainImage.src) return;
+/* ===== Download Image ===== */
+document.getElementById("downloadBtn").onclick = () => {
+    let link = document.createElement("a");
+    link.download = "edited.png";
+    link.href = canvas.toDataURL();
+    link.click();
+};
 
-        const link = document.createElement("a");
-        link.download = "edited_photo.png";
-        link.href = mainImage.src;
-        link.click();
-    });
+/* ===== Tool Buttons ===== */
+function activate(btn) {
+    document.querySelectorAll(".tool-buttons button").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+}
 
-    /* AUTO ENHANCE (simple brightness boost placeholder) */
-    document.getElementById("autoEnhanceBtn").addEventListener("click", () => {
-        mainImage.style.filter = "brightness(1.1) contrast(1.05)";
-        setTimeout(() => {
-            alert("Auto Enhancement Applied");
-        }, 150);
-    });
+document.getElementById("healBtn").onclick = e => {
+    tool = "heal"; activate(e.target);
+};
+document.getElementById("cloneBtn").onclick = e => {
+    tool = "clone"; activate(e.target);
+};
+document.getElementById("eraseBtn").onclick = e => {
+    tool = "erase"; activate(e.target);
+};
+
+activate(document.getElementById("healBtn")); // default tool
+
+let brushSize = document.getElementById("sizeSlider").value;
+document.getElementById("sizeSlider").oninput = e => {
+    brushSize = e.target.value;
+};
+
+/* ===== Mouse Events ===== */
+canvas.onmousedown = e => {
+    drawing = true;
+
+    if (tool === "clone" && e.altKey) {
+        cloneSource = { x: e.offsetX, y: e.offsetY };
+        return;
+    }
+};
+
+canvas.onmouseup = () => drawing = false;
+canvas.onmouseleave = () => drawing = false;
+
+canvas.onmousemove = e => {
+    if (!drawing) return;
+
+    const x = e.offsetX;
+    const y = e.offsetY;
+
+    if (tool === "erase") {
+        ctx.clearRect(x - brushSize/2, y - brushSize/2, brushSize, brushSize);
+
+    } else if (tool === "heal") {
+        let temp = ctx.getImageData(x - brushSize/2, y - brushSize/2, brushSize, brushSize);
+
+        // Average blur (simple heal)
+        for (let i=0; i<temp.data.length; i+=4) {
+            temp.data[i] = (temp.data[i] + 255) / 2;
+            temp.data[i+1] = (temp.data[i+1] + 255) / 2;
+            temp.data[i+2] = (temp.data[i+2] + 255) / 2;
+        }
+
+        ctx.putImageData(temp, x - brushSize/2, y - brushSize/2);
+
+    } else if (tool === "clone" && cloneSource) {
+        let dx = x - cloneSource.x;
+        let dy = y - cloneSource.y;
+
+        ctx.drawImage(
+            canvas,
+            cloneSource.x - brushSize/2, cloneSource.y - brushSize/2,
+            brushSize, brushSize,
+            x - brushSize/2, y - brushSize/2,
+            brushSize, brushSize
+        );
+    }
+};
 </script>
 
 </body>
