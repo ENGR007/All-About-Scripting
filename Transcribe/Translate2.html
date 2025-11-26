@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Filipino → English (iPhone Real-Time Translator)</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<style>
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif;
+    margin: 0;
+    padding: 16px;
+    background: #0b0f19;
+    color: #ffffff;
+  }
+  h1 {
+    font-size: 1.2rem;
+    margin-bottom: 8px;
+  }
+  .note {
+    font-size: 0.8rem;
+    background: #1b2436;
+    padding: 10px;
+    border-radius: 8px;
+    margin-bottom: 14px;
+    border: 1px solid #334155;
+  }
+  textarea {
+    width: 100%;
+    height: 120px;
+    padding: 10px;
+    font-size: 1rem;
+    border-radius: 8px;
+    border: 1px solid #475569;
+    background: #1e293b;
+    color: #fff;
+    outline: none;
+    resize: vertical;
+  }
+  textarea:focus {
+    border-color: #38bdf8;
+  }
+  #output {
+    width: 100%;
+    min-height: 120px;
+    margin-top: 14px;
+    padding: 10px;
+    border-radius: 8px;
+    border: 1px dashed #38bdf8;
+    background: #0f172a;
+    font-size: 1rem;
+    white-space: pre-wrap;
+  }
+</style>
+</head>
+<body>
+
+<h1>🇵🇭 Filipino → 🇬🇧 English (iPhone Real-Time)</h1>
+
+<div class="note">
+  ✔ On iPhone Safari, **tap the microphone on the keyboard** to speak Filipino.  
+  ✔ iPhone will convert your Filipino speech to text.  
+  ✔ Translation updates automatically.  
+  ❌ Safari does NOT support mic speech recognition for websites.
+</div>
+
+<textarea id="input" placeholder="Speak using the iPhone keyboard mic… or type here in Filipino"></textarea>
+
+<div id="output">English translation will appear here…</div>
+
+<script>
+let timer = null;
+const input = document.getElementById("input");
+const output = document.getElementById("output");
+
+input.addEventListener("input", () => {
+  if (timer) clearTimeout(timer);
+  timer = setTimeout(translateNow, 400);
+});
+
+async function translateNow() {
+  const text = input.value.trim();
+  if (!text) {
+    output.textContent = "English translation will appear here…";
+    return;
+  }
+
+  output.textContent = "Translating…";
+
+  try {
+    const res = await fetch(
+      "https://api.mymemory.translated.net/get?q=" +
+        encodeURIComponent(text) +
+        "&langpair=tl|en"
+    );
+    const data = await res.json();
+    output.textContent = data.responseData.translatedText || "Translation error.";
+  } catch (e) {
+    output.textContent = "Failed to translate.";
+  }
+}
+</script>
+
+</body>
+</html>
