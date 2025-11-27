@@ -401,6 +401,37 @@
       border: 1px solid rgba(255, 255, 255, 0.06);
       color: var(--text-soft);
     }
+    /* =====================================================
+   FULLSCREEN MODE DURING RECORDING
+   ===================================================== */
+  body.recording-mode .app-body {
+    display: block !important;
+  }
+  
+  body.recording-mode .card {
+    width: 100% !important;
+    max-width: none !important;
+    border-radius: 0 !important;
+  }
+  
+  /* Left side becomes full-screen */
+  body.recording-mode section.card:first-of-type {
+    height: 100vh !important;
+    overflow-y: auto !important;
+  }
+  
+  /* Transcript occupies 75% of full screen */
+  body.recording-mode #transcriptArea {
+    height: 75vh !important;
+    min-height: 75vh !important;
+    max-height: 75vh !important;
+    resize: none !important;
+  }
+  
+  /* Hide the Session Notebook during recording */
+  body.recording-mode section.card:nth-of-type(2) {
+    display: none !important;
+  }
   </style>
 </head>
 <body>
@@ -1122,6 +1153,7 @@
   // ---------------------------
 
   startBtn.addEventListener("click", async () => {
+  document.body.classList.add("recording-mode");   // <<< ENABLE FULLSCREEN MODE
     // reset current
     finalTranscript = "";
     interimTranscript = "";
@@ -1159,6 +1191,7 @@
   });
 
   stopBtn.addEventListener("click", () => {
+  document.body.classList.remove("recording-mode");   // <<< EXIT FULLSCREEN MODE
     isRecording = false;
     stopRecordTimer();
     stopRecording();
