@@ -5,402 +5,329 @@
   <title>Live Recorder & Transcriber Notebook</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
-    :root {
-      --bg: #0b1020;
-      --card-bg: #141b2f;
-      --accent: #ffb84d;
-      --accent-soft: rgba(255, 184, 77, 0.15);
-      --accent-strong: #ff9f1c;
-      --border: #26324d;
-      --text: #f5f7ff;
-      --text-soft: #a7b3d9;
-      --danger: #ff4d6a;
-      --success: #5bd38a;
-      --muted-chip: #1f2942;
-      --scroll-thumb: #36456a;
-    }
+/* ===========================================
+   GLOBAL VARIABLES & BASE STYLING
+   =========================================== */
+:root {
+  --bg: #0b1020;
+  --card-bg: #141b2f;
+  --accent: #ffb84d;
+  --accent-soft: rgba(255, 184, 77, 0.15);
+  --accent-strong: #ff9f1c;
+  --border: #26324d;
+  --text: #f5f7ff;
+  --text-soft: #a7b3d9;
+  --danger: #ff4d6a;
+  --success: #5bd38a;
+  --muted-chip: #1f2942;
+  --scroll-thumb: #36456a;
+}
 
-    * {
-      box-sizing: border-box;
-    }
+* {
+  box-sizing: border-box;
+}
 
-    body {
-      margin: 0;
-      padding: 0;
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      background: radial-gradient(circle at top, #1d2642 0, #050814 55%, #020309 100%);
-      color: var(--text);
-      min-height: 100vh;
-      display: flex;
-      justify-content: center;
-      align-items: flex-start;
-    }
+body {
+  margin: 0;
+  padding: 0;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: radial-gradient(circle at top, #1d2642 0, #050814 55%, #020309 100%);
+  color: var(--text);
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+}
 
-    .app-shell {
-      width: 100%;
-      max-width: 1080px;
-      margin: 24px;
-      background: linear-gradient(145deg, rgba(10, 14, 31, 0.95), rgba(7, 9, 20, 0.98));
-      border-radius: 20px;
-      border: 1px solid rgba(255, 255, 255, 0.04);
-      box-shadow:
-        0 30px 60px rgba(0, 0, 0, 0.8),
-        0 0 0 1px rgba(255, 255, 255, 0.02);
-      overflow: hidden;
-      display: flex;
-      flex-direction: column;
-      backdrop-filter: blur(20px);
-    }
+/* ===========================================
+   APP CONTAINER
+   =========================================== */
+.app-shell {
+  width: 100%;
+  max-width: 1080px;
+  margin: 24px;
+  background: linear-gradient(145deg, rgba(10, 14, 31, 0.95), rgba(7, 9, 20, 0.98));
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.02);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  backdrop-filter: blur(20px);
+}
 
-    .app-header {
-      padding: 18px 22px 14px 22px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-      background: radial-gradient(circle at left, rgba(255, 184, 77, 0.13), transparent 60%);
-    }
+/* ===========================================
+   HEADER
+   =========================================== */
+.app-header {
+  padding: 18px 22px 14px 22px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  background: radial-gradient(circle at left, rgba(255, 184, 77, 0.13), transparent 60%);
+}
 
-    .app-title-area {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-    }
+.app-title-area {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
 
-    .app-title {
-      font-size: 20px;
-      font-weight: 650;
-      letter-spacing: 0.04em;
-      text-transform: uppercase;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
+.app-title {
+  font-size: 20px;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
 
-    .title-pill {
-      font-size: 11px;
-      padding: 2px 8px;
-      border-radius: 999px;
-      border: 1px solid rgba(255, 255, 255, 0.18);
-      background: rgba(4, 9, 24, 0.8);
-      text-transform: none;
-      letter-spacing: 0.02em;
-      color: var(--text-soft);
-    }
+.title-pill {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(4, 9, 24, 0.8);
+  color: var(--text-soft);
+}
 
-    .app-subtitle {
-      font-size: 12px;
-      color: var(--text-soft);
-    }
+.app-subtitle {
+  font-size: 12px;
+  color: var(--text-soft);
+}
 
-    .app-badge {
-      padding: 4px 10px;
-      border-radius: 999px;
-      background: var(--accent-soft);
-      color: var(--accent-strong);
-      font-size: 11px;
-      font-weight: 600;
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      border: 1px solid rgba(255, 184, 77, 0.4);
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-    }
+.app-badge {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font-size: 11px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid rgba(255, 184, 77, 0.4);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
 
-    .app-body {
-      display: grid;
-      grid-template-columns: minmax(0, 2.3fr) minmax(0, 2fr);
-      gap: 16px;
-      padding: 16px 18px 20px 18px;
-    }
+/* ===========================================
+   BODY LAYOUT (2 COLUMNS)
+   =========================================== */
+.app-body {
+  display: grid;
+  grid-template-columns: minmax(0, 2.3fr) minmax(0, 2fr);
+  gap: 16px;
+  padding: 16px 18px 20px 18px;
+}
 
-    @media (max-width: 900px) {
-      .app-body {
-        grid-template-columns: minmax(0, 1fr);
-      }
-    }
+/* MOBILE: 1 COLUMN */
+@media (max-width: 1100px) {
+  .app-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
 
-    .card {
-      background: var(--card-bg);
-      border-radius: 16px;
-      padding: 14px 14px 12px 14px;
-      border: 1px solid var(--border);
-      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      min-height: 0;
-    }
+/* ===========================================
+   CARDS
+   =========================================== */
+.card {
+  background: var(--card-bg);
+  border-radius: 16px;
+  padding: 14px 14px 12px 14px;
+  border: 1px solid var(--border);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+}
 
-    .card-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: baseline;
-      gap: 8px;
-    }
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+}
 
-    .card-title {
-      font-size: 14px;
-      font-weight: 600;
-      letter-spacing: 0.05em;
-      text-transform: uppercase;
-      color: var(--text);
-    }
+.card-title {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  color: var(--text);
+}
 
-    .card-subtitle {
-      font-size: 11px;
-      color: var(--text-soft);
-    }
+.card-subtitle {
+  font-size: 11px;
+  color: var(--text-soft);
+}
 
-    .chip-row {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-      margin-top: 2px;
-    }
+/* ===========================================
+   CHIPS
+   =========================================== */
+.chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
 
-    .chip {
-      padding: 2px 8px;
-      border-radius: 999px;
-      font-size: 10px;
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      background: var(--muted-chip);
-      color: var(--text-soft);
-    }
+.chip {
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--muted-chip);
+  color: var(--text-soft);
+}
 
-    .chip.live {
-      border-color: rgba(255, 77, 106, 0.8);
-      color: var(--danger);
-      background: rgba(255, 77, 106, 0.1);
-    }
+.chip.live {
+  border-color: rgba(255, 77, 106, 0.8);
+  color: var(--danger);
+  background: rgba(255, 77, 106, 0.1);
+}
 
-    .chip.ok {
-      border-color: rgba(91, 211, 138, 0.7);
-      color: var(--success);
-      background: rgba(91, 211, 138, 0.08);
-    }
+.chip.ok {
+  border-color: rgba(91, 211, 138, 0.7);
+  color: var(--success);
+  background: rgba(91, 211, 138, 0.08);
+}
 
-    .field-group {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-      margin-top: 4px;
-    }
+/* ===========================================
+   FORM INPUTS
+   =========================================== */
+.field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
 
-    label {
-      font-size: 11px;
-      text-transform: uppercase;
-      letter-spacing: 0.07em;
-      color: var(--text-soft);
-    }
+label {
+  font-size: 11px;
+  text-transform: uppercase;
+  color: var(--text-soft);
+}
 
-    input[type="text"] {
-      background: #0b1020;
-      border-radius: 10px;
-      border: 1px solid var(--border);
-      padding: 6px 9px;
-      font-size: 13px;
-      color: var(--text);
-      outline: none;
-    }
+input[type="text"] {
+  background: #0b1020;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  padding: 6px 9px;
+  font-size: 13px;
+  color: var(--text);
+}
 
-    input[type="text"]:focus {
-      border-color: var(--accent-strong);
-      box-shadow: 0 0 0 1px rgba(255, 184, 77, 0.5);
-    }
+textarea {
+  width: 100%;
+  resize: vertical;
+  min-height: 360px;
+  max-height: 700px;
+  background: #050814;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  padding: 10px;
+  font-size: 13px;
+  color: var(--text);
+  line-height: 1.4;
+  font-family: "SF Mono", ui-monospace, Menlo, Monaco, Consolas, monospace;
+}
 
-    textarea {
-      width: 100%;
-      resize: vertical;
-      min-height: 140px;
-      max-height: 260px;
-      background: #050814;
-      border-radius: 12px;
-      border: 1px solid var(--border);
-      padding: 10px;
-      font-size: 13px;
-      color: var(--text);
-      line-height: 1.4;
-      outline: none;
-      font-family: "SF Mono", ui-monospace, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-    }
+textarea:focus {
+  border-color: var(--accent-strong);
+  box-shadow: 0 0 0 1px rgba(255, 184, 77, 0.5);
+}
 
-    textarea:focus {
-      border-color: var(--accent-strong);
-      box-shadow: 0 0 0 1px rgba(255, 184, 77, 0.5);
-    }
+/* ===========================================
+   BUTTONS
+   =========================================== */
+button {
+  border-radius: 999px;
+  border: 1px solid transparent;
+  padding: 7px 14px;
+  font-size: 12px;
+  cursor: pointer;
+  background: var(--muted-chip);
+  color: var(--text);
+}
 
-    .row {
-      display: flex;
-      gap: 8px;
-      align-items: center;
-      flex-wrap: wrap;
-    }
+button:disabled {
+  opacity: 0.35;
+}
 
-    button {
-      border-radius: 999px;
-      border: 1px solid transparent;
-      padding: 7px 14px;
-      font-size: 12px;
-      font-weight: 500;
-      cursor: pointer;
-      background: var(--muted-chip);
-      color: var(--text);
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      transition: transform 0.04s ease-out, box-shadow 0.1s ease-out, background 0.15s, border-color 0.15s;
-    }
+button:not(:disabled):hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.5);
+}
 
-    button:disabled {
-      opacity: 0.35;
-      cursor: default;
-      box-shadow: none;
-      transform: none;
-    }
+.btn-primary {
+  background: var(--accent-strong);
+  color: #15100a;
+  border-color: rgba(255, 184, 77, 0.9);
+}
 
-    button:not(:disabled):hover {
-      transform: translateY(-1px);
-      box-shadow: 0 8px 18px rgba(0, 0, 0, 0.5);
-    }
+.btn-danger {
+  background: rgba(255, 77, 106, 0.2);
+  border-color: rgba(255, 77, 106, 0.7);
+  color: var(--danger);
+}
 
-    .btn-primary {
-      background: var(--accent-strong);
-      color: #15100a;
-      border-color: rgba(255, 184, 77, 0.9);
-    }
+.btn-ghost {
+  background: transparent;
+  border-color: var(--border);
+}
 
-    .btn-danger {
-      background: rgba(255, 77, 106, 0.2);
-      border-color: rgba(255, 77, 106, 0.7);
-      color: var(--danger);
-    }
+/* ===========================================
+   SESSIONS LIST
+   =========================================== */
+.sessions-list {
+  overflow-y: auto;
+  max-height: 370px;
+  padding-right: 4px;
+}
 
-    .btn-ghost {
-      background: transparent;
-      border-color: var(--border);
-      color: var(--text-soft);
-    }
+.sessions-list::-webkit-scrollbar {
+  width: 6px;
+}
 
-    .status-text {
-      font-size: 11px;
-      color: var(--text-soft);
-      margin-top: 4px;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
+.sessions-list::-webkit-scrollbar-thumb {
+  background: var(--scroll-thumb);
+  border-radius: 999px;
+}
 
-    .dot {
-      width: 7px;
-      height: 7px;
-      border-radius: 999px;
-      background: var(--scroll-thumb);
-    }
+/* ===========================================
+   FULLSCREEN MODE DURING RECORDING
+   =========================================== */
+body.recording-mode .app-body {
+  display: block !important;
+  grid-template-columns: 1fr !important;
+}
 
-    .dot.live {
-      background: var(--danger);
-      box-shadow: 0 0 0 4px rgba(255, 77, 106, 0.3);
-    }
+body.recording-mode .card {
+  width: 100% !important;
+  max-width: none !important;
+  border-radius: 0 !important;
+  min-height: 100vh !important;
+}
 
-    .dot.idle {
-      background: var(--scroll-thumb);
-    }
+/* Left side panel goes full-screen */
+body.recording-mode section.card:first-of-type {
+  height: 100vh !important;
+  overflow-y: auto !important;
+}
 
-    .sessions-list {
-      overflow-y: auto;
-      max-height: 370px;
-      padding-right: 4px;
-    }
+/* Transcript = 75% of screen */
+body.recording-mode #transcriptArea {
+  height: 75vh !important;
+  min-height: 75vh !important;
+  max-height: 75vh !important;
+  resize: none !important;
+}
 
-    .sessions-list::-webkit-scrollbar {
-      width: 6px;
-    }
-
-    .sessions-list::-webkit-scrollbar-thumb {
-      background: var(--scroll-thumb);
-      border-radius: 999px;
-    }
-
-    .session-card {
-      border-radius: 12px;
-      border: 1px solid var(--border);
-      padding: 10px 10px 8px 10px;
-      background: rgba(5, 9, 24, 0.95);
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-      margin-bottom: 8px;
-    }
-
-    .session-header-row {
-      display: flex;
-      justify-content: space-between;
-      gap: 8px;
-      align-items: center;
-    }
-
-    .session-name-input {
-      flex: 1;
-    }
-
-    .session-meta {
-      font-size: 11px;
-      color: var(--text-soft);
-    }
-
-    .session-buttons {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-      margin-top: 4px;
-    }
-
-    audio {
-      width: 100%;
-      margin-top: 4px;
-    }
-
-    .badge-pill {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      padding: 2px 7px;
-      border-radius: 999px;
-      font-size: 10px;
-      background: rgba(255, 184, 77, 0.12);
-      color: var(--accent);
-      border: 1px solid rgba(255, 184, 77, 0.4);
-    }
-
-    .backup-row {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      align-items: center;
-      margin-top: 2px;
-    }
-
-    input[type="file"] {
-      font-size: 11px;
-      color: var(--text-soft);
-    }
-
-    .hint {
-      font-size: 10px;
-      color: var(--text-soft);
-      opacity: 0.9;
-    }
-
-    .pill-counter {
-      font-size: 11px;
-      padding: 3px 8px;
-      border-radius: 999px;
-      background: rgba(255, 255, 255, 0.04);
-      border: 1px solid rgba(255, 255, 255, 0.06);
-      color: var(--text-soft);
-    }
+/* Hide notebook */
+body.recording-mode section.card:nth-of-type(2) {
+  display: none !important;
+}
   </style>
 </head>
 <body>
