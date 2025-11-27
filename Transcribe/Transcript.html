@@ -1049,6 +1049,7 @@ body.recording-mode section.card:nth-of-type(2) {
   // ---------------------------
 
   startBtn.addEventListener("click", async () => {
+  document.body.classList.add("recording-mode");   // <<< ENABLE FULLSCREEN MODE
     // reset current
     finalTranscript = "";
     interimTranscript = "";
@@ -1086,6 +1087,7 @@ body.recording-mode section.card:nth-of-type(2) {
   });
 
   stopBtn.addEventListener("click", () => {
+  document.body.classList.remove("recording-mode");   // <<< EXIT FULLSCREEN MODE
     isRecording = false;
     stopRecordTimer();
     stopRecording();
