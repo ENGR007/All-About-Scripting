@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Enhanced Real-Time Speech Translator (with Environment Options)</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<style>
+body { background:#eef2f7; font-family:Arial; padding:18px; }
+.container {
+  max-width:900px; margin:auto; background:white; padding:20px;
+  border-radius:12px; box-shadow:0 3px 12px rgba(0,0,0,0.1);
+}
+button {
+  width:100%; padding:12px; margin-top:10px; font-size:18px;
+  border:none; border-radius:8px; color:white; background:#007bff;
+}
+button:active { opacity:0.6; }
+textarea, select {
+  width:100%; padding:10px; margin-top:10px; font-size:16px;
+}
+textarea { height:140px; resize:vertical; }
+.subtitles {
+  background:black; color:#0f0; padding:10px; height:90px;
+  border-radius:8px; margin-top:10px; overflow-y:auto;
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+  <h2>🎤 Enhanced Speech Translator (Far Distance + Environment Selector)</h2>
+
+  <h3>Speech Input Language</h3>
+  <select id="inputLang">
+    <option value="tl-PH">Filipino 🇵🇭</option>
+    <option value="en-US">English 🇺🇸</option>
+    <option value="zh-CN">Chinese 🇨🇳</option>
+    <option value="ja-JP">Japanese 🇯🇵</option>
+    <option value="ko-KR">Korean 🇰🇷</option>
+  </select>
+
+  <h3>Translate To</h3>
+  <select id="targetLang">
+    <option value="en">English 🇺🇸</option>
+    <option value="tl">Filipino 🇵🇭</option>
+    <option value="zh-CN">Chinese 🇨🇳</option>
+    <option value="ja">Japanese 🇯🇵</option>
+    <option value="ko">Korean 🇰🇷</option>
+  </select>
+
+  <h3>Translation Environment</h3>
+  <select id="translateEngine">
+    <option value="google">Google (Fastest & Most Accurate)</option>
+    <option value="mymemory">MyMemory (Free Backup)</option>
+    <option value="deepl">DeepL (Requires API Key)</option>
+    <option value="local">Local Whisper Server (Offline)</option>
+  </select>
+
+  <button id="startBtn">Start Speaking 🎤</button>
+  <button id="stopBtn" style="background:#dc3545;">Stop</button>
+
+  <h3>Your Speech</h3>
+  <textarea id="spokenText" readonly></textarea>
+
+  <h3>Translation</h3>
+  <textarea id="translatedText" readonly></textarea>
+
+  <h3>Live Subtitles</h3>
+  <div class="subtitles" id="subtitles"></div>
+
+  <p id="status" style="opacity:.7;">Status: Idle</p>
+</div>
+
+<script>
+
+// ----------- Speech Recognition -------------
+let recognition;
+let audioStream;
+let audioContext;
+let sourceNode;
+
+if ("webkitSpeechRecognition" in window)
+    recognition = new webkitSpeechRecognition();
+else if ("SpeechRecognition" in window)
+    recognition = new SpeechRecognition();
+else
+    alert("Browser does not support speech recognition.");
+
+recognition.continuous = true;
+recognition.interimResults = true;
+
+// ------------- Enhanced Mic Setup (Noise Reduction + Gain Boost) -------------
+async function getCleanAudio() {
+  audioStream = await navigator.mediaDevices.getUserMedia({
+    audio: {
+      noiseSuppression: true,
+      autoGainControl: true,
+      echoCancellation: true,
+      sampleRate: 48000,
+      channelCount: 1
+    }
+  });
+
+  audioContext = new AudioContext();
+  sourceNode = audioContext.createMediaStreamSource(audioStream);
+
+  let gainNode = audioContext.createGain();
+  gainNode.gain.value = 2.8; // Far distance boost
+
+  sourceNode.connect(gainNode).connect(audioContext.destination);
+}
+
+// ------------- GOOGLE Translation -------------
+async function googleTranslate(text, target) {
+  const url =
+    "https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=" +
+    target + "&dt=t&q=" + encodeURIComponent(text);
+
+  let res = await fetch(url);
+  let data = await res.json();
+  return data[0].map(x => x[0]).join("");
+}
+
+// ------------- MYMEMORY Translation -------------
+async function myMemoryTranslate(text, target) {
+  const url =
+    "https://api.mymemory.translated.net/get?q=" +
+    encodeURIComponent(text) + "&langpair=auto|" + target;
+
+  let res = await fetch(url);
+  let data = await res.json();
+  return data.responseData.translatedText;
+}
+
+// ------------- DeepL Translation (User Must Enter API KEY) -------------
+async function deepLTranslate(text, target) {
+  const apiKey = ""; // ← Add your key here
+  if (!apiKey)
+    return "⚠ DeepL key missing";
+
+  const url = "https://api-free.deepl.com/v2/translate";
+
+  let res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: `auth_key=${apiKey}&text=${encodeURIComponent(text)}&target_lang=${target.toUpperCase()}`
+  });
+
+  let data = await res.json();
+  return data.translations[0].text;
+}
+
+// ------------- Local Whisper Server (Offline) -------------
+async function localWhisperTranslate(text, target) {
+  try {
+    let res = await fetch("http://localhost:5000/translate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text, target })
+    });
+
+    let data = await res.json();
+    return data.translation;
+  } catch {
+    return "⚠ Local Whisper not running.";
+  }
+}
+
+// ------------- SELECT TRANSLATION ENGINE -------------
+async function translateText(text, target) {
+
+  const engine = document.getElementById("translateEngine").value;
+
+  if (engine === "google")
+    return await googleTranslate(text, target);
+
+  if (engine === "mymemory")
+    return await myMemoryTranslate(text, target);
+
+  if (engine === "deepl")
+    return await deepLTranslate(text, target);
+
+  if (engine === "local")
+    return await localWhisperTranslate(text, target);
+
+  return "⚠ Invalid engine.";
+}
+
+// ------------- START -------------
+document.getElementById("startBtn").onclick = async () => {
+  let inLang = document.getElementById("inputLang").value;
+
+  recognition.lang = inLang;
+  await getCleanAudio();
+
+  recognition.start();
+  document.getElementById("status").innerText = "Status: Listening…";
+};
+
+// ------------- STOP -------------
+document.getElementById("stopBtn").onclick = () => {
+  recognition.stop();
+  if (audioStream) audioStream.getTracks().forEach(t => t.stop());
+  if (audioContext) audioContext.close();
+
+  document.getElementById("status").innerText = "Status: Stopped";
+};
+
+// ------------- ON SPEECH RESULT -------------
+recognition.onresult = async (event) => {
+
+  let text = "";
+  for (let i = event.resultIndex; i < event.results.length; i++)
+    text += event.results[i][0].transcript;
+
+  document.getElementById("spokenText").value = text;
+  document.getElementById("subtitles").innerText = text;
+
+  if (!text.trim()) return;
+
+  let target = document.getElementById("targetLang").value;
+  let translated = await translateText(text, target);
+
+  document.getElementById("translatedText").value = translated;
+
+  speak(translated, target);
+};
+
+// ------------- SPEAK OUTPUT -------------
+function speak(text, lang) {
+  const synth = window.speechSynthesis;
+  if (!synth) return;
+
+  let utter = new SpeechSynthesisUtterance(text);
+  utter.lang = lang;
+  utter.rate = 1;
+  synth.speak(utter);
+}
+
+</script>
+</body>
+</html>
