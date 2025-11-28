@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Multi-Language Conversation Translator</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<style>
+  :root {
+    --bg:#020617; --card:#020617; --border:#1f2937;
+    --accent:#0ea5e9; --accent-soft:rgba(56,189,248,0.15);
+    --text:#e5e7eb; --muted:#9ca3af; --danger:#fecaca;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;padding:14px;
+    background:radial-gradient(circle at top,#1f2937,#020617 50%);
+    font-family:system-ui,-apple-system,BlinkMacSystemFont;
+    color:var(--text);
+  }
+  .app{
+    max-width:900px;margin:auto;
+    background:var(--card);padding:16px;
+    border-radius:16px;border:1px solid var(--border);
+    box-shadow:0 20px 45px rgba(0,0,0,0.6);
+  }
+  h1{font-size:1.2rem;margin:0 0 6px;display:flex;gap:8px;}
+  .subtitle{font-size:.8rem;color:var(--muted);margin-bottom:10px;}
+
+  textarea{
+    width:100%;min-height:120px;padding:8px;
+    background:#020617;color:var(--text);
+    border-radius:10px;font-size:.9rem;
+    border:1px solid var(--border);
+  }
+  textarea:focus{
+    outline:none;border-color:var(--accent);
+    box-shadow:0 0 0 1px var(--accent-soft);
+  }
+  select{
+    width:100%;padding:8px;margin-top:6px;
+    background:#020617;color:var(--text);
+    border-radius:8px;border:1px solid var(--border);
+    font-size:.85rem;
+  }
+
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px;}
+  @media(max-width:720px){.row{grid-template-columns:1fr;}}
+
+  button{
+    border:none;border-radius:999px;
+    padding:10px;cursor:pointer;
+    font-size:.9rem;display:flex;justify-content:center;align-items:center;
+  }
+  .btn-rec{background:#ef4444;color:white;margin-top:8px;}
+  .btn-stop{background:#475569;color:white;margin-top:6px;}
+  .btn-copy{background:#38bdf8;color:#0b1120;}
+  .btn-clear{background:#1e293b;color:white;}
+  .btn-save{background:#22c55e;color:#052e16;}
+  .btn-speaker{
+    flex:1;
+    background:#111827;color:#e5e7eb;
+    border:1px solid #1f2937;
+    margin-top:8px;
+  }
+  .btn-speaker.active{
+    border-color:#38bdf8;
+    box-shadow:0 0 0 1px rgba(56,189,248,0.4);
+  }
+
+  .status{margin-top:10px;font-size:.75rem;color:var(--muted);}
+  .error{color:var(--danger);font-size:.78rem;min-height:16px;margin-top:4px;}
+
+  .conv-box{
+    margin-top:12px;
+    padding:8px;
+    background:#020617;
+    border-radius:10px;
+    border:1px solid var(--border);
+    max-height:220px;
+    overflow-y:auto;
+    font-size:.8rem;
+    white-space:pre-wrap;
+  }
+  .conv-title{
+    font-size:.8rem;
+    color:var(--muted);
+    margin-top:10px;
+    margin-bottom:4px;
+  }
+</style>
+</head>
+
+<body>
+<div class="app">
+  <h1>🌐 Multi-Language Conversation Translator</h1>
+  <div class="subtitle">
+    Default: English → Filipino. Conversation mode supports 2-way interpreting with full transcript saving.
+  </div>
+
+  <!-- Speech controls -->
+  <button id="startSpeech" class="btn-rec">🎤 Start Speech</button>
+  <button id="stopSpeech" class="btn-stop">⏹ Stop</button>
+
+  <!-- Conversation mode speaker controls -->
+  <div class="row" style="margin-top:6px;">
+    <button id="btnYou" class="btn-speaker active">🗣 You speaking</button>
+    <button id="btnPartner" class="btn-speaker">👤 Partner speaking</button>
+  </div>
+
+  <!-- Languages -->
+  <label style="font-size:.8rem;margin-top:8px;display:block;">Source language (You)</label>
+  <select id="sourceLang">
+    <option value="en" selected>English</option>
+    <option value="tl">Filipino</option>
+    <option value="zh-CN">Chinese → Pinyin</option>
+    <option value="ja">Japanese → Romaji</option>
+    <option value="ko">Korean → Romanization</option>
+    <option value="th">Thai → RTGS</option>
+  </select>
+
+  <label style="font-size:.8rem;margin-top:6px;display:block;">Target language (Partner)</label>
+  <select id="targetLang">
+    <option value="tl" selected>Filipino</option>
+    <option value="en">English</option>
+    <option value="zh-CN">Chinese → Pinyin</option>
+    <option value="ja">Japanese → Romaji</option>
+    <option value="ko">Korean → Romanization</option>
+    <option value="th">Thai → RTGS</option>
+  </select>
+
+  <!-- Main input/output -->
+  <div class="row">
+    <textarea id="sourceText" placeholder="Speak or type here for the active speaker…"></textarea>
+    <textarea id="targetText" readonly placeholder="Translation appears here…"></textarea>
+  </div>
+
+  <!-- Copy / Clear / Save -->
+  <div class="row">
+    <button id="btnCopy" class="btn-copy">📋 Copy Translation</button>
+    <button id="btnClear" class="btn-clear">🧹 Clear Text</button>
+  </div>
+  <button id="btnSaveTranscript" class="btn-save">💾 Save Transcript</button>
+
+  <!-- Conversation history -->
+  <div class="conv-title">Conversation Transcript</div>
+  <div id="conversationBox" class="conv-box">No conversation yet.</div>
+
+  <div id="statusText" class="status">Status: Idle</div>
+  <div id="errorBox" class="error"></div>
+</div>
+
+<script>
+/* ---------- DOM ---------- */
+const startSpeechBtn     = document.getElementById("startSpeech");
+const stopSpeechBtn      = document.getElementById("stopSpeech");
+const sourceText         = document.getElementById("sourceText");
+const targetText         = document.getElementById("targetText");
+const sourceLangSelect   = document.getElementById("sourceLang");
+const targetLangSelect   = document.getElementById("targetLang");
+const statusText         = document.getElementById("statusText");
+const errorBox           = document.getElementById("errorBox");
+const btnCopy            = document.getElementById("btnCopy");
+const btnClear           = document.getElementById("btnClear");
+const btnSaveTranscript  = document.getElementById("btnSaveTranscript");
+const conversationBox    = document.getElementById("conversationBox");
+const btnYou             = document.getElementById("btnYou");
+const btnPartner         = document.getElementById("btnPartner");
+
+/* ---------- Conversation state ---------- */
+let activeSpeaker = "you";  // "you" or "partner"
+let transcriptEntries = [];
+
+function langName(code){
+  switch(code){
+    case "en":   return "English";
+    case "tl":   return "Filipino";
+    case "zh-CN":return "Chinese";
+    case "ja":   return "Japanese";
+    case "ko":   return "Korean";
+    case "th":   return "Thai";
+    default:     return code;
+  }
+}
+
+function setActiveSpeaker(who){
+  activeSpeaker = who;
+  if (who === "you") {
+    btnYou.classList.add("active");
+    btnPartner.classList.remove("active");
+    statusText.textContent = "Status: You speaking → translate to partner language.";
+  } else {
+    btnPartner.classList.add("active");
+    btnYou.classList.remove("active");
+    statusText.textContent = "Status: Partner speaking → translate to your language.";
+  }
+}
+
+btnYou.onclick = () => setActiveSpeaker("you");
+btnPartner.onclick = () => setActiveSpeaker("partner");
+
+/* ---------- Speech Recognition ---------- */
+let SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+let recognition;
+
+if (SpeechRecognition) {
+  recognition = new SpeechRecognition();
+  recognition.continuous = true;
+  recognition.interimResults = true;
+  recognition.lang = "en-US"; // works best on iPhone Safari
+} else {
+  statusText.textContent = "Status: Speech recognition not supported on this browser.";
+}
+
+startSpeechBtn.onclick = () => {
+  if (!recognition) return;
+  errorBox.textContent = "";
+  try { recognition.start(); } catch(e){}
+  statusText.textContent = "Status: Listening…";
+};
+stopSpeechBtn.onclick = () => {
+  if (!recognition) return;
+  recognition.stop();
+  statusText.textContent = "Status: Stopped.";
+};
+
+if (recognition){
+  recognition.onresult = (event) => {
+    let text = "";
+    for (let i = event.resultIndex; i < event.results.length; i++){
+      text += event.results[i][0].transcript;
+    }
+    sourceText.value = text.trim();
+    doTranslate(true); // fromSpeech = true
+  };
+}
+
+/* ---------- Typing auto-translate ---------- */
+let debounceTimer = null;
+sourceText.addEventListener("input", () => {
+  clearTimeout(debounceTimer);
+  debounceTimer = setTimeout(() => doTranslate(false), 350);
+});
+
+/* ---------- Romanization helpers ---------- */
+function toPinyin(t){ return t.normalize("NFD").replace(/[\u0300-\u036f]/g,""); }
+function toRomaji(t){ return t.replace(/shi/g,"shi").replace(/tsu/g,"tsu"); }
+function koreanRomanize(t){ return t.replace(/eo/g,"ŏ").replace(/eu/g,"ŭ").replace(/ui/g,"ŭi"); }
+function thaiRomanize(t){ return t.replace(/kh/g,"kh").replace(/ph/g,"ph").replace(/th/g,"th"); }
+
+/* ---------- Google Translate wrapper ---------- */
+async function googleTranslate(text, sl, tl){
+  const url =
+    "https://translate.googleapis.com/translate_a/single?client=gtx" +
+    `&sl=${sl}&tl=${tl}&dt=t&q=` + encodeURIComponent(text);
+  const res = await fetch(url);
+  const data = await res.json();
+  return data[0].map(a => a[0]).join("");
+}
+
+/* ---------- Core translation with conversation direction ---------- */
+async function doTranslate(fromSpeech){
+  const text = sourceText.value.trim();
+  if (!text){
+    targetText.value = "";
+    return;
+  }
+
+  // Determine language pair depending on who is speaking
+  let sl, tl;
+  if (activeSpeaker === "you") {
+    sl = sourceLangSelect.value;    // you speak in source language
+    tl = targetLangSelect.value;    // partner hears in target language
+  } else {
+    sl = targetLangSelect.value;    // partner speaks target language
+    tl = sourceLangSelect.value;    // you hear in source language
+  }
+
+  statusText.textContent = "Status: Translating…";
+  errorBox.textContent = "";
+
+  try{
+    let translated = "";
+
+    if (tl === "en" || tl === "tl"){
+      // Direct translation to English or Filipino
+      translated = await googleTranslate(text, sl, tl);
+    } else if (tl === "zh-CN"){
+      const out = await googleTranslate(text, sl, "zh-CN");
+      translated = toPinyin(out);
+    } else if (tl === "ja"){
+      const out = await googleTranslate(text, sl, "ja");
+      translated = toRomaji(out);
+    } else if (tl === "ko"){
+      const out = await googleTranslate(text, sl, "ko");
+      translated = koreanRomanize(out);
+    } else if (tl === "th"){
+      const out = await googleTranslate(text, sl, "th");
+      translated = thaiRomanize(out);
+    }
+
+    targetText.value = translated || "";
+    statusText.textContent = "Status: Done.";
+
+    // Append to conversation transcript
+    appendToTranscript({
+      time: new Date(),
+      speaker: activeSpeaker === "you" ? "You" : "Partner",
+      srcLang: sl,
+      tgtLang: tl,
+      sourceText: text,
+      translatedText: translated
+    });
+
+  } catch(e){
+    console.error(e);
+    errorBox.textContent = "Error: " + e.message;
+    statusText.textContent = "Status: Error.";
+  }
+}
+
+/* ---------- Transcript handling ---------- */
+function formatTime(d){
+  return d.toLocaleTimeString([], {hour:"2-digit", minute:"2-digit", second:"2-digit"});
+}
+
+function appendToTranscript(entry){
+  transcriptEntries.push(entry);
+
+  const lines = transcriptEntries.map(e => {
+    const dir = `${langName(e.srcLang)} → ${langName(e.tgtLang)}`;
+    return `[${formatTime(e.time)}] ${e.speaker} (${dir})\n` +
+           `  Source     : ${e.sourceText}\n` +
+           `  Translation: ${e.translatedText}`;
+  });
+
+  conversationBox.textContent = lines.join("\n\n");
+  conversationBox.scrollTop = conversationBox.scrollHeight;
+}
+
+/* ---------- Save transcript to .txt ---------- */
+function pad2(n){ return n.toString().padStart(2,"0"); }
+
+btnSaveTranscript.onclick = () => {
+  if (!transcriptEntries.length){
+    errorBox.textContent = "No transcript to save yet.";
+    return;
+  }
+  const lines = transcriptEntries.map(e => {
+    const dir = `${langName(e.srcLang)} → ${langName(e.tgtLang)}`;
+    return `[${formatTime(e.time)}] ${e.speaker} (${dir})\n` +
+           `  Source     : ${e.sourceText}\n` +
+           `  Translation: ${e.translatedText}`;
+  });
+
+  const blob = new Blob([lines.join("\n\n")], {type:"text/plain"});
+  const url = URL.createObjectURL(blob);
+
+  const d = new Date();
+  const filename = `transcript_${d.getFullYear()}${pad2(d.getMonth()+1)}${pad2(d.getDate())}_${pad2(d.getHours())}${pad2(d.getMinutes())}${pad2(d.getSeconds())}.txt`;
+
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+
+  statusText.textContent = "Status: Transcript saved.";
+};
+
+/* ---------- Copy & Clear ---------- */
+btnCopy.onclick = async () => {
+  const txt = targetText.value.trim();
+  if (!txt) return;
+  try{
+    await navigator.clipboard.writeText(txt);
+    statusText.textContent = "Status: Translation copied.";
+  } catch{
+    statusText.textContent = "Status: Copy failed (clipboard not available).";
+  }
+};
+
+btnClear.onclick = () => {
+  sourceText.value = "";
+  targetText.value = "";
+  statusText.textContent = "Status: Idle";
+  errorBox.textContent = "";
+};
+</script>
+
+</body>
+</html>
