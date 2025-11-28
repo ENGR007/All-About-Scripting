@@ -1032,7 +1032,7 @@ body.recording-mode section.card:nth-of-type(2) {
       saveSessionBtn.disabled = false;
     };
 
-    mediaRecorder.start(30000);
+    mediaRecorder.start();   // record continuously
   }
 
   function stopRecording() {
