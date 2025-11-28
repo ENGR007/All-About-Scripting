@@ -1,118 +1,274 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>Filipino Speech → English Translator</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="UTF-8" />
+  <title>Filipino ↔ English Translator + Live Speech Input</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    :root {
+      --bg: #020617;
+      --card: #020617;
+      --border: #1f2937;
+      --accent: #0ea5e9;
+      --accent-soft: rgba(56,189,248,0.15);
+      --text: #e5e7eb;
+      --muted: #9ca3af;
+      --danger: #fecaca;
+    }
 
-<style>
-  body { background:#eef2f7; font-family:Arial; padding:18px; }
-  .container {
-    max-width:900px; margin:auto; background:white; padding:20px;
-    border-radius:12px; box-shadow:0 3px 12px rgba(0,0,0,0.1);
-  }
-  textarea {
-    width:100%; height:140px; margin-top:10px;
-    border-radius:8px; padding:10px; font-size:16px;
-    border:1px solid #ccc; resize:vertical;
-  }
-  button {
-    width:100%; padding:14px; margin-top:12px; font-size:18px;
-    border:none; border-radius:8px; color:white;
-    background:#007bff; cursor:pointer;
-  }
-  button:active { opacity:0.6; }
-  #stopBtn { background:#dc3545; }
-  .status { opacity:.7; margin-top:8px; }
-</style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 14px;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: radial-gradient(circle at top, #1f2937 0, #020617 50%, #020617 100%);
+      color: var(--text);
+    }
+
+    .app {
+      max-width: 900px; margin: 0 auto;
+      background: var(--card); border-radius: 16px;
+      padding: 16px; border: 1px solid var(--border);
+      box-shadow: 0 20px 45px rgba(0,0,0,0.65);
+    }
+
+    h1 {
+      font-size: 1.2rem; margin:0 0 6px;
+      display:flex; align-items:center; gap:8px;
+    }
+
+    .subtitle { font-size:0.8rem; color:var(--muted); margin-bottom:10px; }
+
+    textarea {
+      width:100%; min-height:140px;
+      background:#020617; color:var(--text);
+      border:1px solid var(--border);
+      border-radius:10px; padding:8px;
+      font-size:0.9rem;
+    }
+
+    textarea:focus {
+      outline:none;
+      border-color:var(--accent);
+      box-shadow:0 0 0 1px var(--accent-soft);
+    }
+
+    .row {
+      display:grid; grid-template-columns:1fr 1fr;
+      gap:12px; margin-top:10px;
+    }
+    @media(max-width:720px){ .row{grid-template-columns:1fr;} }
+
+    .swap-row {
+      display:flex; justify-content:space-between;
+      align-items:center; gap:8px; margin-top:6px;
+    }
+
+    .swap-btn {
+      padding:4px 10px; border-radius:999px;
+      border:1px solid var(--border);
+      background:#020617; color:var(--text);
+      font-size:0.8rem; cursor:pointer;
+    }
+
+    .pill {
+      font-size:0.7rem; padding:3px 8px;
+      border-radius:999px; 
+      background:var(--accent-soft);
+      border:1px solid rgba(56,189,248,0.5);
+      color:#bae6fd;
+    }
+
+    button {
+      margin-top:8px;
+      border:none; padding:10px;
+      border-radius:999px; cursor:pointer;
+      display:inline-flex; align-items:center;
+      gap:6px; font-size:0.85rem;
+    }
+
+    .btn-rec {
+      background:linear-gradient(135deg, #ef4444, #f87171);
+      color:white; width:100%;
+      margin-top:15px;
+    }
+    .btn-stop {
+      background:#374151; color:white;
+      width:100%; margin-top:5px;
+    }
+
+    .btn-copy { background:linear-gradient(135deg, #0ea5e9,#38bdf8); color:#0b1120; }
+    .btn-clear { background:#111827; border:1px solid var(--border); color:var(--text); }
+
+    .status { margin-top:10px; font-size:0.75rem; color:var(--muted); }
+    .error { min-height:16px; font-size:0.78rem; color:var(--danger); }
+  </style>
 </head>
 
 <body>
-<div class="container">
-  <h2>🎤 Filipino Speech → English Translator</h2>
-  <p>Tap Start → Speak Filipino → Text + English translation appears.</p>
+  <div class="app">
+    <h1>🌐 Filipino ↔ English Translator</h1>
+    <div class="subtitle">Now supports LIVE speech input for both languages.</div>
 
-  <button id="startBtn">Start Speech 🎤</button>
-  <button id="stopBtn">Stop</button>
+    <button class="btn-rec" id="startSpeech">🎤 Start Speech</button>
+    <button class="btn-stop" id="stopSpeech">⏹ Stop</button>
 
-  <h3>Recognized Filipino Speech</h3>
-  <textarea id="spokenText" readonly placeholder="Speak Filipino..."></textarea>
+    <div class="swap-row">
+      <div class="pill">Mode: <span id="modeLabel">Filipino → English</span></div>
+      <button type="button" class="swap-btn" id="btnSwap">⇄ Swap directions</button>
+    </div>
 
-  <h3>English Translation</h3>
-  <textarea id="translatedText" readonly placeholder="English translation..."></textarea>
+    <div class="row">
+      <div>
+        <textarea id="sourceText" placeholder="Mag-type o magsalita ng Filipino dito…"></textarea>
+      </div>
+      <div>
+        <textarea id="targetText" placeholder="Translation appears here…" readonly></textarea>
+      </div>
+    </div>
 
-  <p id="status" class="status">Status: Idle</p>
-</div>
+    <div class="row" style="margin-top:8px;">
+      <button class="btn-copy" id="btnCopy">📋 Copy translation</button>
+      <button class="btn-clear" id="btnClear">🧹 Clear</button>
+    </div>
+
+    <div class="status" id="statusText">Status: Idle</div>
+    <div class="error" id="errorBox"></div>
+  </div>
 
 <script>
-// ------------------------------
-// SPEECH RECOGNITION SETUP
-// ------------------------------
+/* ================================
+   SPEECH RECOGNITION (iPhone Safe)
+================================ */
 let SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 let recognition;
 
 if (SpeechRecognition) {
   recognition = new SpeechRecognition();
-
-  // SAFARI TRICK:
-  // Filipino recognition works best when using en-US mode
-  recognition.lang = "en-US";
-
   recognition.continuous = true;
   recognition.interimResults = true;
-} else {
-  alert("Speech recognition not supported on this device/browser.");
+
+  // SAFARI REQUIREMENT — works for Filipino + English
+  recognition.lang = "en-US";
 }
 
-document.getElementById("startBtn").onclick = () => {
-  try { recognition.start(); } catch(e) {}
-  document.getElementById("status").innerText = "Status: Listening… Speak Filipino.";
+/* ================================
+   MODE + UI
+================================ */
+const src = document.getElementById("sourceText");
+const tgt = document.getElementById("targetText");
+const modeLabel = document.getElementById("modeLabel");
+let modeFilToEng = true;
+
+function updateMode() {
+  if (modeFilToEng) {
+    modeLabel.textContent = "Filipino → English";
+    src.placeholder = "Mag-type o magsalita ng Filipino dito…";
+    tgt.placeholder = "English translation will appear here…";
+  } else {
+    modeLabel.textContent = "English → Filipino";
+    src.placeholder = "Type or speak English here…";
+    tgt.placeholder = "Lalabas dito ang Filipino translation…";
+  }
+}
+
+updateMode();
+
+document.getElementById("btnSwap").onclick = () => {
+  modeFilToEng = !modeFilToEng;
+  const a = src.value; const b = tgt.value;
+  src.value = b; tgt.value = a;
+  updateMode();
+  doTranslate();
 };
 
-document.getElementById("stopBtn").onclick = () => {
+/* ================================
+   LIVE SPEECH LOGIC
+================================ */
+document.getElementById("startSpeech").onclick = () => {
+  try { recognition.start(); } catch(e){}
+  document.getElementById("statusText").innerText = "Status: Listening…";
+};
+
+document.getElementById("stopSpeech").onclick = () => {
   recognition.stop();
-  document.getElementById("status").innerText = "Status: Stopped";
+  document.getElementById("statusText").innerText = "Status: Stopped.";
 };
 
-// ------------------------------
-// WHEN SPEECH IS CAPTURED
-// ------------------------------
-recognition.onresult = async (event) => {
+recognition.onresult = (event) => {
   let text = "";
   for (let i = event.resultIndex; i < event.results.length; i++) {
     text += event.results[i][0].transcript;
   }
-
-  let filipinoOutput = document.getElementById("spokenText");
-  filipinoOutput.value = text;
-
-  translateText(text);
+  src.value = text;
+  doTranslate();
 };
 
-// ------------------------------
-// TRANSLATION ENGINE (Google API)
-// ------------------------------
-async function translateText(text) {
-  if (!text.trim()) return;
+/* ================================
+   TRANSLATION ENGINE
+================================ */
+async function translateGoogle(text, sl, tl) {
+  const url =
+    "https://translate.googleapis.com/translate_a/single?client=gtx" +
+    `&sl=${sl}&tl=${tl}&dt=t&q=` + encodeURIComponent(text);
 
-  document.getElementById("status").innerText = "Status: Translating…";
+  const res = await fetch(url);
+  if (!res.ok) return "";
+  const data = await res.json();
+  return data[0].map(v => v[0]).join("");
+}
+
+async function translateMyMemory(text, sl, tl) {
+  const url =
+    "https://api.mymemory.translated.net/get?q=" +
+    encodeURIComponent(text) +
+    `&langpair=${sl}|${tl}`;
+  const res = await fetch(url);
+  if (!res.ok) return "";
+  const data = await res.json();
+  return data?.responseData?.translatedText || "";
+}
+
+async function doTranslate() {
+  const text = src.value.trim();
+  tgt.value = "";
+  document.getElementById("statusText").innerText = "Status: Translating…";
+
+  if (!text) {
+    document.getElementById("statusText").innerText = "Status: Idle.";
+    return;
+  }
+
+  const sl = modeFilToEng ? "tl" : "en";
+  const tl = modeFilToEng ? "en" : "tl";
 
   try {
-    let url = "https://translate.googleapis.com/translate_a/single?client=gtx&sl=tl&tl=en&dt=t&q=" 
-              + encodeURIComponent(text);
-
-    let res = await fetch(url);
-    let data = await res.json();
-    let translated = data[0].map(x => x[0]).join("");
-
-    document.getElementById("translatedText").value = translated;
-    document.getElementById("status").innerText = "Status: Done";
+    let result = await translateGoogle(text, sl, tl);
+    if (!result) result = await translateMyMemory(text, sl, tl);
+    tgt.value = result;
+    document.getElementById("statusText").innerText = "Status: Done.";
   } catch (e) {
-    document.getElementById("translatedText").value = "Translation error.";
-    document.getElementById("status").innerText = "Status: Error";
+    tgt.value = "";
+    document.getElementById("statusText").innerText = "Status: Error.";
   }
 }
-</script>
 
+/* ================================
+   BUTTONS
+================================ */
+document.getElementById("btnClear").onclick = () => {
+  src.value = "";
+  tgt.value = "";
+};
+
+document.getElementById("btnCopy").onclick = async () => {
+  try {
+    await navigator.clipboard.writeText(tgt.value);
+    document.getElementById("statusText").innerText = "Status: Translation copied.";
+  } catch {
+    document.getElementById("statusText").innerText = "Status: Copy failed.";
+  }
+};
+</script>
 </body>
 </html>
