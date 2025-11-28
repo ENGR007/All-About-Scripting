@@ -10,136 +10,95 @@
       --card: #020617;
       --border: #1f2937;
       --accent: #0ea5e9;
-      --accent-soft: rgba(56,189,248,0.15);
+      --accent-soft: rgba(56, 189, 248, 0.15);
       --text: #e5e7eb;
       --muted: #9ca3af;
       --danger: #fecaca;
     }
-
     * { box-sizing: border-box; }
+
     body {
       margin: 0;
       padding: 14px;
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      background: radial-gradient(circle at top, #1f2937 0, #020617 50%, #020617 100%);
+      background: radial-gradient(circle at top, #1f2937 0, #020617 50%);
+      font-family: system-ui, -apple-system, BlinkMacSystemFont;
       color: var(--text);
     }
-
     .app {
-      max-width: 900px; margin: 0 auto;
-      background: var(--card); border-radius: 16px;
-      padding: 16px; border: 1px solid var(--border);
-      box-shadow: 0 20px 45px rgba(0,0,0,0.65);
+      max-width: 900px; margin:auto;
+      background: var(--card); padding: 16px;
+      border-radius: 16px; border:1px solid var(--border);
+      box-shadow: 0 20px 45px rgba(0,0,0,0.6);
     }
-
-    h1 {
-      font-size: 1.2rem; margin:0 0 6px;
-      display:flex; align-items:center; gap:8px;
-    }
-
-    .subtitle { font-size:0.8rem; color:var(--muted); margin-bottom:10px; }
-
+    h1 { font-size:1.2rem; display:flex; gap:8px; margin:0 0 6px; }
+    .subtitle { font-size:.8rem; color:var(--muted); margin-bottom:10px; }
     textarea {
-      width:100%; min-height:140px;
+      width:100%; min-height:140px; padding:8px;
       background:#020617; color:var(--text);
+      border-radius:10px; font-size:.9rem;
       border:1px solid var(--border);
-      border-radius:10px; padding:8px;
-      font-size:0.9rem;
     }
-
-    textarea:focus {
-      outline:none;
-      border-color:var(--accent);
-      box-shadow:0 0 0 1px var(--accent-soft);
-    }
-
-    .row {
-      display:grid; grid-template-columns:1fr 1fr;
-      gap:12px; margin-top:10px;
-    }
+    textarea:focus { outline:none; border-color:var(--accent); }
+    .row { display:grid; gap:12px; grid-template-columns:1fr 1fr; }
     @media(max-width:720px){ .row{grid-template-columns:1fr;} }
 
-    .swap-row {
-      display:flex; justify-content:space-between;
-      align-items:center; gap:8px; margin-top:6px;
+    button {
+      border:none; border-radius:999px;
+      padding:10px; cursor:pointer;
+      font-size:.9rem; display:flex; justify-content:center;
     }
+    .btn-rec { background:#ef4444; color:white; margin-top:12px; }
+    .btn-stop { background:#475569; color:white; margin-top:6px; }
+    .btn-copy { background:#38bdf8; color:#0b1120; }
+    .btn-clear { background:#1e293b; color:white; }
 
+    .swap-row { display:flex; justify-content:space-between; align-items:center; margin-top:10px; }
     .swap-btn {
-      padding:4px 10px; border-radius:999px;
-      border:1px solid var(--border);
-      background:#020617; color:var(--text);
-      font-size:0.8rem; cursor:pointer;
+      padding:6px 12px; border-radius:999px;
+      background:#020617; border:1px solid var(--border); color:white;
     }
 
     .pill {
-      font-size:0.7rem; padding:3px 8px;
-      border-radius:999px; 
-      background:var(--accent-soft);
-      border:1px solid rgba(56,189,248,0.5);
-      color:#bae6fd;
+      padding:4px 10px; border-radius:999px;
+      background:var(--accent-soft); border:1px solid #38bdf8;
+      font-size:.75rem; color:#bae6fd;
     }
-
-    button {
-      margin-top:8px;
-      border:none; padding:10px;
-      border-radius:999px; cursor:pointer;
-      display:inline-flex; align-items:center;
-      gap:6px; font-size:0.85rem;
-    }
-
-    .btn-rec {
-      background:linear-gradient(135deg, #ef4444, #f87171);
-      color:white; width:100%;
-      margin-top:15px;
-    }
-    .btn-stop {
-      background:#374151; color:white;
-      width:100%; margin-top:5px;
-    }
-
-    .btn-copy { background:linear-gradient(135deg, #0ea5e9,#38bdf8); color:#0b1120; }
-    .btn-clear { background:#111827; border:1px solid var(--border); color:var(--text); }
-
-    .status { margin-top:10px; font-size:0.75rem; color:var(--muted); }
-    .error { min-height:16px; font-size:0.78rem; color:var(--danger); }
+    .status { margin-top:10px; font-size:.75rem; color:var(--muted); }
+    .error { color:var(--danger); font-size:.78rem; min-height:16px; }
   </style>
 </head>
 
 <body>
-  <div class="app">
-    <h1>🌐 Filipino ↔ English Translator</h1>
-    <div class="subtitle">Now supports LIVE speech input for both languages.</div>
+<div class="app">
+  <h1>🌐 Filipino ↔ English Translator</h1>
+  <div class="subtitle">Supports typing + live speech input.</div>
 
-    <button class="btn-rec" id="startSpeech">🎤 Start Speech</button>
-    <button class="btn-stop" id="stopSpeech">⏹ Stop</button>
+  <button id="startSpeech" class="btn-rec">🎤 Start Speech</button>
+  <button id="stopSpeech" class="btn-stop">⏹ Stop</button>
 
-    <div class="swap-row">
-      <div class="pill">Mode: <span id="modeLabel">Filipino → English</span></div>
-      <button type="button" class="swap-btn" id="btnSwap">⇄ Swap directions</button>
-    </div>
-
-    <div class="row">
-      <div>
-        <textarea id="sourceText" placeholder="Mag-type o magsalita ng Filipino dito…"></textarea>
-      </div>
-      <div>
-        <textarea id="targetText" placeholder="Translation appears here…" readonly></textarea>
-      </div>
-    </div>
-
-    <div class="row" style="margin-top:8px;">
-      <button class="btn-copy" id="btnCopy">📋 Copy translation</button>
-      <button class="btn-clear" id="btnClear">🧹 Clear</button>
-    </div>
-
-    <div class="status" id="statusText">Status: Idle</div>
-    <div class="error" id="errorBox"></div>
+  <div class="swap-row">
+    <div class="pill">Mode: <span id="modeLabel">Filipino → English</span></div>
+    <button id="btnSwap" class="swap-btn">⇄ Swap</button>
   </div>
 
+  <div class="row" style="margin-top:10px;">
+    <textarea id="sourceText" placeholder="Mag-type o magsalita ng Filipino dito…"></textarea>
+    <textarea id="targetText" placeholder="Translation appears here…" readonly></textarea>
+  </div>
+
+  <div class="row" style="margin-top:10px;">
+    <button id="btnCopy" class="btn-copy">📋 Copy</button>
+    <button id="btnClear" class="btn-clear">🧹 Clear</button>
+  </div>
+
+  <div id="statusText" class="status">Status: Idle</div>
+  <div id="errorBox" class="error"></div>
+</div>
+
 <script>
-/* ================================
-   SPEECH RECOGNITION (iPhone Safe)
-================================ */
+/* -------------------------------
+   Speech Recognition (iPhone Safe)
+-------------------------------- */
 let SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 let recognition;
 
@@ -148,43 +107,42 @@ if (SpeechRecognition) {
   recognition.continuous = true;
   recognition.interimResults = true;
 
-  // SAFARI REQUIREMENT — works for Filipino + English
+  // Required for iPhone Safari — works for Filipino + English
   recognition.lang = "en-US";
 }
 
-/* ================================
-   MODE + UI
-================================ */
+/* -------------------------------
+   Mode / Swap Logic
+------------------------------- */
+let modeFilToEng = true;
 const src = document.getElementById("sourceText");
 const tgt = document.getElementById("targetText");
-const modeLabel = document.getElementById("modeLabel");
-let modeFilToEng = true;
 
 function updateMode() {
   if (modeFilToEng) {
-    modeLabel.textContent = "Filipino → English";
+    document.getElementById("modeLabel").textContent = "Filipino → English";
     src.placeholder = "Mag-type o magsalita ng Filipino dito…";
-    tgt.placeholder = "English translation will appear here…";
+    tgt.placeholder = "English translation appears here…";
   } else {
-    modeLabel.textContent = "English → Filipino";
+    document.getElementById("modeLabel").textContent = "English → Filipino";
     src.placeholder = "Type or speak English here…";
-    tgt.placeholder = "Lalabas dito ang Filipino translation…";
+    tgt.placeholder = "Lalabas dito ang salin sa Filipino…";
   }
 }
-
 updateMode();
 
 document.getElementById("btnSwap").onclick = () => {
   modeFilToEng = !modeFilToEng;
-  const a = src.value; const b = tgt.value;
-  src.value = b; tgt.value = a;
+  const a = src.value, b = tgt.value;
+  src.value = b;
+  tgt.value = a;
   updateMode();
   doTranslate();
 };
 
-/* ================================
-   LIVE SPEECH LOGIC
-================================ */
+/* -------------------------------
+   Speech Events
+------------------------------- */
 document.getElementById("startSpeech").onclick = () => {
   try { recognition.start(); } catch(e){}
   document.getElementById("statusText").innerText = "Status: Listening…";
@@ -201,28 +159,35 @@ recognition.onresult = (event) => {
     text += event.results[i][0].transcript;
   }
   src.value = text;
-  doTranslate();
+  doTranslate(); // ← SPEECH triggers translation
 };
 
-/* ================================
-   TRANSLATION ENGINE
-================================ */
+/* -------------------------------
+   Typing Auto-Translate (FIXED)
+------------------------------- */
+let debounceTimer = null;
+src.addEventListener("input", () => {
+  if (debounceTimer) clearTimeout(debounceTimer);
+  debounceTimer = setTimeout(doTranslate, 350); // smoother typing
+});
+
+/* -------------------------------
+   Translation Engine
+------------------------------- */
 async function translateGoogle(text, sl, tl) {
   const url =
     "https://translate.googleapis.com/translate_a/single?client=gtx" +
     `&sl=${sl}&tl=${tl}&dt=t&q=` + encodeURIComponent(text);
-
   const res = await fetch(url);
   if (!res.ok) return "";
   const data = await res.json();
-  return data[0].map(v => v[0]).join("");
+  return data[0].map(x => x[0]).join("");
 }
 
 async function translateMyMemory(text, sl, tl) {
   const url =
     "https://api.mymemory.translated.net/get?q=" +
-    encodeURIComponent(text) +
-    `&langpair=${sl}|${tl}`;
+    encodeURIComponent(text) + `&langpair=${sl}|${tl}`;
   const res = await fetch(url);
   if (!res.ok) return "";
   const data = await res.json();
@@ -232,30 +197,36 @@ async function translateMyMemory(text, sl, tl) {
 async function doTranslate() {
   const text = src.value.trim();
   tgt.value = "";
-  document.getElementById("statusText").innerText = "Status: Translating…";
+  const status = document.getElementById("statusText");
+  const errorBox = document.getElementById("errorBox");
 
   if (!text) {
-    document.getElementById("statusText").innerText = "Status: Idle.";
+    status.innerText = "Status: Idle";
     return;
   }
+
+  status.innerText = "Status: Translating…";
+  errorBox.textContent = "";
 
   const sl = modeFilToEng ? "tl" : "en";
   const tl = modeFilToEng ? "en" : "tl";
 
   try {
-    let result = await translateGoogle(text, sl, tl);
-    if (!result) result = await translateMyMemory(text, sl, tl);
-    tgt.value = result;
-    document.getElementById("statusText").innerText = "Status: Done.";
-  } catch (e) {
+    let translated = await translateGoogle(text, sl, tl);
+    if (!translated) translated = await translateMyMemory(text, sl, tl);
+
+    tgt.value = translated;
+    status.innerText = "Status: Done.";
+  } catch (err) {
     tgt.value = "";
-    document.getElementById("statusText").innerText = "Status: Error.";
+    status.innerText = "Status: Error.";
+    errorBox.textContent = err.message;
   }
 }
 
-/* ================================
-   BUTTONS
-================================ */
+/* -------------------------------
+   Buttons
+------------------------------- */
 document.getElementById("btnClear").onclick = () => {
   src.value = "";
   tgt.value = "";
@@ -264,7 +235,7 @@ document.getElementById("btnClear").onclick = () => {
 document.getElementById("btnCopy").onclick = async () => {
   try {
     await navigator.clipboard.writeText(tgt.value);
-    document.getElementById("statusText").innerText = "Status: Translation copied.";
+    document.getElementById("statusText").innerText = "Status: Copied.";
   } catch {
     document.getElementById("statusText").innerText = "Status: Copy failed.";
   }
