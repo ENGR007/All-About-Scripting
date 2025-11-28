@@ -151,8 +151,8 @@
   <div id="errorBox" class="error"></div>
 </div>
 
-<!-- Pinyin library JUST for Chinese romanization -->
-<script src="https://cdn.jsdelivr.net/npm/pinyin-pro@2.9.0/dist/index.iife.min.js"></script>
+<!-- Pinyin library for Chinese romanization -->
+<script src="https://cdn.jsdelivr.net/npm/pinyin-pro@3.27.0/dist/index.js"></script>
 
 <script>
 /* ---------- DOM ---------- */
@@ -243,7 +243,7 @@ function autoRefresh(){
 sourceLangSel.addEventListener("change", autoRefresh);
 targetLangSel.addEventListener("change", autoRefresh);
 
-/* ========== Google Translate Helpers (with best-effort romanization) ========== */
+/* ========== Google Translate Helpers ========== */
 async function googleTranslateRaw(text, sl, tl, extraDt = "") {
   const url =
     "https://translate.googleapis.com/translate_a/single?client=gtx" +
@@ -260,7 +260,6 @@ function extractTranslationFromRaw(data) {
 }
 
 function extractRomanizationFromRaw(data) {
-  // Romanization (pinyin / romaji / etc.) often appears at index 3 of each segment
   if (!data || !data[0]) return "";
   const parts = [];
   for (const seg of data[0]) {
@@ -275,7 +274,6 @@ async function googleTranslate(text, sl, tl) {
 }
 
 async function translateWithRomanization(text, sl, tl) {
-  // Ask for translation + romanization when available
   const data = await googleTranslateRaw(text, sl, tl, "&dt=rm");
   const translated = extractTranslationFromRaw(data);
   const romanized = extractRomanizationFromRaw(data);
@@ -291,9 +289,9 @@ async function doTranslate(){
     return;
   }
 
-  // Determine source/target based on who is speaking
   const sl = (activeSpeaker === "you") ? sourceLangSel.value : targetLangSel.value;
   const tl = (activeSpeaker === "you") ? targetLangSel.value : sourceLangSel.value;
+  const tlLower = (tl || "").toLowerCase();
 
   statusText.textContent = "Status: Translating…";
   errorBox.textContent   = "";
@@ -305,33 +303,29 @@ async function doTranslate(){
       // Simple direct translation
       display = await googleTranslate(text, sl, tl);
 
-    } else if (tl === "zh-CN") {
+    } else if (tlLower.startsWith("zh")) {
       // Chinese: script + pinyin (via pinyin-pro) + English
       const scriptOut = await googleTranslate(text, sl, tl);
-      let pinyin = "";
-      if (window.pinyinPro && window.pinyinPro.pinyin) {
-        pinyin = window.pinyinPro.pinyin(scriptOut, {
-          toneType: "mark",  // mā má mǎ mà
+      let pinyinLine = "";
+      if (window.pinyinPro && typeof window.pinyinPro.pinyin === "function") {
+        pinyinLine = window.pinyinPro.pinyin(scriptOut, {
+          toneType: "mark",
           type: "string"
         });
       }
       const english = await googleTranslate(text, sl, "en");
 
       display = scriptOut;
-      if (pinyin) {
-        display += "\n" + pinyin;
-      }
+      if (pinyinLine) display += "\n" + pinyinLine;
       display += "\n" + english;
 
-    } else if (["ja", "ko", "th"].includes(tl)) {
-      // Other East Asian targets: script + romanization (if Google gives it) + English
+    } else if (tlLower.startsWith("ja") || tlLower.startsWith("ko") || tlLower.startsWith("th")) {
+      // Other East Asian targets: script + romanization (if any) + English
       const { translated: scriptOut, romanized } = await translateWithRomanization(text, sl, tl);
       const english = await googleTranslate(text, sl, "en");
 
       display = scriptOut;
-      if (romanized) {
-        display += "\n" + romanized;
-      }
+      if (romanized) display += "\n" + romanized;
       display += "\n" + english;
 
     } else {
@@ -343,7 +337,6 @@ async function doTranslate(){
 
     targetText.value = display;
 
-    // Save to transcript
     appendToTranscript({
       time: new Date(),
       speaker: (activeSpeaker === "you" ? "You" : "Partner"),
@@ -429,7 +422,7 @@ btnSpeak.onclick = () => {
   const speakText = lines[lines.length - 1];
 
   const utter = new SpeechSynthesisUtterance(speakText);
-  utter.lang  = "en-US";  // use English voice for readable letters
+  utter.lang  = "en-US";
   utter.rate  = 1.0;
   utter.pitch = 1.0;
 
