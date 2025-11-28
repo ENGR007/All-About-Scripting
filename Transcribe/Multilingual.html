@@ -2,8 +2,9 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<title>Multi-Language Conversation Translator</title>
+<title>Multi-Language Conversation Translator (Auto Voice Mode)</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
 <style>
   :root {
     --bg:#020617; --card:#020617; --border:#1f2937;
@@ -27,7 +28,7 @@
     box-shadow:0 20px 45px rgba(0,0,0,0.6);
   }
 
-  h1 { font-size:1.2rem; margin:0 0 6px; display:flex; gap:10px; align-items:center; }
+  h1 { font-size:1.2rem; margin:0 0 6px; }
   .subtitle { font-size:.8rem; color:var(--muted); margin-bottom:10px; }
 
   textarea {
@@ -36,120 +37,119 @@
     border-radius:10px; border:1px solid var(--border);
     font-size:.9rem; resize:vertical;
   }
-  textarea:focus {
-    outline:none; border-color:var(--accent);
-    box-shadow:0 0 0 1px var(--accent-soft);
-  }
 
   select {
     width:100%; padding:10px; margin-top:6px;
     background:#020617; color:var(--text);
     border-radius:8px; border:1px solid var(--border);
-    font-size:.9rem;
   }
-
-  .row { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:10px; }
-  @media(max-width:720px) { .row { grid-template-columns:1fr; } }
 
   button {
     border:none; border-radius:999px;
     padding:12px; cursor:pointer;
-    font-size:.9rem; display:flex; justify-content:center; align-items:center;
+    font-size:.9rem;
   }
 
-  .btn-rec { background:#ef4444; color:white; margin-top:8px; }
-  .btn-stop { background:#475569; color:white; margin-top:6px; }
+  .btn-rec { background:#ef4444; color:white; width:100%; margin-top:8px; }
+  .btn-stop { background:#475569; color:white; width:100%; margin-top:6px; }
+
+  .row { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  @media(max-width:720px){ .row { grid-template-columns:1fr; } }
 
   .btn-speaker {
-    flex:1; background:#111827; color:#e5e7eb;
+    background:#111827;
+    color:#e5e7eb;
     border:1px solid #1f2937;
-    padding:10px; border-radius:12px;
+    border-radius:12px;
   }
   .btn-speaker.active {
     border-color:#38bdf8;
     box-shadow:0 0 0 1px rgba(56,189,248,0.5);
   }
 
-  .btn-copy { background:#38bdf8; color:#0b1120; }
-  .btn-clear { background:#1e293b; color:white; }
-  .btn-save { background:#22c55e; color:#052e16; width:100%; margin-top:8px; }
+  .btn-copy  { background:#38bdf8; color:#0b1120; width:100%; }
+  .btn-clear { background:#1e293b; color:white; width:100%; }
   .btn-speak { background:#10b981; color:white; width:100%; margin-top:8px; }
-
-  .status { margin-top:10px; font-size:.75rem; color:var(--muted); }
-  .error { min-height:16px; color:var(--danger); font-size:.78rem; }
-
-  .conv-title { font-size:.8rem; margin-top:12px; color:var(--muted); }
+  .btn-save  { background:#22c55e; color:#052e16; width:100%; margin-top:8px; }
 
   .conv-box {
     margin-top:6px; padding:10px;
-    background:#020617; border:1px solid var(--border);
-    border-radius:12px; max-height:240px;
-    overflow-y:auto; font-size:.8rem; white-space:pre-wrap;
+    background:#020617;
+    border:1px solid var(--border);
+    border-radius:12px;
+    max-height:240px;
+    overflow-y:auto;
+    font-size:.8rem;
+    white-space:pre-wrap;
   }
+
+  .status { margin-top:10px; color:var(--muted); }
+  .error { color:var(--danger); min-height:18px; }
+
 </style>
 </head>
 
 <body>
 <div class="app">
-  <h1>🌐 Multi-Language Conversation Translator</h1>
-  <div class="subtitle">
-    Chinese / Japanese / Korean / Thai: Script + Romanization + English.  
-    Includes voice input, voice output, and transcripts.
-  </div>
 
-  <button id="startSpeech" class="btn-rec">🎤 Start Speech</button>
-  <button id="stopSpeech" class="btn-stop">⏹ Stop</button>
+<h1>🌐 Auto Voice Conversation Translator</h1>
+<div class="subtitle">
+  Fully automatic: voice input language switches based on speaker & selected language.
+</div>
 
-  <div class="row" style="margin-top:6px;">
-    <button id="btnYou" class="btn-speaker active">🗣 You Speaking</button>
-    <button id="btnPartner" class="btn-speaker">👤 Partner Speaking</button>
-  </div>
+<button id="startSpeech" class="btn-rec">🎤 Start Speech</button>
+<button id="stopSpeech" class="btn-stop">⏹ Stop</button>
 
-  <label style="font-size:.8rem;margin-top:10px;display:block;">Source language (You)</label>
-  <select id="sourceLang">
-    <option value="en" selected>English</option>
-    <option value="tl">Filipino</option>
-    <option value="zh-CN">Chinese</option>
-    <option value="ja">Japanese</option>
-    <option value="ko">Korean</option>
-    <option value="th">Thai</option>
-  </select>
+<div class="row" style="margin-top:8px;">
+  <button id="btnYou" class="btn-speaker active">🗣 You Speaking</button>
+  <button id="btnPartner" class="btn-speaker">👤 Partner Speaking</button>
+</div>
 
-  <label style="font-size:.8rem;margin-top:10px;display:block;">Target language (Partner)</label>
-  <select id="targetLang">
-    <option value="tl" selected>Filipino</option>
-    <option value="en">English</option>
-    <option value="zh-CN">Chinese</option>
-    <option value="ja">Japanese</option>
-    <option value="ko">Korean</option>
-    <option value="th">Thai</option>
-  </select>
+<label>Source language (You)</label>
+<select id="sourceLang">
+  <option value="en">English</option>
+  <option value="tl">Filipino</option>
+  <option value="zh-CN">Chinese</option>
+  <option value="ja">Japanese</option>
+  <option value="ko">Korean</option>
+  <option value="th">Thai</option>
+</select>
 
-  <div class="row">
-    <textarea id="sourceText" placeholder="Speak or type here…"></textarea>
-    <textarea id="targetText" readonly placeholder="Translation will appear…"></textarea>
-  </div>
+<label>Target language (Partner)</label>
+<select id="targetLang">
+  <option value="tl">Filipino</option>
+  <option value="en">English</option>
+  <option value="zh-CN">Chinese</option>
+  <option value="ja">Japanese</option>
+  <option value="ko">Korean</option>
+  <option value="th">Thai</option>
+</select>
 
-  <div class="row">
-    <button id="btnCopy" class="btn-copy">📋 Copy</button>
-    <button id="btnClear" class="btn-clear">🧹 Clear</button>
-  </div>
+<div class="row">
+  <textarea id="sourceText" placeholder="Speak or type here…"></textarea>
+  <textarea id="targetText" readonly placeholder="Translation here…"></textarea>
+</div>
 
-  <button id="btnSpeak" class="btn-speak">🔊 Speak Translation</button>
-  <button id="btnSaveTranscript" class="btn-save">💾 Save Transcript</button>
+<div class="row">
+  <button id="btnCopy" class="btn-copy">📋 Copy</button>
+  <button id="btnClear" class="btn-clear">🧹 Clear</button>
+</div>
 
-  <div class="conv-title">Conversation Transcript</div>
-  <div id="conversationBox" class="conv-box">No conversation yet.</div>
+<button id="btnSpeak" class="btn-speak">🔊 Speak Translation</button>
+<button id="btnSaveTranscript" class="btn-save">💾 Save Transcript</button>
 
-  <div id="statusText" class="status">Status: Idle</div>
-  <div id="errorBox" class="error"></div>
+<div class="conv-title" style="margin-top:10px;">Conversation Transcript</div>
+<div id="conversationBox" class="conv-box">No conversation yet.</div>
+
+<div id="statusText" class="status">Status: Idle</div>
+<div id="errorBox" class="error"></div>
 </div>
 
 <!-- Pinyin for Chinese -->
 <script src="https://cdn.jsdelivr.net/npm/pinyin-pro@3.27.0/dist/index.js"></script>
 
 <script>
-/* ---------- DOM ---------- */
+/* ---------------- DOM ---------------- */
 const startSpeechBtn = document.getElementById("startSpeech");
 const stopSpeechBtn  = document.getElementById("stopSpeech");
 const sourceText     = document.getElementById("sourceText");
@@ -158,246 +158,231 @@ const sourceLangSel  = document.getElementById("sourceLang");
 const targetLangSel  = document.getElementById("targetLang");
 const statusText     = document.getElementById("statusText");
 const errorBox       = document.getElementById("errorBox");
+const btnYou         = document.getElementById("btnYou");
+const btnPartner     = document.getElementById("btnPartner");
 const btnCopy        = document.getElementById("btnCopy");
 const btnClear       = document.getElementById("btnClear");
 const btnSpeak       = document.getElementById("btnSpeak");
 const btnSaveTrans   = document.getElementById("btnSaveTranscript");
-const btnYou         = document.getElementById("btnYou");
-const btnPartner     = document.getElementById("btnPartner");
-const conversationBox= document.getElementById("conversationBox");
+const conversationBox = document.getElementById("conversationBox");
 
 let activeSpeaker = "you";
 let transcriptEntries = [];
 
-/* ---------- Speaker Buttons ---------- */
-function setSpeaker(who){
-  activeSpeaker = who;
-  btnYou.classList.toggle("active", who === "you");
-  btnPartner.classList.toggle("active", who === "partner");
-}
-btnYou.onclick = () => setSpeaker("you");
-btnPartner.onclick = () => setSpeaker("partner");
+/* ---------------- SPEAKER BUTTONS ---------------- */
+btnYou.onclick = () => { activeSpeaker="you"; updateUI(); updateRecognizerLanguage(); };
+btnPartner.onclick = () => { activeSpeaker="partner"; updateUI(); updateRecognizerLanguage(); };
 
-/* ---------- Speech Recognition ---------- */
+function updateUI(){
+  btnYou.classList.toggle("active", activeSpeaker==="you");
+  btnPartner.classList.toggle("active", activeSpeaker==="partner");
+}
+
+/* ---------------- SPEECH RECOGNITION ---------------- */
 let SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 let recognition = null;
 
-if (SpeechRecognition) {
+if (SpeechRecognition){
   recognition = new SpeechRecognition();
   recognition.continuous = true;
   recognition.interimResults = true;
-  recognition.lang = "en-US";
 } else {
-  statusText.textContent = "Speech recognition unsupported";
+  statusText.textContent = "Your browser doesn't support speech recognition.";
 }
 
-startSpeechBtn.onclick = () => {
+/* AUTOMATIC language switching for speech input */
+function updateRecognizerLanguage(){
   if (!recognition) return;
-  try { recognition.start(); } catch(err){}
+
+  let sl;
+
+  if (activeSpeaker==="you") sl = sourceLangSel.value;
+  else sl = targetLangSel.value;
+
+  const map = {
+    "en": "en-US",
+    "tl": "fil-PH",
+    "zh-CN": "zh-CN",
+    "ja": "ja-JP",
+    "ko": "ko-KR",
+    "th": "th-TH"
+  };
+
+  recognition.lang = map[sl] || "en-US";
+}
+
+sourceLangSel.onchange = updateRecognizerLanguage;
+targetLangSel.onchange = updateRecognizerLanguage;
+
+/* START / STOP */
+startSpeechBtn.onclick = () => {
+  updateRecognizerLanguage();
+  recognition.start();
   statusText.textContent = "Listening…";
 };
 
 stopSpeechBtn.onclick = () => {
-  if (!recognition) return;
   recognition.stop();
   statusText.textContent = "Stopped.";
 };
 
+/* ON VOICE INPUT */
 if (recognition){
   recognition.onresult = (ev)=>{
-    let txt = "";
+    let txt="";
     for (let i = ev.resultIndex; i < ev.results.length; i++){
       txt += ev.results[i][0].transcript;
     }
-    sourceText.value = txt.trim();
+    txt = txt.trim();
+    sourceText.value = txt;
     doTranslate();
-  }
+  };
 }
 
-/* ---------- Auto translate while typing ---------- */
-let debounce;
-sourceText.addEventListener("input", ()=>{
-  clearTimeout(debounce);
-  debounce = setTimeout(doTranslate, 350);
-});
-
-/* ---------- Google Translate Helpers ---------- */
-async function googleTranslateRaw(text, sl, tl, extra="") {
-  const url =
+/* ---------------- GOOGLE TRANSLATE ---------------- */
+async function gTransRaw(text, sl, tl, extra=""){
+  const r = await fetch(
     "https://translate.googleapis.com/translate_a/single?client=gtx" +
-    `&sl=${sl}&tl=${tl}&dt=t${extra}&q=` +
-    encodeURIComponent(text);
-  const r = await fetch(url);
-  return await r.json();
+    `&sl=${sl}&tl=${tl}&dt=t${extra}&q=` + encodeURIComponent(text)
+  );
+  return r.json();
 }
 
-function extractText(data) {
-  if (!data || !data[0]) return "";
-  return data[0].map(a=>a[0]).join("");
+function extText(d){
+  if (!d || !d[0]) return "";
+  return d[0].map(x=>x[0]).join("");
 }
 
-function extractRomanization(data) {
-  if (!data || !data[0]) return "";
-  const parts = [];
-  data[0].forEach(seg=>{
-    if (seg[3]) parts.push(seg[3]);
-  });
-  return parts.join(" ").trim();
+function extRoman(d){
+  if (!d || !d[0]) return "";
+  return d[0].map(x=>x[3]).filter(Boolean).join(" ");
 }
 
-/* ---------- Main Translation ---------- */
+/* ---------------- TRANSLATE ---------------- */
 async function doTranslate(){
   const text = sourceText.value.trim();
-  if (!text){
-    targetText.value = "";
-    return;
+  if (!text){ targetText.value=""; return; }
+
+  let sl, tl;
+  if (activeSpeaker==="you"){
+    sl = sourceLangSel.value;
+    tl = targetLangSel.value;
+  } else {
+    sl = targetLangSel.value;
+    tl = sourceLangSel.value;
   }
 
-  const sl = (activeSpeaker==="you") ? sourceLangSel.value : targetLangSel.value;
-  const tl = (activeSpeaker==="you") ? targetLangSel.value : sourceLangSel.value;
   const tlLower = tl.toLowerCase();
-
   try {
-    let display="";
+    let script="", roman="", english="";
 
-    /* ---- English/Filipino ---- */
-    if (tl==="en" || tl==="tl") {
-      display = extractText(await googleTranslateRaw(text, sl, tl));
+    if (tl==="en" || tl==="tl"){
+      targetText.value = extText(await gTransRaw(text, sl, tl));
+      appendTranscript(text, targetText.value, sl, tl);
+      return;
     }
 
-    /* ---- Chinese ---- */
-    else if (tlLower.startsWith("zh")){
-      const script = extractText(await googleTranslateRaw(text, sl, tl));
-      let pinyin = "";
-      if (window.pinyinPro) {
-        pinyin = window.pinyinPro.pinyin(script, {toneType:"mark", type:"string"});
-      }
-      const english = extractText(await googleTranslateRaw(text, sl, "en"));
-      display = script + "\n" + pinyin + "\n" + english;
+    if (tlLower.startsWith("zh")){
+      script = extText(await gTransRaw(text, sl, tl));
+      roman = window.pinyinPro.pinyin(script,{toneType:"mark"});
+      english = extText(await gTransRaw(text, sl, "en"));
+      targetText.value = `${script}\n${roman}\n${english}`;
     }
 
-    /* ---- Japanese ---- */
     else if (tlLower.startsWith("ja")){
-      const script = extractText(await googleTranslateRaw(text, sl, tl));
-      let romaji = "";
-      try {
-        const raw = await googleTranslateRaw(script, "ja", "ja", "&dt=rm");
-        romaji = extractRomanization(raw);
-      } catch(e){}
-      const english = extractText(await googleTranslateRaw(text, sl, "en"));
-      display = script + "\n" + romaji + "\n" + english;
+      script = extText(await gTransRaw(text, sl, tl));
+      let raw = await gTransRaw(script,"ja","ja","&dt=rm");
+      roman = extRoman(raw);
+      english = extText(await gTransRaw(text, sl, "en"));
+      targetText.value = `${script}\n${roman}\n${english}`;
     }
 
-    /* ---- Korean / Thai ---- */
     else if (tlLower.startsWith("ko") || tlLower.startsWith("th")){
-      const script = extractText(await googleTranslateRaw(text, sl, tl));
-      let roman = "";
-      try {
-        const raw = await googleTranslateRaw(script, tl, tl, "&dt=rm");
-        roman = extractRomanization(raw);
-      } catch(e){}
-      const english = extractText(await googleTranslateRaw(text, sl, "en"));
-      display = script + "\n" + roman + "\n" + english;
+      script = extText(await gTransRaw(text, sl, tl));
+      let raw = await gTransRaw(script, tl, tl, "&dt=rm");
+      roman = extRoman(raw);
+      english = extText(await gTransRaw(text, sl, "en"));
+      targetText.value = `${script}\n${roman}\n${english}`;
     }
 
-    /* ---- Fallback ---- */
     else {
-      const script = extractText(await googleTranslateRaw(text, sl, tl));
-      const english = extractText(await googleTranslateRaw(text, sl, "en"));
-      display = script + "\n" + english;
+      script = extText(await gTransRaw(text, sl, tl));
+      english = extText(await gTransRaw(text, sl, "en"));
+      targetText.value = `${script}\n${english}`;
     }
 
-    targetText.value = display;
+    appendTranscript(text, targetText.value, sl, tl);
 
-    appendTranscript({
-      time:new Date(),
-      speaker:(activeSpeaker==="you"?"You":"Partner"),
-      srcLang:sl, tgtLang:tl,
-      source:text, output:display
-    });
-
-  } catch(err){
-    errorBox.textContent = "Error: " + err.message;
+  } catch(e){
+    errorBox.textContent = "Error: " + e.message;
   }
 }
 
-/* ---------- Transcript ---------- */
-function appendTranscript(entry){
-  transcriptEntries.push(entry);
-  conversationBox.textContent = transcriptEntries.map(e=>`
-[${e.time.toLocaleTimeString()}] ${e.speaker} (${e.srcLang} → ${e.tgtLang})
-Source     : ${e.source}
-Translation: ${e.output}
-`.trim()).join("\n\n");
-  conversationBox.scrollTop = conversationBox.scrollHeight;
+/* ---------------- TRANSCRIPT ---------------- */
+function appendTranscript(src, out, sl, tl){
+  const time = new Date().toLocaleTimeString();
+  transcriptEntries.push(`[${time}] (${sl}→${tl})
+Source: ${src}
+Translation: ${out}`);
+
+  conversationBox.textContent = transcriptEntries.join("\n\n");
 }
 
-/* ---------- Speak (Female Voice Preferred) ---------- */
+/* ---------------- SPEAK TRANSLATION (female preferred) ---------------- */
 btnSpeak.onclick = async ()=>{
+  let txt = targetText.value.trim();
+  if (!txt) return;
 
-  const text = targetText.value.trim();
-  if (!text){ statusText.textContent="Nothing to speak."; return; }
+  let lines = txt.split("\n").filter(Boolean);
+  let speakText = lines[0];
+  let sl, tl;
 
-  const lines = text.split("\n").map(l=>l.trim()).filter(Boolean);
-  if (!lines.length){ return; }
+  if (activeSpeaker==="you"){
+    sl = sourceLangSel.value;
+    tl = targetLangSel.value;
+  } else {
+    sl = targetLangSel.value;
+    tl = sourceLangSel.value;
+  }
 
-  const sl = (activeSpeaker==="you") ? sourceLangSel.value : targetLangSel.value;
-  const tl = (activeSpeaker==="you") ? targetLangSel.value : sourceLangSel.value;
-  const tlLower = tl.toLowerCase();
+  const map = {
+    "en":"en-US","tl":"fil-PH","zh-CN":"zh-CN","ja":"ja-JP","ko":"ko-KR","th":"th-TH"
+  };
 
-  let speakText = lines[lines.length-1];
-  let speakLang = "en-US";
+  let lang = map[tl] || "en-US";
 
-  if (tlLower.startsWith("zh")) { speakText = lines[0]; speakLang="zh-CN"; }
-  if (tlLower.startsWith("ja")) { speakText = lines[0]; speakLang="ja-JP"; }
-  if (tlLower.startsWith("ko")) { speakText = lines[0]; speakLang="ko-KR"; }
-  if (tlLower.startsWith("th")) { speakText = lines[0]; speakLang="th-TH"; }
-  if (tlLower==="tl")         { speakText = lines[lines.length-1]; speakLang="fil-PH"; }
-
-  /* ---- Wait for voices ---- */
-  await new Promise(resolve=>{
-    let v = speechSynthesis.getVoices();
-    if (v.length) return resolve();
-    speechSynthesis.onvoiceschanged = resolve;
+  await new Promise(res=>{
+    if (speechSynthesis.getVoices().length) return res();
+    speechSynthesis.onvoiceschanged=res;
   });
 
-  const voices = speechSynthesis.getVoices();
-
-  /* ---- Prefer female voices ---- */
+  let voices = speechSynthesis.getVoices();
   let female = voices.find(v =>
-    v.lang===speakLang &&
-    (/female/i.test(v.name) || /女/i.test(v.name))
+    v.lang===lang && (/female/i.test(v.name) || /女/i.test(v.name))
   );
 
   if (!female){
     female = voices.find(v =>
-      v.lang===speakLang &&
-      ( /Google/.test(v.name) ||
-        /Samantha/i.test(v.name) ||
-        /Kyoko/i.test(v.name) ||
-        /Mei-Jia/i.test(v.name) ||
-        /Ting-Ting/i.test(v.name) ||
-        /Yuna/i.test(v.name)
-      )
+      v.lang===lang &&
+      (/Google/.test(v.name) || /Samantha/.test(v.name) ||
+       /Kyoko/.test(v.name) || /Mei-Jia/.test(v.name) )
     );
   }
 
-  let finalVoice = female || voices.find(v=>v.lang===speakLang) || voices[0];
+  let voice = female || voices.find(v=>v.lang===lang) || voices[0];
 
   const utter = new SpeechSynthesisUtterance(speakText);
-  utter.voice = finalVoice;
-  utter.lang  = finalVoice.lang;
-  utter.rate  = 1.0;
-  utter.pitch = 1.0;
+  utter.voice = voice;
+  utter.lang  = lang;
+  utter.pitch = 1;
+  utter.rate  = 1;
 
   speechSynthesis.cancel();
   speechSynthesis.speak(utter);
-
-  statusText.textContent = "Speaking: " + finalVoice.name;
 };
 
-/* ---------- Copy / Clear ---------- */
-btnCopy.onclick = ()=>navigator.clipboard.writeText(targetText.value.trim());
+/* ---------------- COPY / CLEAR ---------------- */
+btnCopy.onclick = () => navigator.clipboard.writeText(targetText.value.trim());
 btnClear.onclick = ()=>{
   sourceText.value="";
   targetText.value="";
