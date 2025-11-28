@@ -93,7 +93,7 @@
 <div class="app">
   <h1>🌐 Multi-Language Conversation Translator</h1>
   <div class="subtitle">
-    Default: English → Filipino. Chinese / Japanese / Korean / Thai show script + English meaning. Includes conversation mode, transcripts, and voice output.
+    Default: English → Filipino. Chinese / Japanese / Korean / Thai show script + romanization + English meaning. Includes conversation mode, transcripts, and voice output.
   </div>
 
   <!-- Speech Controls -->
@@ -150,6 +150,9 @@
   <div id="statusText" class="status">Status: Idle</div>
   <div id="errorBox" class="error"></div>
 </div>
+
+<!-- Pinyin library for Chinese romanization -->
+<script src="https://cdn.jsdelivr.net/npm/pinyin-pro@3.27.0/dist/index.js"></script>
 
 <script>
 /* ---------- DOM ---------- */
@@ -240,15 +243,41 @@ function autoRefresh(){
 sourceLangSel.addEventListener("change", autoRefresh);
 targetLangSel.addEventListener("change", autoRefresh);
 
-/* ========== Google Translate Wrapper ========== */
-async function googleTranslate(text, sl, tl){
+/* ========== Google Translate Helpers ========== */
+async function googleTranslateRaw(text, sl, tl, extraDt = "") {
   const url =
     "https://translate.googleapis.com/translate_a/single?client=gtx" +
-    `&sl=${encodeURIComponent(sl)}&tl=${encodeURIComponent(tl)}&dt=t&q=` +
+    `&sl=${encodeURIComponent(sl)}&tl=${encodeURIComponent(tl)}&dt=t${extraDt}&q=` +
     encodeURIComponent(text);
-  const res  = await fetch(url);
-  const data = await res.json();
-  return data[0].map(a => a[0]).join("");
+  const res = await fetch(url);
+  if (!res.ok) throw new Error("Network error: " + res.status);
+  return res.json();
+}
+
+function extractTranslationFromRaw(data) {
+  if (!data || !data[0]) return "";
+  return data[0].map(seg => seg[0]).join("");
+}
+
+function extractRomanizationFromRaw(data) {
+  if (!data || !data[0]) return "";
+  const parts = [];
+  for (const seg of data[0]) {
+    if (seg[3]) parts.push(seg[3]);
+  }
+  return parts.join(" ").trim();
+}
+
+async function googleTranslate(text, sl, tl) {
+  const data = await googleTranslateRaw(text, sl, tl);
+  return extractTranslationFromRaw(data);
+}
+
+async function translateWithRomanization(text, sl, tl) {
+  const data = await googleTranslateRaw(text, sl, tl, "&dt=rm");
+  const translated = extractTranslationFromRaw(data);
+  const romanized = extractRomanizationFromRaw(data);
+  return { translated, romanized };
 }
 
 /* ========== Core Translation Logic ========== */
@@ -260,30 +289,82 @@ async function doTranslate(){
     return;
   }
 
-  // Determine source/target based on who is speaking
   const sl = (activeSpeaker === "you") ? sourceLangSel.value : targetLangSel.value;
   const tl = (activeSpeaker === "you") ? targetLangSel.value : sourceLangSel.value;
+  const tlLower = (tl || "").toLowerCase();
 
   statusText.textContent = "Status: Translating…";
   errorBox.textContent   = "";
 
   try {
-    let scriptOut = "";
-    let display   = "";
+    let display = "";
 
-    if (tl === "en" || tl === "tl"){
+    if (tl === "en" || tl === "tl") {
       // Simple direct translation
       display = await googleTranslate(text, sl, tl);
-    } else {
-      // East Asian targets: script + English meaning
-      scriptOut = await googleTranslate(text, sl, tl);   // Chinese/Japanese/Korean/Thai
+
+    } else if (tlLower.startsWith("zh")) {
+      // Chinese: script + pinyin (via pinyin-pro) + English
+      const scriptOut = await googleTranslate(text, sl, tl);
+      let pinyinLine = "";
+      if (window.pinyinPro && typeof window.pinyinPro.pinyin === "function") {
+        pinyinLine = window.pinyinPro.pinyin(scriptOut, {
+          toneType: "mark",
+          type: "string"
+        });
+      }
       const english = await googleTranslate(text, sl, "en");
+
+      display = scriptOut;
+      if (pinyinLine) display += "\n" + pinyinLine;
+      display += "\n" + english;
+
+    } else if (tlLower.startsWith("ja")) {
+      // JAPANESE: script + romaji + English  (2-step to get reliable romaji)
+      const scriptOut = await googleTranslate(text, sl, tl);
+
+      let romajiLine = "";
+      try {
+        // Ask Google to romanize the Japanese sentence itself
+        const rawJa = await googleTranslateRaw(scriptOut, "ja", "ja", "&dt=rm");
+        romajiLine = extractRomanizationFromRaw(rawJa);
+      } catch (e) {
+        console.warn("Romaji fetch failed:", e);
+      }
+
+      const english = await googleTranslate(text, sl, "en");
+
+      display = scriptOut;
+      if (romajiLine) display += "\n" + romajiLine;
+      display += "\n" + english;
+
+    } else if (tlLower.startsWith("ko") || tlLower.startsWith("th")) {
+      // Korean / Thai: script + romanization (if available) + English
+      const scriptOut = await googleTranslate(text, sl, tl);
+
+      let romanized = "";
+      try {
+        const raw = await googleTranslateRaw(scriptOut, tl, tl, "&dt=rm");
+        romanized = extractRomanizationFromRaw(raw);
+      } catch (e) {
+        console.warn("Romanization fetch failed:", e);
+      }
+
+      const english = await googleTranslate(text, sl, "en");
+
+      display = scriptOut;
+      if (romanized) display += "\n" + romanized;
+      display += "\n" + english;
+
+    } else {
+      // Fallback: script + English
+      const scriptOut = await googleTranslate(text, sl, tl);
+      const english   = await googleTranslate(text, sl, "en");
       display = scriptOut + "\n" + english;
     }
 
     targetText.value = display;
 
-    // Save to transcript
     appendToTranscript({
       time: new Date(),
       speaker: (activeSpeaker === "you" ? "You" : "Partner"),
@@ -355,17 +436,51 @@ btnSpeak.onclick = () => {
     return;
   }
 
-  const lines = txt.split("\n").map(l=>l.trim()).filter(Boolean);
-  const speakText = (lines.length > 1) ? lines[1] : lines[0];  // prefer English line
+  const lines = txt
+    .split("\n")
+    .map(l => l.trim())
+    .filter(Boolean);
+
+  if (!lines.length) {
+    statusText.textContent = "Status: Nothing to speak.";
+    return;
+  }
+
+  const sl = (activeSpeaker === "you") ? sourceLangSel.value : targetLangSel.value;
+  const tl = (activeSpeaker === "you") ? targetLangSel.value : sourceLangSel.value;
+  const tlLower = (tl || "").toLowerCase();
+
+  let speakText = lines[lines.length - 1]; // default: last line (English)
+  let speakLang = "en-US";
+
+  if (tlLower.startsWith("zh")) {
+    speakText = lines[0];
+    speakLang = "zh-CN";
+  } else if (tlLower.startsWith("ja")) {
+    speakText = lines[0];
+    speakLang = "ja-JP";
+  } else if (tlLower.startsWith("ko")) {
+    speakText = lines[0];
+    speakLang = "ko-KR";
+  } else if (tlLower.startsWith("th")) {
+    speakText = lines[0];
+    speakLang = "th-TH";
+  } else if (tl === "tl") {
+    speakText = lines[lines.length - 1];
+    speakLang = "fil-PH";
+  } else if (tl === "en") {
+    speakText = lines[lines.length - 1];
+    speakLang = "en-US";
+  }
 
   const utter = new SpeechSynthesisUtterance(speakText);
-  utter.lang  = "en-US";  // use English voice for readable letters
+  utter.lang  = speakLang;
   utter.rate  = 1.0;
   utter.pitch = 1.0;
 
   window.speechSynthesis.cancel();
   window.speechSynthesis.speak(utter);
-  statusText.textContent = "Status: Speaking translation…";
+  statusText.textContent = `Status: Speaking (${speakLang})…`;
 };
 
 /* ========== Copy & Clear ========== */
