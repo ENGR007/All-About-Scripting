@@ -1,0 +1,1384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Live Recorder & Transcriber Notebook</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+/* ===========================================
+   GLOBAL VARIABLES & BASE STYLING
+   =========================================== */
+:root {
+  --bg: #0b1020;
+  --card-bg: #141b2f;
+  --accent: #ffb84d;
+  --accent-soft: rgba(255, 184, 77, 0.15);
+  --accent-strong: #ff9f1c;
+  --border: #26324d;
+  --text: #f5f7ff;
+  --text-soft: #a7b3d9;
+  --danger: #ff4d6a;
+  --success: #5bd38a;
+  --muted-chip: #1f2942;
+  --scroll-thumb: #36456a;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: radial-gradient(circle at top, #1d2642 0, #050814 55%, #020309 100%);
+  color: var(--text);
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+}
+
+/* ===========================================
+   APP CONTAINER
+   =========================================== */
+.app-shell {
+  width: 100%;
+  max-width: 1080px;
+  margin: 24px;
+  background: linear-gradient(145deg, rgba(10, 14, 31, 0.95), rgba(7, 9, 20, 0.98));
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.02);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  backdrop-filter: blur(20px);
+}
+
+/* ===========================================
+   HEADER
+   =========================================== */
+.app-header {
+  padding: 18px 22px 14px 22px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  background: radial-gradient(circle at left, rgba(255, 184, 77, 0.13), transparent 60%);
+}
+
+.app-title-area {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.app-title {
+  font-size: 20px;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.title-pill {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(4, 9, 24, 0.8);
+  color: var(--text-soft);
+}
+
+.app-subtitle {
+  font-size: 12px;
+  color: var(--text-soft);
+}
+
+.app-badge {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font-size: 11px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid rgba(255, 184, 77, 0.4);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+/* ===========================================
+   BODY LAYOUT (2 COLUMNS)
+   =========================================== */
+.app-body {
+  display: grid;
+  grid-template-columns: minmax(0, 2.3fr) minmax(0, 2fr);
+  gap: 16px;
+  padding: 16px 18px 20px 18px;
+}
+
+/* MOBILE: 1 COLUMN */
+@media (max-width: 1100px) {
+  .app-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* ===========================================
+   CARDS
+   =========================================== */
+.card {
+  background: var(--card-bg);
+  border-radius: 16px;
+  padding: 14px 14px 12px 14px;
+  border: 1px solid var(--border);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.card-title {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  color: var(--text);
+}
+
+.card-subtitle {
+  font-size: 11px;
+  color: var(--text-soft);
+}
+
+/* ===========================================
+   CHIPS
+   =========================================== */
+.chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.chip {
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--muted-chip);
+  color: var(--text-soft);
+}
+
+.chip.live {
+  border-color: rgba(255, 77, 106, 0.8);
+  color: var(--danger);
+  background: rgba(255, 77, 106, 0.1);
+}
+
+.chip.ok {
+  border-color: rgba(91, 211, 138, 0.7);
+  color: var(--success);
+  background: rgba(91, 211, 138, 0.08);
+}
+
+/* ===========================================
+   FORM INPUTS
+   =========================================== */
+.field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+label {
+  font-size: 11px;
+  text-transform: uppercase;
+  color: var(--text-soft);
+}
+
+input[type="text"] {
+  background: #0b1020;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  padding: 6px 9px;
+  font-size: 13px;
+  color: var(--text);
+}
+
+textarea {
+  width: 100%;
+  resize: vertical;
+  min-height: 360px;
+  max-height: 700px;
+  background: #050814;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  padding: 10px;
+  font-size: 13px;
+  color: var(--text);
+  line-height: 1.4;
+  font-family: "SF Mono", ui-monospace, Menlo, Monaco, Consolas, monospace;
+}
+
+textarea:focus {
+  border-color: var(--accent-strong);
+  box-shadow: 0 0 0 1px rgba(255, 184, 77, 0.5);
+}
+
+/* ===========================================
+   BUTTONS
+   =========================================== */
+button {
+  border-radius: 999px;
+  border: 1px solid transparent;
+  padding: 7px 14px;
+  font-size: 12px;
+  cursor: pointer;
+  background: var(--muted-chip);
+  color: var(--text);
+}
+
+button:disabled {
+  opacity: 0.35;
+}
+
+button:not(:disabled):hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.5);
+}
+
+.btn-primary {
+  background: var(--accent-strong);
+  color: #15100a;
+  border-color: rgba(255, 184, 77, 0.9);
+}
+
+.btn-danger {
+  background: rgba(255, 77, 106, 0.2);
+  border-color: rgba(255, 77, 106, 0.7);
+  color: var(--danger);
+}
+
+.btn-ghost {
+  background: transparent;
+  border-color: var(--border);
+}
+
+/* ===========================================
+   SESSIONS LIST
+   =========================================== */
+.sessions-list {
+  overflow-y: auto;
+  max-height: 370px;
+  padding-right: 4px;
+}
+
+.sessions-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.sessions-list::-webkit-scrollbar-thumb {
+  background: var(--scroll-thumb);
+  border-radius: 999px;
+}
+
+/* Session cards & badges */
+.session-card {
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  padding: 8px 10px;
+  margin-bottom: 8px;
+  background: #11172a;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.session-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.session-name-input {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: #050814;
+  color: var(--text);
+}
+
+.session-meta {
+  font-size: 10px;
+  color: var(--text-soft);
+  white-space: nowrap;
+}
+
+.session-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.pill-counter {
+  font-size: 11px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--muted-chip);
+  color: var(--text-soft);
+  border: 1px solid rgba(255,255,255,0.07);
+}
+
+.badge-pill {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(255,184,77,0.16);
+  border: 1px solid rgba(255,184,77,0.4);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+/* Rows, hints, status */
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.backup-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.hint {
+  font-size: 11px;
+  color: var(--text-soft);
+}
+
+.status-text {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-soft);
+}
+
+.dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--border);
+}
+
+.dot.live {
+  background: var(--danger);
+  box-shadow: 0 0 0 4px rgba(255,77,106,0.35);
+}
+
+.dot.idle {
+  background: var(--scroll-thumb);
+}
+
+/* Improve audio scrubbing on iPhone/Safari/Edge/Chrome */
+audio {
+  width: 100% !important;
+  pointer-events: auto !important;
+  touch-action: manipulation !important;
+  position: relative !important;
+  z-index: 10;
+}
+
+/* ===========================================
+   FULLSCREEN MODE DURING RECORDING
+   =========================================== */
+body.recording-mode .app-body {
+  display: block !important;
+  grid-template-columns: 1fr !important;
+}
+
+body.recording-mode .card {
+  width: 100% !important;
+  max-width: none !important;
+  border-radius: 0 !important;
+  min-height: 100vh !important;
+}
+
+/* Left side panel goes full-screen */
+body.recording-mode section.card:first-of-type {
+  height: 100vh !important;
+  overflow-y: auto !important;
+}
+
+/* Transcript = 75% of screen */
+body.recording-mode #transcriptArea {
+  height: 75vh !important;
+  min-height: 75vh !important;
+  max-height: 75vh !important;
+  resize: none !important;
+}
+
+/* Hide notebook */
+body.recording-mode section.card:nth-of-type(2) {
+  display: none !important;
+}
+  </style>
+</head>
+<body>
+<div class="app-shell">
+  <header class="app-header">
+    <div class="app-title-area">
+      <div class="app-title">
+        LIVE NOTEBOOK
+        <span class="title-pill">Recorder + Transcriber</span>
+      </div>
+      <div class="app-subtitle">
+        Record high-quality audio, see live text, save sessions, and export/import everything locally.
+      </div>
+    </div>
+    <div class="app-badge">
+      ● Live
+      <span>Browser-only, no server</span>
+    </div>
+  </header>
+
+  <main class="app-body">
+    <!-- LEFT: Live Recorder / Transcriber -->
+    <section class="card">
+      <div class="card-header">
+        <div>
+          <div class="card-title">Live Capture</div>
+          <div class="card-subtitle">Microphone recording + live speech-to-text</div>
+        </div>
+        <div class="chip-row">
+          <span id="speechSupportChip" class="chip">Speech API: checking…</span>
+          <span id="audioSupportChip" class="chip">Audio: checking…</span>
+        </div>
+      </div>
+
+      <div class="field-group">
+        <label for="sessionName">Session name</label>
+        <input
+          type="text"
+          id="sessionName"
+          placeholder="Optional — leave empty to use date/time as name"
+        />
+        <span class="hint">
+          If left blank, name will be e.g. <strong>Session_2025-11-24_18-30-05</strong>
+        </span>
+      </div>
+
+      <div class="field-group">
+        <label>Controls</label>
+        <div class="row">
+          <button id="startBtn" class="btn-primary">
+            ▶ Start recording + transcription
+          </button>
+          <button id="stopBtn" class="btn-danger" disabled>
+            ■ Stop
+          </button>
+          <button id="saveSessionBtn" class="btn-ghost" disabled>
+            💾 Save session
+          </button>
+        </div>
+        <div class="status-text">
+          <span id="statusDot" class="dot idle"></span>
+          <span id="statusText">Idle. Click “Start” to begin.</span>
+        </div>
+      </div>
+
+      <div class="field-group">
+        <label for="transcriptArea">Live transcript</label>
+        <textarea
+          id="transcriptArea"
+          placeholder="Transcript will appear here while you speak…"
+        ></textarea>
+        <span class="hint">
+          Each confirmed sentence is tagged with a timestamp like
+          <strong>[00:00:05] Hello everyone.</strong>
+        </span>
+      </div>
+
+      <div class="field-group">
+        <label>Current audio preview</label>
+        <audio id="currentAudio" controls></audio>
+        <span class="hint">
+          After you click <strong>Stop</strong>, the latest recording appears here. Then click
+          <strong>Save session</strong> to store audio + text in the notebook.
+        </span>
+        <span id="recordTimer" class="hint">Recording time: 00:00</span>
+      </div>
+    </section>
+
+    <!-- RIGHT: Saved Sessions / Backup -->
+    <section class="card">
+      <div class="card-header">
+        <div>
+          <div class="card-title">Session Notebook</div>
+          <div class="card-subtitle">Saved recordings & transcripts in this browser</div>
+        </div>
+        <div class="chip-row">
+          <span id="sessionCount" class="pill-counter">0 sessions</span>
+        </div>
+      </div>
+
+      <div class="field-group">
+        <label>Backup & restore</label>
+        <div class="backup-row">
+          <button id="exportBtn" class="btn-ghost">
+            ⬇ Export all (JSON)
+          </button>
+          <button id="clearAllBtn" class="btn-danger">
+            🗑 Clear all
+          </button>
+          <input id="importFile" type="file" accept="application/json" />
+        </div>
+        <span class="hint">
+          Export to keep a backup (.json). Import later (or on another browser) to restore sessions.
+        </span>
+      </div>
+
+      <div class="field-group">
+        <label>Saved sessions</label>
+        <div id="sessionsList" class="sessions-list">
+          <!-- Sessions injected here -->
+        </div>
+        <span class="hint">
+          All data is stored locally in your browser. For longer recordings,
+          it’s still best to download the audio & transcript to your drive.
+        </span>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script>
+  // ---------------------------
+  // Feature detection & globals
+  // ---------------------------
+
+  const SpeechRecognition =
+    window.SpeechRecognition || window.webkitSpeechRecognition || null;
+  const speechSupportChip = document.getElementById("speechSupportChip");
+  const audioSupportChip = document.getElementById("audioSupportChip");
+
+  if (!SpeechRecognition) {
+    speechSupportChip.textContent = "Speech API: not supported";
+    speechSupportChip.classList.add("chip");
+  } else {
+    speechSupportChip.textContent = "Speech API: OK";
+    speechSupportChip.classList.add("chip", "ok");
+  }
+
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    audioSupportChip.textContent = "Audio: not supported";
+  } else {
+    audioSupportChip.textContent = "Audio: OK";
+    audioSupportChip.classList.add("chip", "ok");
+  }
+
+  const startBtn = document.getElementById("startBtn");
+  const stopBtn = document.getElementById("stopBtn");
+  const saveSessionBtn = document.getElementById("saveSessionBtn");
+  const statusText = document.getElementById("statusText");
+  const statusDot = document.getElementById("statusDot");
+  const transcriptArea = document.getElementById("transcriptArea");
+  const sessionNameInput = document.getElementById("sessionName");
+  const currentAudio = document.getElementById("currentAudio");
+  const sessionsList = document.getElementById("sessionsList");
+  const sessionCount = document.getElementById("sessionCount");
+  const exportBtn = document.getElementById("exportBtn");
+  const clearAllBtn = document.getElementById("clearAllBtn");
+  const importFileInput = document.getElementById("importFile");
+  const recordTimerEl = document.getElementById("recordTimer");
+
+  let recognition = null;
+  let recognizing = false;
+  let finalTranscript = "";   // full text with [hh:mm:ss] timestamps
+  let interimTranscript = "";
+
+  let mediaRecorder = null;
+  let recordedChunks = [];
+  let currentAudioBlob = null;
+
+  let isRecording = false;
+  let recordTimerInterval = null;
+  let recordStartTime = null;     // ms since epoch
+  let lastDurationSeconds = 0;    // total seconds for last recording
+
+  const STORAGE_KEY = "LiveNotebook_Sessions_v1";
+
+  // IndexedDB settings
+  const DB_NAME = "LiveNotebookDB_v1";
+  const DB_VERSION = 1;
+  const AUDIO_STORE = "audioBlobs";
+
+  let dbPromise = null;
+
+  // ---------------------------
+  // IndexedDB helpers (audio only)
+  // ---------------------------
+
+  function getDB() {
+    if (!("indexedDB" in window)) {
+      console.warn("IndexedDB not supported; audio persistence may be limited.");
+      return Promise.reject(new Error("IndexedDB not supported"));
+    }
+    if (!dbPromise) {
+      dbPromise = new Promise((resolve, reject) => {
+        const req = indexedDB.open(DB_NAME, DB_VERSION);
+        req.onerror = () => reject(req.error);
+        req.onupgradeneeded = (event) => {
+          const db = event.target.result;
+          if (!db.objectStoreNames.contains(AUDIO_STORE)) {
+            db.createObjectStore(AUDIO_STORE);
+          }
+        };
+        req.onsuccess = () => resolve(req.result);
+      });
+    }
+    return dbPromise;
+  }
+
+  async function storeAudioBlob(id, blob) {
+    const db = await getDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(AUDIO_STORE, "readwrite");
+      const store = tx.objectStore(AUDIO_STORE);
+      store.put(blob, id);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  }
+
+  async function loadAudioBlob(id) {
+    const db = await getDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(AUDIO_STORE, "readonly");
+      const store = tx.objectStore(AUDIO_STORE);
+      const req = store.get(id);
+      req.onsuccess = () => resolve(req.result || null);
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  async function deleteAudioBlob(id) {
+    const db = await getDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(AUDIO_STORE, "readwrite");
+      const store = tx.objectStore(AUDIO_STORE);
+      store.delete(id);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  }
+
+  async function clearAllAudioBlobs() {
+    const db = await getDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(AUDIO_STORE, "readwrite");
+      const store = tx.objectStore(AUDIO_STORE);
+      const req = store.clear();
+      req.onsuccess = () => resolve();
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  // ---------------------------
+  // Utility functions
+  // ---------------------------
+
+  function setStatus(text, mode) {
+    statusText.textContent = text;
+    statusDot.classList.remove("live", "idle");
+    if (mode === "live") {
+      statusDot.classList.add("live");
+    } else {
+      statusDot.classList.add("idle");
+    }
+  }
+
+  function nowForName() {
+    const d = new Date();
+    const pad = (n) => String(n).padStart(2, "0");
+    return (
+      d.getFullYear() +
+      "-" +
+      pad(d.getMonth() + 1) +
+      "-" +
+      pad(d.getDate()) +
+      "_" +
+      pad(d.getHours()) +
+      "-" +
+      pad(d.getMinutes()) +
+      "-" +
+      pad(d.getSeconds())
+    );
+  }
+
+  function formatDateTime(dtStr) {
+    const d = new Date(dtStr);
+    if (isNaN(d.getTime())) return dtStr;
+    return d.toLocaleString();
+  }
+
+  function downloadBlob(blob, filename) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => {
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }, 0);
+  }
+
+  function downloadText(text, filename) {
+    const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+    downloadBlob(blob, filename);
+  }
+
+  function blobToBase64(blob) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result.split(",")[1]);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  }
+
+  function base64ToBlob(base64, mimeType) {
+    const byteChars = atob(base64);
+    const byteNumbers = new Array(byteChars.length);
+    for (let i = 0; i < byteChars.length; i++) {
+      byteNumbers[i] = byteChars.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNumbers);
+    return new Blob([byteArray], { type: mimeType });
+  }
+
+  function loadSessions() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return [];
+      const arr = JSON.parse(raw);
+      if (!Array.isArray(arr)) return [];
+      return arr;
+    } catch (e) {
+      console.error("Error loading sessions:", e);
+      return [];
+    }
+  }
+
+  function saveSessionsToStorage(sessions) {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions));
+    } catch (e) {
+      console.error("Error saving sessions:", e);
+    }
+  }
+
+  function updateSessionCount(sessions) {
+    sessionCount.textContent =
+      sessions.length === 1 ? "1 session" : sessions.length + " sessions";
+  }
+
+  // Recording timer
+  function resetRecordTimer() {
+    if (recordTimerInterval) {
+      clearInterval(recordTimerInterval);
+      recordTimerInterval = null;
+    }
+    if (recordTimerEl) {
+      recordTimerEl.textContent = "Recording time: 00:00";
+    }
+  }
+
+  function startRecordTimer() {
+    resetRecordTimer();
+    recordStartTime = Date.now();
+    recordTimerInterval = setInterval(() => {
+      if (!recordStartTime || !recordTimerEl) return;
+      const diff = Date.now() - recordStartTime;
+      const totalSeconds = Math.floor(diff / 1000);
+      const hours = Math.floor(totalSeconds / 3600);
+      const minutes = Math.floor((totalSeconds % 3600) / 60);
+      const seconds = totalSeconds % 60;
+      const hh = hours > 0 ? String(hours).padStart(2, "0") + ":" : "";
+      const mm = String(minutes).padStart(2, "0");
+      const ss = String(seconds).padStart(2, "0");
+      recordTimerEl.textContent = "Recording time: " + hh + mm + ":" + ss;
+    }, 500);
+  }
+
+  function stopRecordTimer() {
+    if (recordTimerInterval) {
+      clearInterval(recordTimerInterval);
+      recordTimerInterval = null;
+    }
+  }
+
+  // Timestamp helper: [hh:mm:ss]
+  function formatTimeTag(totalSeconds) {
+    const pad = (n) => String(n).padStart(2, "0");
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    return `[${pad(hours)}:${pad(minutes)}:${pad(seconds)}]`;
+  }
+
+  // Duration formatter for notebook
+  function formatDuration(sec) {
+    if (!sec && sec !== 0) return "";
+    const pad = (n) => String(n).padStart(2, "0");
+    const hours = Math.floor(sec / 3600);
+    const minutes = Math.floor((sec % 3600) / 60);
+    const seconds = sec % 60;
+    if (hours > 0) {
+      return `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
+    }
+    return `${pad(minutes)}:${pad(seconds)}`;
+  }
+
+  // ---------------------------
+  // Render session list
+  // ---------------------------
+
+  async function renderSessions() {
+    const sessions = loadSessions();
+    updateSessionCount(sessions);
+
+    sessionsList.innerHTML = "";
+    if (!sessions.length) {
+      sessionsList.innerHTML =
+        '<div class="hint">No saved sessions yet. Record, stop, then click <strong>Save session</strong>.</div>';
+      return;
+    }
+
+    sessions
+      .slice()
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+      .forEach((session) => {
+        const card = document.createElement("div");
+        card.className = "session-card";
+
+        const headerRow = document.createElement("div");
+        headerRow.className = "session-header-row";
+
+        const nameInput = document.createElement("input");
+        nameInput.type = "text";
+        nameInput.className = "session-name-input";
+        nameInput.value = session.name || "";
+        nameInput.title = "Rename session";
+
+        nameInput.addEventListener("change", () => {
+          const sessionsAll = loadSessions();
+          const idx = sessionsAll.findIndex((s) => s.id === session.id);
+          if (idx !== -1) {
+            sessionsAll[idx].name =
+              nameInput.value.trim() || sessionsAll[idx].name;
+            saveSessionsToStorage(sessionsAll);
+            renderSessions();
+          }
+        });
+
+        const metaDiv = document.createElement("div");
+        metaDiv.className = "session-meta";
+
+        const durationLabel =
+          typeof session.durationSec === "number"
+            ? " • " + formatDuration(session.durationSec)
+            : "";
+
+        metaDiv.innerHTML =
+          '<span class="badge-pill">Saved</span> ' +
+          formatDateTime(session.createdAt) +
+          durationLabel;
+
+        headerRow.appendChild(nameInput);
+        headerRow.appendChild(metaDiv);
+
+        const buttonsRow = document.createElement("div");
+        buttonsRow.className = "session-buttons";
+
+        const playBtn = document.createElement("button");
+        playBtn.className = "btn-primary";
+        playBtn.textContent = "▶ Play";
+        playBtn.addEventListener("click", async () => {
+          try {
+            const blob = await loadAudioBlob(session.id);
+            if (!blob) {
+              alert("Audio for this session is missing.");
+              return;
+            }
+            const url = URL.createObjectURL(blob);
+            currentAudio.pause();
+            currentAudio.src = url;
+            currentAudio.load();
+            currentAudio.play().catch((e) =>
+              console.error("Play error:", e)
+            );
+            currentAudio.onended = () => {
+              URL.revokeObjectURL(url);
+            };
+          } catch (e) {
+            console.error("Load audio error:", e);
+            alert("Could not play this session's audio.");
+          }
+        });
+
+        const dlAudioBtn = document.createElement("button");
+        dlAudioBtn.className = "btn-ghost";
+        dlAudioBtn.textContent = "⬇ Audio";
+        dlAudioBtn.addEventListener("click", async () => {
+          try {
+            const blob = await loadAudioBlob(session.id);
+            if (!blob) {
+              alert("Audio for this session is missing.");
+              return;
+            }
+            const baseName = session.name || "Session_" + nowForName();
+            downloadBlob(blob, baseName + ".webm");
+          } catch (e) {
+            console.error("Download audio error:", e);
+            alert("Could not download this session's audio.");
+          }
+        });
+
+        const dlTxtBtn = document.createElement("button");
+        dlTxtBtn.className = "btn-ghost";
+        dlTxtBtn.textContent = "⬇ Transcript";
+        dlTxtBtn.addEventListener("click", () => {
+          const baseName = session.name || "Session_" + nowForName();
+          downloadText(session.transcript || "", baseName + ".txt");
+        });
+
+        const delBtn = document.createElement("button");
+        delBtn.className = "btn-danger";
+        delBtn.textContent = "✕ Delete";
+        delBtn.addEventListener("click", async () => {
+          const sessionsAll = loadSessions();
+          const filtered = sessionsAll.filter((s) => s.id !== session.id);
+          saveSessionsToStorage(filtered);
+          try {
+            await deleteAudioBlob(session.id);
+          } catch (e) {
+            console.error("Delete audio blob error:", e);
+          }
+          renderSessions();
+        });
+
+        buttonsRow.appendChild(playBtn);
+        buttonsRow.appendChild(dlAudioBtn);
+        buttonsRow.appendChild(dlTxtBtn);
+        buttonsRow.appendChild(delBtn);
+
+        const transcriptPreview = document.createElement("div");
+        transcriptPreview.className = "hint";
+        transcriptPreview.style.marginTop = "4px";
+        const previewText =
+          (session.transcript || "").slice(0, 100).replace(/\s+/g, " ");
+        transcriptPreview.innerHTML =
+          "<strong>Preview:</strong> " +
+          (previewText
+            ? previewText +
+              (session.transcript && session.transcript.length > 100 ? "…" : "")
+            : "<em>(empty)</em>");
+
+        card.appendChild(headerRow);
+        card.appendChild(buttonsRow);
+        card.appendChild(transcriptPreview);
+        sessionsList.appendChild(card);
+      });
+  }
+
+  renderSessions();
+
+  // ---------------------------
+  // Speech recognition setup
+  // ---------------------------
+
+  function initRecognition() {
+    if (!SpeechRecognition) return;
+    recognition = new SpeechRecognition();
+    recognition.lang = "en-US"; // adjust if needed
+    recognition.interimResults = true;
+    recognition.continuous = true;
+
+    recognition.onstart = () => {
+      recognizing = true;
+      setStatus("Listening + recording…", "live");
+    };
+
+    recognition.onerror = (event) => {
+      console.error("Speech recognition error:", event.error);
+      // Don't kill recording; just log. Status stays live while audio is recording.
+    };
+
+    recognition.onend = () => {
+      recognizing = false;
+      // Auto-restart while recording to reduce "hung" transcription
+      if (isRecording && SpeechRecognition) {
+        try {
+          recognition.start();
+        } catch (e) {
+          console.error("Failed to restart recognition:", e);
+          if (!isRecording) {
+            setStatus("Speech stopped. Click Start to resume.", "idle");
+          }
+        }
+      } else if (!isRecording) {
+        setStatus("Speech stopped. Click Start to resume.", "idle");
+      }
+    };
+
+    recognition.onresult = (event) => {
+      interimTranscript = "";
+
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const res = event.results[i];
+        let textChunk = res[0].transcript.trim();
+        if (!textChunk) continue;
+
+        // ---- NG-1: soft gate on tiny noise fragments ----
+        const confidence =
+          typeof res[0].confidence === "number" ? res[0].confidence : 1.0;
+        const wordCount = textChunk.split(/\s+/).filter(Boolean).length;
+
+        // Ignore ultra-short "noise" like 1-letter grunts with low confidence
+        if (wordCount === 1 && textChunk.length <= 3 && confidence < 0.5) {
+          continue;
+        }
+
+        if (res.isFinal) {
+          // Ensure we have a recording start reference
+          if (!recordStartTime) {
+            recordStartTime = Date.now();
+          }
+          const elapsedSeconds = Math.floor(
+            (Date.now() - recordStartTime) / 1000
+          );
+          const tag = formatTimeTag(elapsedSeconds);
+
+          // Force one sentence per final result line
+          const line = `${tag} ${textChunk}`;
+
+          finalTranscript += (finalTranscript ? "\n" : "") + line;
+        } else {
+          interimTranscript += textChunk + " ";
+        }
+      }
+
+      // Live view: timestamped final lines + blank line + raw interim
+      if (finalTranscript) {
+        transcriptArea.value =
+          finalTranscript +
+          (interimTranscript ? "\n\n" + interimTranscript.trim() : "");
+      } else {
+        transcriptArea.value = interimTranscript.trim();
+      }
+
+      transcriptArea.scrollTop = transcriptArea.scrollHeight;
+    };
+  }
+
+  initRecognition();
+
+  // ---------------------------
+  // Audio recording setup
+  // ---------------------------
+
+  async function startRecording() {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      alert("Audio recording not supported in this browser.");
+      return;
+    }
+
+    const constraints = { audio: true };
+    const stream = await navigator.mediaDevices.getUserMedia(constraints);
+    recordedChunks = [];
+
+    let options = {};
+    if (
+      window.MediaRecorder &&
+      MediaRecorder.isTypeSupported &&
+      MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
+    ) {
+      options.mimeType = "audio/webm;codecs=opus";
+    }
+
+    mediaRecorder = new MediaRecorder(stream, options);
+
+    mediaRecorder.ondataavailable = (e) => {
+      if (e.data && e.data.size > 0) {
+        recordedChunks.push(e.data);
+      }
+    };
+
+    mediaRecorder.onstop = () => {
+      const blob = new Blob(recordedChunks, {
+        type: mediaRecorder.mimeType || "audio/webm",
+      });
+      currentAudioBlob = blob;
+      const url = URL.createObjectURL(blob);
+      currentAudio.src = url;
+      currentAudio.load();
+      saveSessionBtn.disabled = false;
+    };
+
+    // Continuous recording -> produces fully seekable file
+    mediaRecorder.start();
+  }
+
+  function stopRecording() {
+    if (mediaRecorder && mediaRecorder.state !== "inactive") {
+      mediaRecorder.stop();
+      if (mediaRecorder.stream) {
+        mediaRecorder.stream.getTracks().forEach((t) => t.stop());
+      }
+    }
+  }
+
+  // ---------------------------
+  // Button handlers
+  // ---------------------------
+
+  startBtn.addEventListener("click", async () => {
+    document.body.classList.add("recording-mode");   // ENABLE FULLSCREEN MODE
+
+    // reset current
+    finalTranscript = "";
+    interimTranscript = "";
+    transcriptArea.value = "";
+    currentAudio.src = "";
+    currentAudioBlob = null;
+    saveSessionBtn.disabled = true;
+    lastDurationSeconds = 0;
+    resetRecordTimer();
+
+    try {
+      await startRecording();
+      isRecording = true;
+
+      if (recognition && SpeechRecognition) {
+        try {
+          recognition.start();
+        } catch (e) {
+          console.error("Recognition start error:", e);
+        }
+        setStatus("Listening + recording…", "live");
+      } else {
+        setStatus("Recording (speech-to-text not available).", "live");
+      }
+
+      startBtn.disabled = true;
+      stopBtn.disabled = false;
+      startRecordTimer();
+    } catch (e) {
+      console.error(e);
+      isRecording = false;
+      stopRecordTimer();
+      setStatus("Could not start recording: " + e.message, "idle");
+      document.body.classList.remove("recording-mode");
+    }
+  });
+
+  stopBtn.addEventListener("click", () => {
+    document.body.classList.remove("recording-mode");   // EXIT FULLSCREEN MODE
+    isRecording = false;
+
+    // Capture duration before clearing timer
+    if (recordStartTime) {
+      const stopTime = Date.now();
+      lastDurationSeconds = Math.max(
+        0,
+        Math.floor((stopTime - recordStartTime) / 1000)
+      );
+    }
+
+    stopRecordTimer();
+    stopRecording();
+    if (recognition && recognizing) {
+      try {
+        recognition.stop();
+      } catch (e) {
+        console.error("Recognition stop error:", e);
+      }
+    }
+    startBtn.disabled = false;
+    stopBtn.disabled = true;
+    setStatus("Stopped. You can review, then Save session.", "idle");
+  });
+
+  saveSessionBtn.addEventListener("click", async () => {
+    if (!currentAudioBlob) {
+      alert("No audio recorded. Please record first.");
+      return;
+    }
+
+    // Prefer timestamped final transcript if available; fallback to text area
+    const text = finalTranscript || transcriptArea.value || "";
+    const nameRaw = sessionNameInput.value.trim();
+    const name = nameRaw || "Session_" + nowForName(); // if no input, use timestamp
+    const createdAt = new Date().toISOString();
+    const mimeType = currentAudioBlob.type || "audio/webm";
+    const id = createdAt + "_" + Math.random().toString(36).slice(2);
+
+    setStatus("Saving session locally…", "idle");
+    saveSessionBtn.disabled = true;
+
+    try {
+      // 1) store audio blob in IndexedDB
+      await storeAudioBlob(id, currentAudioBlob);
+
+      // 2) store metadata + transcript in localStorage (small)
+      const sessions = loadSessions();
+      sessions.push({
+        id,
+        name,
+        createdAt,
+        transcript: text,
+        mimeType,
+        durationSec: lastDurationSeconds,
+      });
+      saveSessionsToStorage(sessions);
+
+      await renderSessions();
+      setStatus("Session saved locally.", "idle");
+    } catch (e) {
+      console.error("Failed to save session:", e);
+      setStatus("Error saving session: " + e.message, "idle");
+    } finally {
+      saveSessionBtn.disabled = false;
+    }
+  });
+
+  // Backup: export all (metadata + audio blobs as base64)
+  exportBtn.addEventListener("click", async () => {
+    try {
+      const sessions = loadSessions();
+      const exportArr = [];
+      for (const s of sessions) {
+        const blob = await loadAudioBlob(s.id);
+        let audioBase64 = null;
+        if (blob) {
+          audioBase64 = await blobToBase64(blob);
+        }
+        exportArr.push({
+          ...s,
+          audioBase64,
+        });
+      }
+      const blob = new Blob([JSON.stringify(exportArr, null, 2)], {
+        type: "application/json;charset=utf-8",
+      });
+      const filename = "LiveNotebook_Backup_" + nowForName() + ".json";
+      downloadBlob(blob, filename);
+    } catch (e) {
+      console.error("Export error:", e);
+      alert("Export failed: " + e.message);
+    }
+  });
+
+  // Clear all
+  clearAllBtn.addEventListener("click", async () => {
+    if (!confirm("Delete ALL saved sessions from this browser?")) return;
+    localStorage.removeItem(STORAGE_KEY);
+    try {
+      await clearAllAudioBlobs();
+    } catch (e) {
+      console.error("Clear audio blobs error:", e);
+    }
+    renderSessions();
+  });
+
+  // Import (includes audio)
+  importFileInput.addEventListener("change", (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async () => {
+      try {
+        const imported = JSON.parse(reader.result);
+        if (!Array.isArray(imported)) {
+          alert("Invalid file format (expected array).");
+          return;
+        }
+
+        const existing = loadSessions();
+        const merged = [...existing];
+
+        for (const item of imported) {
+          if (!item.id) {
+            item.id =
+              (item.createdAt || new Date().toISOString()) +
+              "_" +
+              Math.random().toString(36).slice(2);
+          }
+
+          // avoid duplicate IDs
+          if (merged.some((s) => s.id === item.id)) continue;
+
+          const { audioBase64, ...meta } = item;
+          // store meta
+          merged.push({
+            id: meta.id,
+            name: meta.name,
+            createdAt: meta.createdAt || new Date().toISOString(),
+            transcript: meta.transcript || "",
+            mimeType: meta.mimeType || "audio/webm",
+            durationSec:
+              typeof meta.durationSec === "number" ? meta.durationSec : undefined,
+          });
+
+          // store audio
+          if (audioBase64) {
+            const blob = base64ToBlob(
+              audioBase64,
+              meta.mimeType || "audio/webm"
+            );
+            try {
+              await storeAudioBlob(meta.id, blob);
+            } catch (err) {
+              console.error("Store imported audio error:", err);
+            }
+          }
+        }
+
+        saveSessionsToStorage(merged);
+        await renderSessions();
+        alert("Import complete. Sessions merged.");
+      } catch (err) {
+        console.error("Import error:", err);
+        alert("Failed to import file: " + err.message);
+      }
+    };
+    reader.readAsText(file);
+    // reset input so same file can be selected again if needed
+    e.target.value = "";
+  });
+</script>
+</body>
+</html>
