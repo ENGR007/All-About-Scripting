@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Multi-Language Speech Translator (Filipino, Chinese, Japanese, Thai, Korean)</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<style>
+/* SAME DESIGN */
+:root {
+  --bg:#020617; --card:#020617; --border:#1f2937;
+  --accent:#0ea5e9; --accent-soft:rgba(56,189,248,0.15);
+  --text:#e5e7eb; --muted:#9ca3af; --danger:#fecaca;
+}
+*{box-sizing:border-box;}
+body{margin:0;padding:14px;background:radial-gradient(circle at top,#1f2937,#020617 50%);font-family:system-ui;color:var(--text);}
+.app{max-width:900px;margin:auto;background:var(--card);padding:16px;
+     border-radius:16px;border:1px solid var(--border);box-shadow:0 20px 45px rgba(0,0,0,.6);}
+h1{font-size:1.2rem;margin:0 0 6px;display:flex;gap:8px;}
+.subtitle{font-size:.8rem;color:var(--muted);margin-bottom:10px;}
+textarea{width:100%;min-height:140px;padding:8px;background:#020617;color:var(--text);
+         border:1px solid var(--border);border-radius:10px;font-size:.9rem;}
+textarea:focus{outline:none;border-color:var(--accent);}
+select{width:100%;padding:10px;margin-top:8px;background:#020617;color:var(--text);
+       border-radius:8px;border:1px solid var(--border);}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:10px;}
+@media(max-width:720px){.row{grid-template-columns:1fr;}}
+button{border:none;padding:10px;border-radius:999px;cursor:pointer;font-size:.9rem;}
+.btn-rec{background:#ef4444;color:white;margin-top:12px;}
+.btn-stop{background:#475569;color:white;margin-top:6px;}
+.btn-copy{background:#38bdf8;color:#0b1120;}
+.btn-clear{background:#1e293b;color:white;}
+.status{margin-top:10px;font-size:.75rem;color:var(--muted);}
+.error{color:var(--danger);font-size:.78rem;min-height:16px;}
+</style>
+</head>
+
+<body>
+<div class="app">
+  <h1>🌐 Multi-Language Speech Translator</h1>
+  <div class="subtitle">Filipino, English, Chinese(Pinyin), Japanese(Romaji), Korean(Romanization), Thai(RTGS)</div>
+
+  <button id="startSpeech" class="btn-rec">🎤 Start Speech</button>
+  <button id="stopSpeech" class="btn-stop">⏹ Stop</button>
+
+  <!-- NEW LANGUAGE LIST -->
+  <select id="sourceLang">
+    <option value="tl">Filipino</option>
+    <option value="en">English</option>
+    <option value="zh-CN">Chinese 🇨🇳 → Pinyin</option>
+    <option value="ja">Japanese 🇯🇵 → Romaji</option>
+    <option value="ko">Korean 🇰🇷 → Romanization</option>
+    <option value="th">Thai 🇹🇭 → Romanization (RTGS)</option>
+  </select>
+
+  <select id="targetLang">
+    <option value="en">English</option>
+    <option value="tl">Filipino</option>
+    <option value="zh-CN">Chinese 🇨🇳 → Pinyin</option>
+    <option value="ja">Japanese 🇯🇵 → Romaji</option>
+    <option value="ko">Korean 🇰🇷 → Romanization</option>
+    <option value="th">Thai 🇹🇭 → Romanization (RTGS)</option>
+  </select>
+
+  <div class="row">
+    <textarea id="sourceText" placeholder="Speak or type here…"></textarea>
+    <textarea id="targetText" readonly placeholder="Translation appears here…"></textarea>
+  </div>
+
+  <div class="row">
+    <button id="btnCopy" class="btn-copy">📋 Copy</button>
+    <button id="btnClear" class="btn-clear">🧹 Clear</button>
+  </div>
+
+  <div id="statusText" class="status">Status: Idle</div>
+  <div id="errorBox" class="error"></div>
+</div>
+
+<script>
+/* ==========================
+   1. SPEECH RECOGNITION
+========================== */
+let SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+let recognition;
+
+if (SpeechRecognition) {
+  recognition = new SpeechRecognition();
+  recognition.continuous = true;
+  recognition.interimResults = true;
+
+  recognition.lang = "en-US"; // required for iPhone
+}
+
+document.getElementById("startSpeech").onclick = () => {
+  try { recognition.start(); } catch(e){}
+  statusText.innerText = "Status: Listening…";
+};
+document.getElementById("stopSpeech").onclick = () => {
+  recognition.stop();
+  statusText.innerText = "Status: Stopped.";
+};
+
+recognition.onresult = (event) => {
+  let t = "";
+  for (let i = event.resultIndex; i < event.results.length; i++)
+    t += event.results[i][0].transcript;
+
+  sourceText.value = t.trim();
+  doTranslate();
+};
+
+/* ==========================
+   2. TYPING → AUTO TRANSLATE
+========================== */
+sourceText.addEventListener("input", () => {
+  clearTimeout(window.debounce);
+  window.debounce = setTimeout(doTranslate, 350);
+});
+
+/* ==========================
+   3. LANGUAGE TRANSLITERATIONS
+========================== */
+
+function toPinyin(text) {
+  return text.normalize("NFD").replace(/[\u0300-\u036f]/g,"");
+}
+
+function toRomaji(text) {
+  return text
+    .replace(/shi/g,"shi")
+    .replace(/tsu/g,"tsu");
+}
+
+/* Simple Korean Romanization */
+function koreanRomanize(text) {
+  return text
+    .replace(/eo/g,"ŏ")
+    .replace(/eu/g,"ŭ")
+    .replace(/ui/g,"ŭi")
+    .replace(/ng/g,"ng")
+    .replace(/gy/g,"gyu");
+}
+
+/* Simple Thai RTGS */
+function thaiRomanize(text) {
+  return text
+    .replace(/ph/g,"ph")
+    .replace(/th/g,"th")
+    .replace(/kh/g,"kh")
+    .replace(/ng/g,"ng")
+    .replace(/ch/g,"ch")
+    .replace(/s/g,"s");
+}
+
+/* ==========================
+   4. GOOGLE TRANSLATE ENGINE
+========================== */
+async function translateText(text, sl, tl) {
+
+  /* ALWAYS translate to ENGLISH FIRST */
+  const url =
+    "https://translate.googleapis.com/translate_a/single?client=gtx" +
+    `&sl=${sl}&tl=en&dt=t&q=` + encodeURIComponent(text);
+
+  const res = await fetch(url);
+  if (!res.ok) return "";
+  const data = await res.json();
+
+  const english = data[0].map(a => a[0]).join("");
+
+  /* THEN APPLY ROMANIZATION */
+  if (tl === "zh-CN") return toPinyin(english);
+  if (tl === "ja") return toRomaji(english);
+  if (tl === "ko") return koreanRomanize(english);
+  if (tl === "th") return thaiRomanize(english);
+
+  return english;
+}
+
+/* ==========================
+   5. PROCESS TRANSLATION
+========================== */
+async function doTranslate() {
+  const text = sourceText.value.trim();
+  if (!text) return;
+
+  statusText.innerText = "Translating…";
+
+  const sl = sourceLang.value;
+  const tl = targetLang.value;
+
+  try {
+    const translated = await translateText(text, sl, tl);
+    targetText.value = translated;
+    statusText.innerText = "Done.";
+  } catch (e) {
+    targetText.value = "";
+    errorBox.innerText = e.message;
+  }
+}
+
+/* ==========================
+   6. COPY & CLEAR
+========================== */
+btnCopy.onclick = async () => {
+  if (!targetText.value) return;
+  await navigator.clipboard.writeText(targetText.value);
+  statusText.innerText = "Copied.";
+};
+
+btnClear.onclick = () => {
+  sourceText.value = "";
+  targetText.value = "";
+  errorBox.innerText = "";
+  statusText.innerText = "Idle";
+};
+</script>
+
+</body>
+</html>
