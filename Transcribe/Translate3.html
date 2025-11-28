@@ -1,244 +1,403 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>Enhanced Real-Time Speech Translator (with Environment Options)</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-<style>
-body { background:#eef2f7; font-family:Arial; padding:18px; }
-.container {
-  max-width:900px; margin:auto; background:white; padding:20px;
-  border-radius:12px; box-shadow:0 3px 12px rgba(0,0,0,0.1);
-}
-button {
-  width:100%; padding:12px; margin-top:10px; font-size:18px;
-  border:none; border-radius:8px; color:white; background:#007bff;
-}
-button:active { opacity:0.6; }
-textarea, select {
-  width:100%; padding:10px; margin-top:10px; font-size:16px;
-}
-textarea { height:140px; resize:vertical; }
-.subtitles {
-  background:black; color:#0f0; padding:10px; height:90px;
-  border-radius:8px; margin-top:10px; overflow-y:auto;
-}
-</style>
-</head>
-
-<body>
-
-<div class="container">
-  <h2>🎤 Enhanced Speech Translator (Far Distance + Environment Selector)</h2>
-
-  <h3>Speech Input Language</h3>
-  <select id="inputLang">
-    <option value="tl-PH">Filipino 🇵🇭</option>
-    <option value="en-US">English 🇺🇸</option>
-    <option value="zh-CN">Chinese 🇨🇳</option>
-    <option value="ja-JP">Japanese 🇯🇵</option>
-    <option value="ko-KR">Korean 🇰🇷</option>
-  </select>
-
-  <h3>Translate To</h3>
-  <select id="targetLang">
-    <option value="en">English 🇺🇸</option>
-    <option value="tl">Filipino 🇵🇭</option>
-    <option value="zh-CN">Chinese 🇨🇳</option>
-    <option value="ja">Japanese 🇯🇵</option>
-    <option value="ko">Korean 🇰🇷</option>
-  </select>
-
-  <h3>Translation Environment</h3>
-  <select id="translateEngine">
-    <option value="google">Google (Fastest & Most Accurate)</option>
-    <option value="mymemory">MyMemory (Free Backup)</option>
-    <option value="deepl">DeepL (Requires API Key)</option>
-    <option value="local">Local Whisper Server (Offline)</option>
-  </select>
-
-  <button id="startBtn">Start Speaking 🎤</button>
-  <button id="stopBtn" style="background:#dc3545;">Stop</button>
-
-  <h3>Your Speech</h3>
-  <textarea id="spokenText" readonly></textarea>
-
-  <h3>Translation</h3>
-  <textarea id="translatedText" readonly></textarea>
-
-  <h3>Live Subtitles</h3>
-  <div class="subtitles" id="subtitles"></div>
-
-  <p id="status" style="opacity:.7;">Status: Idle</p>
-</div>
-
-<script>
-
-// ----------- Speech Recognition -------------
-let recognition;
-let audioStream;
-let audioContext;
-let sourceNode;
-
-if ("webkitSpeechRecognition" in window)
-    recognition = new webkitSpeechRecognition();
-else if ("SpeechRecognition" in window)
-    recognition = new SpeechRecognition();
-else
-    alert("Browser does not support speech recognition.");
-
-recognition.continuous = true;
-recognition.interimResults = true;
-
-// ------------- Enhanced Mic Setup (Noise Reduction + Gain Boost) -------------
-async function getCleanAudio() {
-  audioStream = await navigator.mediaDevices.getUserMedia({
-    audio: {
-      noiseSuppression: true,
-      autoGainControl: true,
-      echoCancellation: true,
-      sampleRate: 48000,
-      channelCount: 1
+  <meta charset="UTF-8" />
+  <title>Filipino ↔ English Translator (HTML Only)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    :root {
+      --bg: #020617;
+      --card: #020617;
+      --border: #1f2937;
+      --accent: #0ea5e9;
+      --accent-soft: rgba(56, 189, 248, 0.15);
+      --text: #e5e7eb;
+      --muted: #9ca3af;
+      --danger: #fecaca;
     }
-  });
 
-  audioContext = new AudioContext();
-  sourceNode = audioContext.createMediaStreamSource(audioStream);
+    * { box-sizing: border-box; }
 
-  let gainNode = audioContext.createGain();
-  gainNode.gain.value = 2.8; // Far distance boost
+    body {
+      margin: 0;
+      padding: 14px;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: radial-gradient(circle at top, #1f2937 0, #020617 50%, #020617 100%);
+      color: var(--text);
+    }
 
-  sourceNode.connect(gainNode).connect(audioContext.destination);
-}
+    .app {
+      max-width: 900px;
+      margin: 0 auto;
+      background: var(--card);
+      border-radius: 16px;
+      padding: 16px;
+      border: 1px solid var(--border);
+      box-shadow: 0 20px 45px rgba(0,0,0,0.65);
+    }
 
-// ------------- GOOGLE Translation -------------
-async function googleTranslate(text, target) {
-  const url =
-    "https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=" +
-    target + "&dt=t&q=" + encodeURIComponent(text);
+    h1 {
+      font-size: 1.2rem;
+      margin: 0 0 6px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
 
-  let res = await fetch(url);
-  let data = await res.json();
-  return data[0].map(x => x[0]).join("");
-}
+    h1 span.icon { font-size: 1.3rem; }
 
-// ------------- MYMEMORY Translation -------------
-async function myMemoryTranslate(text, target) {
-  const url =
-    "https://api.mymemory.translated.net/get?q=" +
-    encodeURIComponent(text) + "&langpair=auto|" + target;
+    .subtitle {
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-bottom: 10px;
+    }
 
-  let res = await fetch(url);
-  let data = await res.json();
-  return data.responseData.translatedText;
-}
+    .row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-top: 10px;
+    }
 
-// ------------- DeepL Translation (User Must Enter API KEY) -------------
-async function deepLTranslate(text, target) {
-  const apiKey = ""; // ← Add your key here
-  if (!apiKey)
-    return "⚠ DeepL key missing";
+    @media (max-width: 720px) {
+      .row { grid-template-columns: 1fr; }
+    }
 
-  const url = "https://api-free.deepl.com/v2/translate";
+    .field-label {
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-bottom: 4px;
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+    }
 
-  let res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: `auth_key=${apiKey}&text=${encodeURIComponent(text)}&target_lang=${target.toUpperCase()}`
-  });
+    select {
+      width: 100%;
+      padding: 6px 8px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: #020617;
+      color: var(--text);
+      font-size: 0.82rem;
+      outline: none;
+    }
 
-  let data = await res.json();
-  return data.translations[0].text;
-}
+    select:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px var(--accent-soft);
+    }
 
-// ------------- Local Whisper Server (Offline) -------------
-async function localWhisperTranslate(text, target) {
-  try {
-    let res = await fetch("http://localhost:5000/translate", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text, target })
+    textarea {
+      width: 100%;
+      min-height: 140px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: #020617;
+      color: var(--text);
+      padding: 8px;
+      font-size: 0.9rem;
+      resize: vertical;
+      line-height: 1.4;
+    }
+
+    textarea:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px var(--accent-soft);
+    }
+
+    .swap-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      margin-top: 6px;
+      flex-wrap: wrap;
+    }
+
+    .swap-btn {
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: #020617;
+      color: var(--text);
+      font-size: 0.8rem;
+      padding: 4px 10px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+    }
+
+    .swap-btn:active { transform: scale(0.97); }
+
+    .pill {
+      font-size: 0.7rem;
+      border-radius: 999px;
+      padding: 3px 8px;
+      background: var(--accent-soft);
+      border: 1px solid rgba(56, 189, 248, 0.5);
+      color: #bae6fd;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .status {
+      margin-top: 10px;
+      font-size: 0.75rem;
+      color: var(--muted);
+      display: flex;
+      justify-content: space-between;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .status span.right { text-align: right; }
+
+    .error {
+      margin-top: 4px;
+      min-height: 16px;
+      font-size: 0.78rem;
+      color: var(--danger);
+    }
+
+    .btn-row {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+      flex-wrap: wrap;
+    }
+
+    button {
+      border: none;
+      border-radius: 999px;
+      padding: 7px 12px;
+      font-size: 0.82rem;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    button:active { transform: scale(0.97); }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #0ea5e9, #38bdf8);
+      color: #0b1120;
+    }
+
+    .btn-secondary {
+      background: #020617;
+      border: 1px solid var(--border);
+      color: var(--text);
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <h1>
+      <span class="icon">🌐</span>
+      Filipino ↔ English Translator
+    </h1>
+    <div class="subtitle">
+      Type or paste text in Filipino or English. The translation appears automatically.
+      Runs entirely in your browser using free online translation services.
+    </div>
+
+    <div class="swap-row">
+      <div class="pill">
+        Mode: <span id="modeLabel">Filipino → English</span>
+      </div>
+      <button type="button" class="swap-btn" id="btnSwap">
+        ⇄ Swap directions
+      </button>
+    </div>
+
+    <div class="row">
+      <div>
+        <div class="field-label">
+          <span id="sourceLabel">Source (Filipino)</span>
+        </div>
+        <textarea id="sourceText" placeholder="Mag-type ng Filipino dito…"></textarea>
+      </div>
+      <div>
+        <div class="field-label">
+          <span id="targetLabel">Translation (English)</span>
+        </div>
+        <textarea id="targetText" placeholder="English translation will appear here…" readonly></textarea>
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <button type="button" class="btn-primary" id="btnCopy">
+        📋 Copy translation
+      </button>
+      <button type="button" class="btn-secondary" id="btnClear">
+        🧹 Clear
+      </button>
+    </div>
+
+    <div class="status">
+      <span id="statusText">Status: Idle</span>
+      <span class="right">Engine: Google (fallback to MyMemory if needed)</span>
+    </div>
+    <div class="error" id="errorBox"></div>
+  </div>
+
+  <script>
+    const sourceText  = document.getElementById("sourceText");
+    const targetText  = document.getElementById("targetText");
+    const statusText  = document.getElementById("statusText");
+    const errorBox    = document.getElementById("errorBox");
+    const btnSwap     = document.getElementById("btnSwap");
+    const btnClear    = document.getElementById("btnClear");
+    const btnCopy     = document.getElementById("btnCopy");
+    const modeLabel   = document.getElementById("modeLabel");
+    const sourceLabel = document.getElementById("sourceLabel");
+    const targetLabel = document.getElementById("targetLabel");
+
+    // true = Filipino → English, false = English → Filipino
+    let modeFilToEng = true;
+    let debounceTimer = null;
+
+    function updateLabels() {
+      if (modeFilToEng) {
+        modeLabel.textContent   = "Filipino → English";
+        sourceLabel.textContent = "Source (Filipino)";
+        targetLabel.textContent = "Translation (English)";
+        sourceText.placeholder  = "Mag-type ng Filipino dito…";
+        targetText.placeholder  = "English translation will appear here…";
+      } else {
+        modeLabel.textContent   = "English → Filipino";
+        sourceLabel.textContent = "Source (English)";
+        targetLabel.textContent = "Translation (Filipino)";
+        sourceText.placeholder  = "Type English here…";
+        targetText.placeholder  = "Lalabas dito ang salin sa Filipino…";
+      }
+    }
+
+    updateLabels();
+
+    btnSwap.addEventListener("click", () => {
+      modeFilToEng = !modeFilToEng;
+      const currentSource = sourceText.value;
+      const currentTarget = targetText.value;
+
+      // Swap contents
+      sourceText.value = currentTarget;
+      targetText.value = currentSource;
+
+      updateLabels();
+      triggerTranslate();
     });
 
-    let data = await res.json();
-    return data.translation;
-  } catch {
-    return "⚠ Local Whisper not running.";
-  }
-}
+    btnClear.addEventListener("click", () => {
+      sourceText.value = "";
+      targetText.value = "";
+      errorBox.textContent = "";
+      statusText.textContent = "Status: Idle";
+    });
 
-// ------------- SELECT TRANSLATION ENGINE -------------
-async function translateText(text, target) {
+    btnCopy.addEventListener("click", async () => {
+      const text = targetText.value.trim();
+      if (!text) {
+        errorBox.textContent = "Nothing to copy.";
+        return;
+      }
+      try {
+        await navigator.clipboard.writeText(text);
+        errorBox.textContent = "";
+        statusText.textContent = "Status: Translation copied to clipboard.";
+      } catch (e) {
+        errorBox.textContent = "Clipboard not available. Please select and copy manually.";
+      }
+    });
 
-  const engine = document.getElementById("translateEngine").value;
+    sourceText.addEventListener("input", () => {
+      triggerTranslate();
+    });
 
-  if (engine === "google")
-    return await googleTranslate(text, target);
+    function triggerTranslate() {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(doTranslate, 400); // debounce for smoother typing
+    }
 
-  if (engine === "mymemory")
-    return await myMemoryTranslate(text, target);
+    async function doTranslate() {
+      const text = sourceText.value.trim();
+      targetText.value = "";
 
-  if (engine === "deepl")
-    return await deepLTranslate(text, target);
+      if (!text) {
+        statusText.textContent = "Status: Idle";
+        errorBox.textContent = "";
+        return;
+      }
 
-  if (engine === "local")
-    return await localWhisperTranslate(text, target);
+      const sl = modeFilToEng ? "tl" : "en";
+      const tl = modeFilToEng ? "en" : "tl";
 
-  return "⚠ Invalid engine.";
-}
+      statusText.textContent = "Status: Translating…";
+      errorBox.textContent = "";
 
-// ------------- START -------------
-document.getElementById("startBtn").onclick = async () => {
-  let inLang = document.getElementById("inputLang").value;
+      try {
+        // Try Google unofficial first
+        const googleResult = await translateWithGoogle(text, sl, tl);
+        if (googleResult) {
+          targetText.value = googleResult;
+          statusText.textContent = "Status: Translated via Google.";
+          return;
+        }
 
-  recognition.lang = inLang;
-  await getCleanAudio();
+        // Fallback to MyMemory
+        const mmResult = await translateWithMyMemory(text, sl, tl);
+        targetText.value = mmResult || "";
+        statusText.textContent = "Status: Translated via MyMemory (fallback).";
+      } catch (err) {
+        console.error(err);
+        errorBox.textContent = "Translation error: " + err.message;
+        statusText.textContent = "Status: Error.";
+      }
+    }
 
-  recognition.start();
-  document.getElementById("status").innerText = "Status: Listening…";
-};
+    // ---- Google unofficial translate API (simple, but can rate limit) ----
+    async function translateWithGoogle(text, sourceLang, targetLang) {
+      const url =
+        "https://translate.googleapis.com/translate_a/single?client=gtx" +
+        "&sl=" + encodeURIComponent(sourceLang) +
+        "&tl=" + encodeURIComponent(targetLang) +
+        "&dt=t&q=" + encodeURIComponent(text);
 
-// ------------- STOP -------------
-document.getElementById("stopBtn").onclick = () => {
-  recognition.stop();
-  if (audioStream) audioStream.getTracks().forEach(t => t.stop());
-  if (audioContext) audioContext.close();
+      const res = await fetch(url);
+      if (!res.ok) {
+        // e.g. rate limiting or blocked
+        return "";
+      }
+      const data = await res.json();
+      // data[0] is an array of [ [translatedText, originalText, ...], ... ]
+      if (!data || !Array.isArray(data[0])) return "";
+      return data[0].map(part => part[0]).join("");
+    }
 
-  document.getElementById("status").innerText = "Status: Stopped";
-};
+    // ---- MyMemory public API as fallback ----
+    async function translateWithMyMemory(text, sourceLang, targetLang) {
+      const url =
+        "https://api.mymemory.translated.net/get?q=" +
+        encodeURIComponent(text) +
+        "&langpair=" +
+        encodeURIComponent(sourceLang) +
+        "|" +
+        encodeURIComponent(targetLang);
 
-// ------------- ON SPEECH RESULT -------------
-recognition.onresult = async (event) => {
-
-  let text = "";
-  for (let i = event.resultIndex; i < event.results.length; i++)
-    text += event.results[i][0].transcript;
-
-  document.getElementById("spokenText").value = text;
-  document.getElementById("subtitles").innerText = text;
-
-  if (!text.trim()) return;
-
-  let target = document.getElementById("targetLang").value;
-  let translated = await translateText(text, target);
-
-  document.getElementById("translatedText").value = translated;
-
-  speak(translated, target);
-};
-
-// ------------- SPEAK OUTPUT -------------
-function speak(text, lang) {
-  const synth = window.speechSynthesis;
-  if (!synth) return;
-
-  let utter = new SpeechSynthesisUtterance(text);
-  utter.lang = lang;
-  utter.rate = 1;
-  synth.speak(utter);
-}
-
-</script>
+      const res = await fetch(url);
+      if (!res.ok) {
+        throw new Error("MyMemory HTTP " + res.status);
+      }
+      const data = await res.json();
+      if (data && data.responseData && data.responseData.translatedText) {
+        return data.responseData.translatedText;
+      }
+      return "";
+    }
+  </script>
 </body>
 </html>
