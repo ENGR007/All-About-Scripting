@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Filipino Speech → English Translator</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+<style>
+  body { background:#eef2f7; font-family:Arial; padding:18px; }
+  .container {
+    max-width:900px; margin:auto; background:white; padding:20px;
+    border-radius:12px; box-shadow:0 3px 12px rgba(0,0,0,0.1);
+  }
+  textarea {
+    width:100%; height:140px; margin-top:10px;
+    border-radius:8px; padding:10px; font-size:16px;
+    border:1px solid #ccc; resize:vertical;
+  }
+  button {
+    width:100%; padding:14px; margin-top:12px; font-size:18px;
+    border:none; border-radius:8px; color:white;
+    background:#007bff; cursor:pointer;
+  }
+  button:active { opacity:0.6; }
+  #stopBtn { background:#dc3545; }
+  .status { opacity:.7; margin-top:8px; }
+</style>
+</head>
+
+<body>
+<div class="container">
+  <h2>🎤 Filipino Speech → English Translator</h2>
+  <p>Tap Start → Speak Filipino → Text + English translation appears.</p>
+
+  <button id="startBtn">Start Speech 🎤</button>
+  <button id="stopBtn">Stop</button>
+
+  <h3>Recognized Filipino Speech</h3>
+  <textarea id="spokenText" readonly placeholder="Speak Filipino..."></textarea>
+
+  <h3>English Translation</h3>
+  <textarea id="translatedText" readonly placeholder="English translation..."></textarea>
+
+  <p id="status" class="status">Status: Idle</p>
+</div>
+
+<script>
+// ------------------------------
+// SPEECH RECOGNITION SETUP
+// ------------------------------
+let SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+let recognition;
+
+if (SpeechRecognition) {
+  recognition = new SpeechRecognition();
+
+  // SAFARI TRICK:
+  // Filipino recognition works best when using en-US mode
+  recognition.lang = "en-US";
+
+  recognition.continuous = true;
+  recognition.interimResults = true;
+} else {
+  alert("Speech recognition not supported on this device/browser.");
+}
+
+document.getElementById("startBtn").onclick = () => {
+  try { recognition.start(); } catch(e) {}
+  document.getElementById("status").innerText = "Status: Listening… Speak Filipino.";
+};
+
+document.getElementById("stopBtn").onclick = () => {
+  recognition.stop();
+  document.getElementById("status").innerText = "Status: Stopped";
+};
+
+// ------------------------------
+// WHEN SPEECH IS CAPTURED
+// ------------------------------
+recognition.onresult = async (event) => {
+  let text = "";
+  for (let i = event.resultIndex; i < event.results.length; i++) {
+    text += event.results[i][0].transcript;
+  }
+
+  let filipinoOutput = document.getElementById("spokenText");
+  filipinoOutput.value = text;
+
+  translateText(text);
+};
+
+// ------------------------------
+// TRANSLATION ENGINE (Google API)
+// ------------------------------
+async function translateText(text) {
+  if (!text.trim()) return;
+
+  document.getElementById("status").innerText = "Status: Translating…";
+
+  try {
+    let url = "https://translate.googleapis.com/translate_a/single?client=gtx&sl=tl&tl=en&dt=t&q=" 
+              + encodeURIComponent(text);
+
+    let res = await fetch(url);
+    let data = await res.json();
+    let translated = data[0].map(x => x[0]).join("");
+
+    document.getElementById("translatedText").value = translated;
+    document.getElementById("status").innerText = "Status: Done";
+  } catch (e) {
+    document.getElementById("translatedText").value = "Translation error.";
+    document.getElementById("status").innerText = "Status: Error";
+  }
+}
+</script>
+
+</body>
+</html>
