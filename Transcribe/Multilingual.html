@@ -2,9 +2,8 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<title>Multi-Language Conversation Translator (Auto Voice Mode)</title>
+<title>Multi-Language Conversation Translator (Auto Voice)</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-
 <style>
   :root {
     --bg:#020617; --card:#020617; --border:#1f2937;
@@ -37,11 +36,16 @@
     border-radius:10px; border:1px solid var(--border);
     font-size:.9rem; resize:vertical;
   }
+  textarea:focus {
+    outline:none; border-color:var(--accent);
+    box-shadow:0 0 0 1px var(--accent-soft);
+  }
 
   select {
     width:100%; padding:10px; margin-top:6px;
     background:#020617; color:var(--text);
     border-radius:8px; border:1px solid var(--border);
+    font-size:.9rem;
   }
 
   button {
@@ -50,17 +54,17 @@
     font-size:.9rem;
   }
 
-  .btn-rec { background:#ef4444; color:white; width:100%; margin-top:8px; }
-  .btn-stop { background:#475569; color:white; width:100%; margin-top:6px; }
-
   .row { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
   @media(max-width:720px){ .row { grid-template-columns:1fr; } }
 
+  .btn-rec { background:#ef4444; color:white; width:100%; margin-top:8px; }
+  .btn-stop { background:#475569; color:white; width:100%; margin-top:6px; }
+
   .btn-speaker {
-    background:#111827;
-    color:#e5e7eb;
-    border:1px solid #1f2937;
+    background:#111827; color:#e5e7eb;
     border-radius:12px;
+    border:1px solid #1f2937;
+    width:100%;
   }
   .btn-speaker.active {
     border-color:#38bdf8;
@@ -83,261 +87,388 @@
     white-space:pre-wrap;
   }
 
-  .status { margin-top:10px; color:var(--muted); }
-  .error { color:var(--danger); min-height:18px; }
-
+  .status { margin-top:10px; font-size:.75rem; color:var(--muted); }
+  .error { min-height:18px; font-size:.78rem; color:var(--danger); }
 </style>
 </head>
 
 <body>
 <div class="app">
+  <h1>🌐 Auto Voice Conversation Translator</h1>
+  <div class="subtitle">
+    Chinese / Japanese / Korean / Thai → script + romanization + translation.  
+    Voice input follows speaker & language automatically.
+  </div>
 
-<h1>🌐 Auto Voice Conversation Translator</h1>
-<div class="subtitle">
-  Fully automatic: voice input language switches based on speaker & selected language.
+  <!-- Speech controls -->
+  <button id="startSpeech" class="btn-rec">🎤 Start Speech</button>
+  <button id="stopSpeech"  class="btn-stop">⏹ Stop</button>
+
+  <!-- Speaker mode -->
+  <div class="row" style="margin-top:8px;">
+    <button id="btnYou" class="btn-speaker active">🗣 You Speaking</button>
+    <button id="btnPartner" class="btn-speaker">👤 Partner Speaking</button>
+  </div>
+
+  <!-- Languages -->
+  <label style="font-size:.8rem;margin-top:10px;display:block;">Source language (You)</label>
+  <select id="sourceLang">
+    <option value="en" selected>English</option>
+    <option value="tl">Filipino</option>
+    <option value="zh-CN">Chinese</option>
+    <option value="ja">Japanese</option>
+    <option value="ko">Korean</option>
+    <option value="th">Thai</option>
+  </select>
+
+  <label style="font-size:.8rem;margin-top:10px;display:block;">Target language (Partner)</label>
+  <select id="targetLang">
+    <option value="tl" selected>Filipino</option>
+    <option value="en">English</option>
+    <option value="zh-CN">Chinese</option>
+    <option value="ja">Japanese</option>
+    <option value="ko">Korean</option>
+    <option value="th">Thai</option>
+  </select>
+
+  <!-- Text areas -->
+  <div class="row" style="margin-top:10px;">
+    <textarea id="sourceText" placeholder="Speak or type here…"></textarea>
+    <textarea id="targetText" readonly placeholder="Translation will appear…"></textarea>
+  </div>
+
+  <!-- Utility buttons -->
+  <div class="row" style="margin-top:10px;">
+    <button id="btnCopy"  class="btn-copy">📋 Copy Translation</button>
+    <button id="btnClear" class="btn-clear">🧹 Clear</button>
+  </div>
+
+  <!-- Speak & Save -->
+  <button id="btnSpeak"         class="btn-speak">🔊 Speak Translation</button>
+  <button id="btnSaveTranscript" class="btn-save">💾 Save Transcript</button>
+
+  <!-- Transcript -->
+  <div style="font-size:.8rem;margin-top:12px;color:var(--muted);">Conversation Transcript</div>
+  <div id="conversationBox" class="conv-box">No conversation yet.</div>
+
+  <div id="statusText" class="status">Status: Idle</div>
+  <div id="errorBox"   class="error"></div>
 </div>
 
-<button id="startSpeech" class="btn-rec">🎤 Start Speech</button>
-<button id="stopSpeech" class="btn-stop">⏹ Stop</button>
-
-<div class="row" style="margin-top:8px;">
-  <button id="btnYou" class="btn-speaker active">🗣 You Speaking</button>
-  <button id="btnPartner" class="btn-speaker">👤 Partner Speaking</button>
-</div>
-
-<label>Source language (You)</label>
-<select id="sourceLang">
-  <option value="en">English</option>
-  <option value="tl">Filipino</option>
-  <option value="zh-CN">Chinese</option>
-  <option value="ja">Japanese</option>
-  <option value="ko">Korean</option>
-  <option value="th">Thai</option>
-</select>
-
-<label>Target language (Partner)</label>
-<select id="targetLang">
-  <option value="tl">Filipino</option>
-  <option value="en">English</option>
-  <option value="zh-CN">Chinese</option>
-  <option value="ja">Japanese</option>
-  <option value="ko">Korean</option>
-  <option value="th">Thai</option>
-</select>
-
-<div class="row">
-  <textarea id="sourceText" placeholder="Speak or type here…"></textarea>
-  <textarea id="targetText" readonly placeholder="Translation here…"></textarea>
-</div>
-
-<div class="row">
-  <button id="btnCopy" class="btn-copy">📋 Copy</button>
-  <button id="btnClear" class="btn-clear">🧹 Clear</button>
-</div>
-
-<button id="btnSpeak" class="btn-speak">🔊 Speak Translation</button>
-<button id="btnSaveTranscript" class="btn-save">💾 Save Transcript</button>
-
-<div class="conv-title" style="margin-top:10px;">Conversation Transcript</div>
-<div id="conversationBox" class="conv-box">No conversation yet.</div>
-
-<div id="statusText" class="status">Status: Idle</div>
-<div id="errorBox" class="error"></div>
-</div>
-
-<!-- Pinyin for Chinese -->
+<!-- Pinyin library for Chinese -->
 <script src="https://cdn.jsdelivr.net/npm/pinyin-pro@3.27.0/dist/index.js"></script>
 
 <script>
-/* ---------------- DOM ---------------- */
-const startSpeechBtn = document.getElementById("startSpeech");
-const stopSpeechBtn  = document.getElementById("stopSpeech");
-const sourceText     = document.getElementById("sourceText");
-const targetText     = document.getElementById("targetText");
-const sourceLangSel  = document.getElementById("sourceLang");
-const targetLangSel  = document.getElementById("targetLang");
-const statusText     = document.getElementById("statusText");
-const errorBox       = document.getElementById("errorBox");
-const btnYou         = document.getElementById("btnYou");
-const btnPartner     = document.getElementById("btnPartner");
-const btnCopy        = document.getElementById("btnCopy");
-const btnClear       = document.getElementById("btnClear");
-const btnSpeak       = document.getElementById("btnSpeak");
-const btnSaveTrans   = document.getElementById("btnSaveTranscript");
-const conversationBox = document.getElementById("conversationBox");
+/* ---------- DOM ---------- */
+const startSpeechBtn   = document.getElementById("startSpeech");
+const stopSpeechBtn    = document.getElementById("stopSpeech");
+const sourceText       = document.getElementById("sourceText");
+const targetText       = document.getElementById("targetText");
+const sourceLangSel    = document.getElementById("sourceLang");
+const targetLangSel    = document.getElementById("targetLang");
+const statusText       = document.getElementById("statusText");
+const errorBox         = document.getElementById("errorBox");
+const btnYou           = document.getElementById("btnYou");
+const btnPartner       = document.getElementById("btnPartner");
+const btnCopy          = document.getElementById("btnCopy");
+const btnClear         = document.getElementById("btnClear");
+const btnSpeak         = document.getElementById("btnSpeak");
+const btnSaveTrans     = document.getElementById("btnSaveTranscript");
+const conversationBox  = document.getElementById("conversationBox");
 
-let activeSpeaker = "you";
+let activeSpeaker   = "you"; // "you" or "partner"
 let transcriptEntries = [];
 
-/* ---------------- SPEAKER BUTTONS ---------------- */
-btnYou.onclick = () => { activeSpeaker="you"; updateUI(); updateRecognizerLanguage(); };
-btnPartner.onclick = () => { activeSpeaker="partner"; updateUI(); updateRecognizerLanguage(); };
-
-function updateUI(){
-  btnYou.classList.toggle("active", activeSpeaker==="you");
-  btnPartner.classList.toggle("active", activeSpeaker==="partner");
+/* ---------- Helpers ---------- */
+function isEastAsian(lang){
+  if (!lang) return false;
+  const l = lang.toLowerCase();
+  return l.startsWith("zh") || l.startsWith("ja") || l.startsWith("ko") || l.startsWith("th");
 }
 
-/* ---------------- SPEECH RECOGNITION ---------------- */
+/* ---------- Speaker switching ---------- */
+function setSpeaker(who){
+  activeSpeaker = who;
+  btnYou.classList.toggle("active", who === "you");
+  btnPartner.classList.toggle("active", who === "partner");
+  updateRecognizerLanguage();
+}
+
+btnYou.onclick     = () => setSpeaker("you");
+btnPartner.onclick = () => setSpeaker("partner");
+
+/* ---------- Speech Recognition ---------- */
 let SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 let recognition = null;
+let isListening = false;
 
 if (SpeechRecognition){
   recognition = new SpeechRecognition();
-  recognition.continuous = true;
+  recognition.continuous   = true;
   recognition.interimResults = true;
 } else {
-  statusText.textContent = "Your browser doesn't support speech recognition.";
+  statusText.textContent = "Status: Speech recognition not supported.";
 }
 
-/* AUTOMATIC language switching for speech input */
+/* Map UI language value to SR BCP-47 code */
+function langToSRCode(code){
+  switch (code) {
+    case "en":   return "en-US";
+    case "tl":   return "fil-PH";
+    case "zh-CN":return "zh-CN";
+    case "ja":   return "ja-JP";
+    case "ko":   return "ko-KR";
+    case "th":   return "th-TH";
+    default:     return "en-US";
+  }
+}
+
 function updateRecognizerLanguage(){
   if (!recognition) return;
-
   let sl;
 
-  if (activeSpeaker==="you") sl = sourceLangSel.value;
-  else sl = targetLangSel.value;
+  if (activeSpeaker === "you"){
+    sl = sourceLangSel.value;
+  } else {
+    sl = targetLangSel.value;
+  }
 
-  const map = {
-    "en": "en-US",
-    "tl": "fil-PH",
-    "zh-CN": "zh-CN",
-    "ja": "ja-JP",
-    "ko": "ko-KR",
-    "th": "th-TH"
-  };
-
-  recognition.lang = map[sl] || "en-US";
+  recognition.lang = langToSRCode(sl);
 }
 
-sourceLangSel.onchange = updateRecognizerLanguage;
-targetLangSel.onchange = updateRecognizerLanguage;
-
-/* START / STOP */
+/* Start / Stop SR */
 startSpeechBtn.onclick = () => {
+  if (!recognition) return;
   updateRecognizerLanguage();
-  recognition.start();
-  statusText.textContent = "Listening…";
+  try { recognition.start(); isListening=true; } catch(e){}
+  statusText.textContent = "Status: Listening…";
 };
 
 stopSpeechBtn.onclick = () => {
+  if (!recognition) return;
   recognition.stop();
-  statusText.textContent = "Stopped.";
+  isListening=false;
+  statusText.textContent = "Status: Stopped.";
 };
 
-/* ON VOICE INPUT */
+/* Only translate when final result is available (better sentence capture) */
 if (recognition){
-  recognition.onresult = (ev)=>{
-    let txt="";
-    for (let i = ev.resultIndex; i < ev.results.length; i++){
-      txt += ev.results[i][0].transcript;
+  recognition.onresult = (event) => {
+    let finalText = "";
+
+    for (let i = event.resultIndex; i < event.results.length; i++){
+      const res = event.results[i];
+      if (res.isFinal){
+        finalText += res[0].transcript;
+      }
     }
-    txt = txt.trim();
-    sourceText.value = txt;
+
+    finalText = finalText.trim();
+    if (!finalText) return;
+
+    sourceText.value = finalText;
     doTranslate();
   };
+
+  recognition.onerror = (e) => {
+    statusText.textContent = "Status: Speech error.";
+    console.error(e);
+  };
 }
 
-/* ---------------- GOOGLE TRANSLATE ---------------- */
+/* ---------- Google Translate helpers ---------- */
 async function gTransRaw(text, sl, tl, extra=""){
-  const r = await fetch(
+  const url =
     "https://translate.googleapis.com/translate_a/single?client=gtx" +
-    `&sl=${sl}&tl=${tl}&dt=t${extra}&q=` + encodeURIComponent(text)
-  );
-  return r.json();
+    `&sl=${encodeURIComponent(sl)}&tl=${encodeURIComponent(tl)}&dt=t${extra}&q=${encodeURIComponent(text)}`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error("Network error " + res.status);
+  return res.json();
 }
 
-function extText(d){
-  if (!d || !d[0]) return "";
-  return d[0].map(x=>x[0]).join("");
+function extText(data){
+  if (!data || !data[0]) return "";
+  return data[0].map(seg => seg[0]).join("");
 }
 
-function extRoman(d){
-  if (!d || !d[0]) return "";
-  return d[0].map(x=>x[3]).filter(Boolean).join(" ");
+function extRoman(data){
+  if (!data || !data[0]) return "";
+  const parts = [];
+  for (const seg of data[0]){
+    if (seg[3]) parts.push(seg[3]);
+  }
+  return parts.join(" ").trim();
 }
 
-/* ---------------- TRANSLATE ---------------- */
+/* ---------- Core Translation ---------- */
 async function doTranslate(){
   const text = sourceText.value.trim();
-  if (!text){ targetText.value=""; return; }
+  if (!text){
+    targetText.value = "";
+    statusText.textContent = "Status: Idle";
+    return;
+  }
 
+  // Determine sl/tl based on who is speaking
   let sl, tl;
-  if (activeSpeaker==="you"){
+  if (activeSpeaker === "you"){
     sl = sourceLangSel.value;
     tl = targetLangSel.value;
   } else {
-    sl = targetLangSel.value;
-    tl = sourceLangSel.value;
+    sl = targetLangSel.value;   // partner language is the source
+    tl = sourceLangSel.value;   // you get translation
   }
 
-  const tlLower = tl.toLowerCase();
+  const slEA = isEastAsian(sl);
+  const tlEA = isEastAsian(tl);
+
+  statusText.textContent = "Status: Translating…";
+  errorBox.textContent   = "";
+
   try {
-    let script="", roman="", english="";
+    let display = "";
 
-    if (tl==="en" || tl==="tl"){
-      targetText.value = extText(await gTransRaw(text, sl, tl));
-      appendTranscript(text, targetText.value, sl, tl);
-      return;
+    // Case: at least one East Asian language involved
+    if (slEA || tlEA) {
+      let scriptLang, meaningLang;
+
+      if (slEA && !tlEA){
+        // source is East Asian, translate to target
+        scriptLang  = sl;
+        meaningLang = tl;
+      } else if (!slEA && tlEA){
+        // target is East Asian, translate to target
+        scriptLang  = tl;
+        meaningLang = sl;
+      } else {
+        // both East Asian – pick target as script, English as meaning if possible
+        scriptLang  = tl;
+        meaningLang = (sl === "en" || tl === "en") ? "en" : sl;
+      }
+
+      let scriptText = "";
+      let meaningText = "";
+      let roman = "";
+
+      // Get script text
+      if (scriptLang === sl && !tlEA){
+        // user spoke in that script language; use original source
+        scriptText = text;
+        meaningText = extText(await gTransRaw(text, sl, meaningLang));
+      } else {
+        scriptText = extText(await gTransRaw(text, sl, scriptLang));
+        meaningText = extText(await gTransRaw(text, sl, meaningLang));
+      }
+
+      // Romanization based on scriptLang
+      const sLL = scriptLang.toLowerCase();
+      if (sLL.startsWith("zh")){
+        if (window.pinyinPro){
+          roman = window.pinyinPro.pinyin(scriptText, {toneType:"mark", type:"string"});
+        }
+      } else if (sLL.startsWith("ja")){
+        try {
+          const rawJa = await gTransRaw(scriptText, "ja", "ja", "&dt=rm");
+          roman = extRoman(rawJa);
+        } catch(e){}
+      } else if (sLL.startsWith("ko") || sLL.startsWith("th")){
+        try {
+          const raw = await gTransRaw(scriptText, scriptLang, scriptLang, "&dt=rm");
+          roman = extRoman(raw);
+        } catch(e){}
+      }
+
+      display = scriptText;
+      if (roman) display += "\n" + roman;
+      display += "\n" + meaningText;
+
+    } else {
+      // No East Asian language involved – simple direct translation
+      const translated = extText(await gTransRaw(text, sl, tl));
+      display = translated;
     }
 
-    if (tlLower.startsWith("zh")){
-      script = extText(await gTransRaw(text, sl, tl));
-      roman = window.pinyinPro.pinyin(script,{toneType:"mark"});
-      english = extText(await gTransRaw(text, sl, "en"));
-      targetText.value = `${script}\n${roman}\n${english}`;
-    }
-
-    else if (tlLower.startsWith("ja")){
-      script = extText(await gTransRaw(text, sl, tl));
-      let raw = await gTransRaw(script,"ja","ja","&dt=rm");
-      roman = extRoman(raw);
-      english = extText(await gTransRaw(text, sl, "en"));
-      targetText.value = `${script}\n${roman}\n${english}`;
-    }
-
-    else if (tlLower.startsWith("ko") || tlLower.startsWith("th")){
-      script = extText(await gTransRaw(text, sl, tl));
-      let raw = await gTransRaw(script, tl, tl, "&dt=rm");
-      roman = extRoman(raw);
-      english = extText(await gTransRaw(text, sl, "en"));
-      targetText.value = `${script}\n${roman}\n${english}`;
-    }
-
-    else {
-      script = extText(await gTransRaw(text, sl, tl));
-      english = extText(await gTransRaw(text, sl, "en"));
-      targetText.value = `${script}\n${english}`;
-    }
-
-    appendTranscript(text, targetText.value, sl, tl);
-
-  } catch(e){
-    errorBox.textContent = "Error: " + e.message;
+    targetText.value = display;
+    appendToTranscript(sl, tl, text, display);
+    statusText.textContent = "Status: Done.";
+  } catch (err){
+    console.error(err);
+    errorBox.textContent   = "Error: " + err.message;
+    statusText.textContent = "Status: Error.";
   }
 }
 
-/* ---------------- TRANSCRIPT ---------------- */
-function appendTranscript(src, out, sl, tl){
-  const time = new Date().toLocaleTimeString();
-  transcriptEntries.push(`[${time}] (${sl}→${tl})
-Source: ${src}
-Translation: ${out}`);
+/* ---------- Auto-translate on typing ---------- */
+let debounceTimer = null;
+sourceText.addEventListener("input", () => {
+  clearTimeout(debounceTimer);
+  debounceTimer = setTimeout(doTranslate, 350);
+});
 
-  conversationBox.textContent = transcriptEntries.join("\n\n");
+/* ---------- Auto-translate on dropdown change ---------- */
+function autoRefresh(){
+  updateRecognizerLanguage();
+  if (sourceText.value.trim()){
+    doTranslate();
+  }
 }
 
-/* ---------------- SPEAK TRANSLATION (female preferred) ---------------- */
-btnSpeak.onclick = async ()=>{
-  let txt = targetText.value.trim();
-  if (!txt) return;
+sourceLangSel.addEventListener("change", autoRefresh);
+targetLangSel.addEventListener("change", autoRefresh);
 
-  let lines = txt.split("\n").filter(Boolean);
-  let speakText = lines[0];
+/* ---------- Transcript Handling ---------- */
+function appendToTranscript(sl, tl, src, out){
+  const time = new Date().toLocaleTimeString([], {hour:"2-digit", minute:"2-digit", second:"2-digit"});
+  transcriptEntries.push(
+    `[${time}] (${sl} → ${tl})
+Source     : ${src}
+Translation: ${out}`
+  );
+  conversationBox.textContent = transcriptEntries.join("\n\n");
+  conversationBox.scrollTop = conversationBox.scrollHeight;
+}
+
+/* ---------- Save transcript ---------- */
+btnSaveTrans.onclick = () => {
+  if (!transcriptEntries.length){
+    errorBox.textContent = "No transcript yet.";
+    return;
+  }
+  const content = transcriptEntries.join("\n\n");
+  const blob = new Blob([content], {type:"text/plain"});
+  const url  = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+
+  const d = new Date();
+  const fn = `transcript_${d.getFullYear()}${String(d.getMonth()+1).padStart(2,"0")}${String(d.getDate()).padStart(2,"0")}_${String(d.getHours()).padStart(2,"0")}${String(d.getMinutes()).padStart(2,"0")}${String(d.getSeconds()).padStart(2,"0")}.txt`;
+
+  a.href = url;
+  a.download = fn;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+
+  statusText.textContent = "Status: Transcript saved.";
+};
+
+/* ---------- Speak Translation (female voice preferred) ---------- */
+btnSpeak.onclick = async () => {
+  const txt = targetText.value.trim();
+  if (!txt){
+    statusText.textContent = "Status: Nothing to speak.";
+    return;
+  }
+
+  const lines = txt.split("\n").map(l => l.trim()).filter(Boolean);
+  if (!lines.length){
+    statusText.textContent = "Status: Nothing to speak.";
+    return;
+  }
+
+  // Decide which language is playing back
   let sl, tl;
-
-  if (activeSpeaker==="you"){
+  if (activeSpeaker === "you"){
     sl = sourceLangSel.value;
     tl = targetLangSel.value;
   } else {
@@ -345,49 +476,77 @@ btnSpeak.onclick = async ()=>{
     tl = sourceLangSel.value;
   }
 
-  const map = {
+  const tlCode = tl;
+  const tll = tlCode.toLowerCase();
+
+  // Speak script line for East Asian, last line for others
+  let speakText;
+  if (isEastAsian(tlCode)){
+    speakText = lines[0];
+  } else {
+    speakText = lines[lines.length - 1];
+  }
+
+  const langMap = {
     "en":"en-US","tl":"fil-PH","zh-CN":"zh-CN","ja":"ja-JP","ko":"ko-KR","th":"th-TH"
   };
+  const speakLang = langMap[tlCode] || "en-US";
 
-  let lang = map[tl] || "en-US";
-
-  await new Promise(res=>{
-    if (speechSynthesis.getVoices().length) return res();
-    speechSynthesis.onvoiceschanged=res;
+  await new Promise(resolve => {
+    let v = speechSynthesis.getVoices();
+    if (v.length) return resolve();
+    speechSynthesis.onvoiceschanged = resolve;
   });
 
-  let voices = speechSynthesis.getVoices();
+  const voices = speechSynthesis.getVoices();
+
   let female = voices.find(v =>
-    v.lang===lang && (/female/i.test(v.name) || /女/i.test(v.name))
+    v.lang === speakLang && (/female/i.test(v.name) || /女/i.test(v.name))
   );
 
   if (!female){
     female = voices.find(v =>
-      v.lang===lang &&
-      (/Google/.test(v.name) || /Samantha/.test(v.name) ||
-       /Kyoko/.test(v.name) || /Mei-Jia/.test(v.name) )
+      v.lang === speakLang &&
+      ( /Google/.test(v.name) ||
+        /Samantha/i.test(v.name) ||
+        /Kyoko/i.test(v.name) ||
+        /Mei-Jia/i.test(v.name) ||
+        /Ting-Ting/i.test(v.name) ||
+        /Yuna/i.test(v.name)
+      )
     );
   }
 
-  let voice = female || voices.find(v=>v.lang===lang) || voices[0];
+  const voice = female || voices.find(v => v.lang === speakLang) || voices[0];
 
   const utter = new SpeechSynthesisUtterance(speakText);
   utter.voice = voice;
-  utter.lang  = lang;
-  utter.pitch = 1;
-  utter.rate  = 1;
+  utter.lang  = speakLang;
+  utter.rate  = 1.0;
+  utter.pitch = 1.0;
 
   speechSynthesis.cancel();
   speechSynthesis.speak(utter);
+  statusText.textContent = `Status: Speaking (${voice ? voice.name : speakLang})…`;
 };
 
-/* ---------------- COPY / CLEAR ---------------- */
-btnCopy.onclick = () => navigator.clipboard.writeText(targetText.value.trim());
-btnClear.onclick = ()=>{
-  sourceText.value="";
-  targetText.value="";
-  errorBox.textContent="";
-  statusText.textContent="Idle";
+/* ---------- Copy & Clear ---------- */
+btnCopy.onclick = async () => {
+  const txt = targetText.value.trim();
+  if (!txt) return;
+  try {
+    await navigator.clipboard.writeText(txt);
+    statusText.textContent = "Status: Translation copied.";
+  } catch {
+    statusText.textContent = "Status: Copy failed.";
+  }
+};
+
+btnClear.onclick = () => {
+  sourceText.value = "";
+  targetText.value = "";
+  errorBox.textContent = "";
+  statusText.textContent = "Status: Idle";
 };
 </script>
 
