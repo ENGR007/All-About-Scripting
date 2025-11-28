@@ -428,19 +428,15 @@ Translation: ${e.translatedText}`;
   statusText.textContent = "Status: Transcript saved.";
 };
 
-/* ========== Speak Translation ========== */
-btnSpeak.onclick = () => {
+/* ========== Speak Translation (fixed) ========== */
+btnSpeak.onclick = async () => {
   const txt = targetText.value.trim();
   if (!txt){
     statusText.textContent = "Status: Nothing to speak.";
     return;
   }
 
-  const lines = txt
-    .split("\n")
-    .map(l => l.trim())
-    .filter(Boolean);
-
+  const lines = txt.split("\n").map(l => l.trim()).filter(Boolean);
   if (!lines.length) {
     statusText.textContent = "Status: Nothing to speak.";
     return;
@@ -450,36 +446,45 @@ btnSpeak.onclick = () => {
   const tl = (activeSpeaker === "you") ? targetLangSel.value : sourceLangSel.value;
   const tlLower = (tl || "").toLowerCase();
 
-  let speakText = lines[lines.length - 1]; // default: last line (English)
+  let speakText = lines[lines.length - 1]; // default English
   let speakLang = "en-US";
 
   if (tlLower.startsWith("zh")) {
     speakText = lines[0];
     speakLang = "zh-CN";
-  } else if (tlLower.startsWith("ja")) {
+  } 
+  else if (tlLower.startsWith("ja")) {
     speakText = lines[0];
     speakLang = "ja-JP";
-  } else if (tlLower.startsWith("ko")) {
+  }
+  else if (tlLower.startsWith("ko")) {
     speakText = lines[0];
     speakLang = "ko-KR";
-  } else if (tlLower.startsWith("th")) {
+  }
+  else if (tlLower.startsWith("th")) {
     speakText = lines[0];
     speakLang = "th-TH";
-  } else if (tl === "tl") {
-    speakText = lines[lines.length - 1];
-    speakLang = "fil-PH";
-  } else if (tl === "en") {
-    speakText = lines[lines.length - 1];
-    speakLang = "en-US";
   }
 
+  // 🔥 CRITICAL FIX: wait for voices to load
+  await new Promise(resolve => {
+    let voices = speechSynthesis.getVoices();
+    if (voices.length) return resolve();
+    speechSynthesis.onvoiceschanged = resolve;
+  });
+
+  const voices = speechSynthesis.getVoices();
+  const voice = voices.find(v => v.lang === speakLang) || voices[0];
+
   const utter = new SpeechSynthesisUtterance(speakText);
+  utter.voice = voice;
   utter.lang  = speakLang;
   utter.rate  = 1.0;
   utter.pitch = 1.0;
 
   window.speechSynthesis.cancel();
   window.speechSynthesis.speak(utter);
+
   statusText.textContent = `Status: Speaking (${speakLang})…`;
 };
 
