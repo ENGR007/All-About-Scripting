@@ -151,6 +151,9 @@
   <div id="errorBox" class="error"></div>
 </div>
 
+<!-- Pinyin library JUST for Chinese romanization -->
+<script src="https://cdn.jsdelivr.net/npm/pinyin-pro@2.9.0/dist/index.iife.min.js"></script>
+
 <script>
 /* ---------- DOM ---------- */
 const startSpeechBtn = document.getElementById("startSpeech");
@@ -240,7 +243,7 @@ function autoRefresh(){
 sourceLangSel.addEventListener("change", autoRefresh);
 targetLangSel.addEventListener("change", autoRefresh);
 
-/* ========== Google Translate Helpers (with Romanization) ========== */
+/* ========== Google Translate Helpers (with best-effort romanization) ========== */
 async function googleTranslateRaw(text, sl, tl, extraDt = "") {
   const url =
     "https://translate.googleapis.com/translate_a/single?client=gtx" +
@@ -272,7 +275,7 @@ async function googleTranslate(text, sl, tl) {
 }
 
 async function translateWithRomanization(text, sl, tl) {
-  // ask for translation + romanization
+  // Ask for translation + romanization when available
   const data = await googleTranslateRaw(text, sl, tl, "&dt=rm");
   const translated = extractTranslationFromRaw(data);
   const romanized = extractRomanizationFromRaw(data);
@@ -301,16 +304,36 @@ async function doTranslate(){
     if (tl === "en" || tl === "tl") {
       // Simple direct translation
       display = await googleTranslate(text, sl, tl);
-    } else if (["zh-CN", "ja", "ko", "th"].includes(tl)) {
-      // East Asian targets: script + romanization + English meaning
+
+    } else if (tl === "zh-CN") {
+      // Chinese: script + pinyin (via pinyin-pro) + English
+      const scriptOut = await googleTranslate(text, sl, tl);
+      let pinyin = "";
+      if (window.pinyinPro && window.pinyinPro.pinyin) {
+        pinyin = window.pinyinPro.pinyin(scriptOut, {
+          toneType: "mark",  // mā má mǎ mà
+          type: "string"
+        });
+      }
+      const english = await googleTranslate(text, sl, "en");
+
+      display = scriptOut;
+      if (pinyin) {
+        display += "\n" + pinyin;
+      }
+      display += "\n" + english;
+
+    } else if (["ja", "ko", "th"].includes(tl)) {
+      // Other East Asian targets: script + romanization (if Google gives it) + English
       const { translated: scriptOut, romanized } = await translateWithRomanization(text, sl, tl);
       const english = await googleTranslate(text, sl, "en");
 
       display = scriptOut;
       if (romanized) {
-        display += "\n" + romanized;   // pinyin / romaji / etc.
+        display += "\n" + romanized;
       }
       display += "\n" + english;
+
     } else {
       // Fallback: script + English
       const scriptOut = await googleTranslate(text, sl, tl);
