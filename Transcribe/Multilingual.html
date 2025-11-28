@@ -169,8 +169,11 @@ const btnSpeak         = document.getElementById("btnSpeak");
 const btnSaveTrans     = document.getElementById("btnSaveTranscript");
 const conversationBox  = document.getElementById("conversationBox");
 
-let activeSpeaker   = "you"; // "you" or "partner"
-let transcriptEntries = [];
+let activeSpeaker      = "you"; // "you" or "partner"
+let transcriptEntries  = [];
+let typingDebounce     = null;
+let speechDebounce     = null;
+let keepListening      = false;
 
 /* ---------- Helpers ---------- */
 function isEastAsian(lang){
@@ -224,8 +227,11 @@ function updateRecognizerLanguage(){
   recognition.lang = langToSRCode(sl);
 }
 
+/* Start / Stop with auto-restart support */
 startSpeechBtn.onclick = () => {
   if (!recognition) return;
+  if (keepListening) return; // already on
+  keepListening = true;
   updateRecognizerLanguage();
   try { recognition.start(); } catch(e){}
   statusText.textContent = "Status: Listening…";
@@ -233,24 +239,39 @@ startSpeechBtn.onclick = () => {
 
 stopSpeechBtn.onclick = () => {
   if (!recognition) return;
+  keepListening = false;
   recognition.stop();
   statusText.textContent = "Status: Stopped.";
 };
 
+/* Real-time speech: update text as you talk, debounce translation */
 if (recognition){
   recognition.onresult = (event) => {
-    let finalText = "";
-    for (let i = event.resultIndex; i < event.results.length; i++){
-      const res = event.results[i];
-      if (res.isFinal){
-        finalText += res[0].transcript;
-      }
+    let txt = "";
+    for (let i = 0; i < event.results.length; i++){
+      txt += event.results[i][0].transcript;
     }
-    finalText = finalText.trim();
-    if (!finalText) return;
+    txt = txt.trim();
+    if (!txt) return;
 
-    sourceText.value = finalText;
-    doTranslate();
+    sourceText.value = txt;
+
+    clearTimeout(speechDebounce);
+    speechDebounce = setTimeout(() => {
+      doTranslate();
+    }, 250);
+  };
+
+  recognition.onerror = (e) => {
+    console.error(e);
+    statusText.textContent = "Status: Speech error.";
+  };
+
+  recognition.onend = () => {
+    // iOS / browsers will end sessions after a few seconds – auto-restart if user hasn't pressed Stop
+    if (keepListening){
+      try { recognition.start(); } catch(e){}
+    }
   };
 }
 
@@ -306,7 +327,7 @@ async function doTranslate(){
     let display = "";
 
     if (slEA || tlEA) {
-      // Decide which language should be the "script" and which the "meaning"
+      // Decide script/meaning languages
       let scriptLang, meaningLang;
 
       if (slEA && !tlEA) {
@@ -321,7 +342,7 @@ async function doTranslate(){
         meaningLang = (sl === "en" || tl === "en") ? "en" : sl;
       }
 
-      // Always let Google produce BOTH script and meaning from the recognized text
+      // Always let Google create both script & meaning from recognized text
       const scriptText  = extText(await gTransRaw(text, sl, scriptLang));
       const meaningText = extText(await gTransRaw(text, sl, meaningLang));
 
@@ -349,7 +370,7 @@ async function doTranslate(){
       display += "\n" + meaningText;
 
     } else {
-      // No East Asian languages – simple direct translation
+      // Non-EA languages: simple direct translation
       const translated = extText(await gTransRaw(text, sl, tl));
       display = translated;
     }
@@ -365,10 +386,9 @@ async function doTranslate(){
 }
 
 /* ---------- Auto-translate on typing ---------- */
-let debounceTimer = null;
 sourceText.addEventListener("input", () => {
-  clearTimeout(debounceTimer);
-  debounceTimer = setTimeout(doTranslate, 350);
+  clearTimeout(typingDebounce);
+  typingDebounce = setTimeout(doTranslate, 350);
 });
 
 /* ---------- Auto-translate on dropdown change ---------- */
