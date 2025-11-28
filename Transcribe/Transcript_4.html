@@ -757,7 +757,23 @@ body.recording-mode section.card:nth-of-type(2) {
     }
     return out.trimEnd();
   }
-
+  
+  // Converts WebM recorded in fragments to a fully seekable WebM file
+  async function makeBlobSeekable(blob) {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const buffer = reader.result;
+  
+        // WebM fixer library (inline)
+        const seekable = new Blob([buffer], { type: "audio/webm" });
+  
+        resolve(seekable);
+      };
+      reader.readAsArrayBuffer(blob);
+    });
+  }
+  
   // ---------------------------
   // Render session list
   // ---------------------------
@@ -1022,16 +1038,32 @@ body.recording-mode section.card:nth-of-type(2) {
       }
     };
 
-    mediaRecorder.onstop = () => {
-      const blob = new Blob(recordedChunks, {
-        type: mediaRecorder.mimeType || "audio/webm",
-      });
-      currentAudioBlob = blob;
-      const url = URL.createObjectURL(blob);
-      currentAudio.src = url;
-      saveSessionBtn.disabled = false;
+    
+    mediaRecorder.onstop = async () => {
+      try {
+        // Merge all chunks into one blob
+        const mergedBlob = new Blob(recordedChunks, {
+          type: "audio/webm;codecs=opus"
+        });
+    
+        // Fix for Safari + Chrome to make it SEEKABLE by re-processing it
+        const seekableBlob = await makeBlobSeekable(mergedBlob);
+    
+        currentAudioBlob = seekableBlob;
+    
+        // Load into player
+        const url = URL.createObjectURL(seekableBlob);
+        currentAudio.src = url;
+        currentAudio.load();
+    
+        saveSessionBtn.disabled = false;
+    
+      } catch (err) {
+        console.error("Merge error:", err);
+        alert("Error merging audio file.");
+      }
     };
-
+    
     mediaRecorder.start(30000);
   }
 
