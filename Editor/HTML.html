@@ -369,6 +369,7 @@ button.full {
                     <button onclick="undoEdit()">↩️ Undo</button>
                     <button onclick="redoEdit()">↪️ Redo</button>
                     <button onclick="searchInEditor()">🔍 Search</button>
+                    <button onclick="clearAllInEditor()">🧹 Clear All</button>
                     <button onclick="autoFormat()">✨ Format</button>
                     <button onclick="cancelEdit()">✖️ Cancel</button>
                     <button class="primary" onclick="saveAndCommit()">💾 Commit</button>
@@ -846,7 +847,7 @@ function smartPythonFormat(code) {
     return result.join("\n");
 }
 
-// ----- Undo / Redo / Search -----
+// ----- Undo / Redo / Search / Clear All -----
 function undoEdit() {
     if (!isEditing || !cmEditor) return;
     cmEditor.undo();
@@ -882,6 +883,16 @@ function searchInEditor() {
 
     lastSearchTerm = term;
     lastSearchPos = index + term.length;
+}
+function clearAllInEditor() {
+    if (!isEditing || !cmEditor) {
+        alert("Enter edit mode first.");
+        return;
+    }
+    if (!confirm("Clear all code in this file?")) return;
+    cmEditor.setValue("");
+    autoSaveDraft();
+    cmEditor.focus();
 }
 
 // ----- Export project as ZIP (files only) -----
