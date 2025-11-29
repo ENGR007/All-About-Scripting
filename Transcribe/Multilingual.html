@@ -298,6 +298,12 @@ function currentSpeakLangCode(){
   return langToTTSCode(tl);
 }
 
+/* NEW: normalize digits to Chinese numerals for display/pinyin */
+function normalizeChineseNumbers(text){
+  const map = { '0':'零','1':'一','2':'二','3':'三','4':'四','5':'五','6':'六','7':'七','8':'八','9':'九' };
+  return text.replace(/[0-9]/g, d => map[d] || d);
+}
+
 /* Voice dropdown */
 function populateVoiceOptions(){
   if (!window.speechSynthesis || !voiceSelect) return;
@@ -497,12 +503,16 @@ async function doTranslate(rawOverride = null, isLive = false){
         meaningLang = (sl === "en" || tl === "en") ? "en" : sl;
       }
 
-      const scriptText  = extText(await gTransRaw(text, sl, scriptLang));
+      const scriptRaw   = extText(await gTransRaw(text, sl, scriptLang));
       const meaningText = extText(await gTransRaw(text, sl, meaningLang));
 
+      // For Chinese, normalize digits before display & pinyin
+      let scriptText = scriptRaw;
       let roman = "";
       const sLL = scriptLang.toLowerCase();
+
       if (sLL.startsWith("zh")){
+        scriptText = normalizeChineseNumbers(scriptRaw);
         if (window.pinyinPro){
           roman = window.pinyinPro.pinyin(scriptText, {toneType:"mark", type:"string"});
         }
@@ -603,7 +613,6 @@ function appendToTranscript(sl, tl, src, out){
         const sNorm = srcRoman.replace(/\s+/g, "").toLowerCase();
         const oNorm = outRoman.replace(/\s+/g, "").toLowerCase();
         if (sNorm === oNorm) {
-          // Drop the duplicated romanization line from Translation
           cleanOut = outLines.slice(0, outLines.length - 1).join("\n");
         }
       }
@@ -633,7 +642,7 @@ btnSaveTrans.onclick = () => {
   const a    = document.createElement("a");
 
   const d = new Date();
-  const fn = `transcript_${d.getFullYear()}${String(d.getMonth()+1).padStart(2,"0")}${String(d.getDate()).padStart(2,"0")}_${String(d.getHours()).padStart(2,"0")}${String(d.getMinutes()).padStart(2,"0")}${String(d.getSeconds()).padStart(2,"0")}.txt`;
+  const fn = `transcript_${d.getFullYear()}${String(d.getMonth()+1).padStart(2,"0")}${String(d.getDate()).padStart(2,"0")}_${String(d.getHours())}${String(d.getMinutes()).padStart(2,"0")}${String(d.getSeconds()).padStart(2,"0")}.txt`;
 
   a.href = url;
   a.download = fn;
