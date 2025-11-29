@@ -707,7 +707,7 @@ function openInBrowser() {
     window.open(url, "_blank");
 }
 
-// ----- Auto-format -----
+// ----- Auto-format (improved Python) -----
 function autoFormat() {
     if (!isEditing || !currentFileName || !cmEditor) {
         alert("Enter edit mode first.");
@@ -719,13 +719,22 @@ function autoFormat() {
 
     try {
         if (name.endsWith(".html") || name.endsWith(".htm")) {
-            formatted = window.html_beautify(content, { indent_size: 2 });
+            formatted = window.html_beautify(content, {
+                indent_size: 2,
+                wrap_line_length: 120
+            });
         } else if (name.endsWith(".css")) {
-            formatted = window.css_beautify(content, { indent_size: 2 });
+            formatted = window.css_beautify(content, {
+                indent_size: 2
+            });
         } else if (name.endsWith(".js") || name.endsWith(".json")) {
-            formatted = window.js_beautify(content, { indent_size: 2 });
+            formatted = window.js_beautify(content, {
+                indent_size: 2,
+                wrap_line_length: 120,
+                space_in_empty_paren: false
+            });
         } else if (name.endsWith(".py")) {
-            formatted = basicPythonFormat(content);
+            formatted = smartPythonFormat(content);
         } else {
             alert("Auto-format not configured for this file type.");
             return;
@@ -738,27 +747,40 @@ function autoFormat() {
     }
 }
 
-// very simple Python formatting (not a real formatter)
-function basicPythonFormat(code) {
-    const lines = code.split("\n");
-    let indent = 0;
-    const INDENT = "    ";
+// Smarter Python indentation formatter
+function smartPythonFormat(code) {
+    const TAB = "    "; // 4 spaces
+    const lines = code.replace(/\t/g, TAB).split("\n");
+    let indentLevel = 0;
     const result = [];
 
-    lines.forEach(rawLine => {
-        let line = rawLine.trim();
-        if (line === "") {
+    const dedentKeywords = /^(elif\b|else:|except\b|finally:)/;
+
+    for (let raw of lines) {
+        const stripped = raw.trim();
+
+        // Preserve completely empty lines
+        if (stripped === "") {
             result.push("");
-            return;
+            continue;
         }
-        if (/^(return|pass|break|continue|elif |else:|except |finally:)/.test(line) && indent > 0) {
-            indent -= 1;
+
+        // If this line starts with dedent keyword, reduce indent first
+        if (dedentKeywords.test(stripped) && indentLevel > 0) {
+            indentLevel -= 1;
         }
-        result.push(INDENT.repeat(indent) + line);
-        if (line.endsWith(":") && !line.startsWith("#")) {
-            indent += 1;
+
+        // Apply current indent
+        result.push(TAB.repeat(indentLevel) + stripped);
+
+        // If line ends with ":" and is not a comment-only line,
+        // increase indent for the next lines.
+        const isCommentOnly = stripped.startsWith("#");
+        if (!isCommentOnly && stripped.endsWith(":")) {
+            indentLevel += 1;
         }
-    });
+    }
+
     return result.join("\n");
 }
 
