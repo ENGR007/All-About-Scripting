@@ -205,6 +205,11 @@ button.full {
 #fileHeaderButtonsRow {
     margin-top: 6px;
     display: flex;
+    justify-content: center;
+}
+
+.button-row {
+    display: flex;
     gap: 6px;
     flex-wrap: wrap;
     justify-content: center;
@@ -349,7 +354,7 @@ button.full {
 
             <div id="fileHeaderButtonsRow">
                 <!-- VIEW MODE BUTTONS -->
-                <div id="viewButtons" style="display:flex;gap:6px;flex-wrap:wrap;">
+                <div id="viewButtons" class="button-row">
                     <button onclick="renameFile()">✏️ Rename</button>
                     <button class="danger" onclick="deleteFile()">🗑 Delete</button>
                     <button onclick="openInBrowser()">🌐 Open</button>
@@ -358,7 +363,7 @@ button.full {
                 </div>
 
                 <!-- EDIT MODE BUTTONS -->
-                <div id="editButtons" style="display:none;gap:6px;flex-wrap:wrap;">
+                <div id="editButtons" class="button-row" style="display:none;">
                     <button onclick="undoEdit()">↩️ Undo</button>
                     <button onclick="redoEdit()">↪️ Redo</button>
                     <button onclick="searchInEditor()">🔍 Search</button>
