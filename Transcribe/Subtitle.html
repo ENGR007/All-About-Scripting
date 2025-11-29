@@ -86,6 +86,8 @@
     min-width: 0;
     display: flex;
     flex-direction: column;
+    align-items: center;   /* center horizontally */
+    text-align: center;    /* center text */
     line-height: 1.2;
   }
 
@@ -228,9 +230,9 @@
 <div id="settingsModal" class="modal-backdrop">
   <div class="modal">
     <h2>Subtitle Settings</h2>
-    <p>Choose languages and subtitle size.</p>
+    <p>Choose first (spoken) language and the translated second line.</p>
 
-    <label for="spokenLang">Spoken language (mic)</label>
+    <label for="spokenLang">First line language (spoken)</label>
     <select id="spokenLang">
       <option value="en" selected>English</option>
       <option value="zh-CN">Chinese</option>
@@ -240,9 +242,10 @@
       <option value="tl">Filipino</option>
     </select>
 
-    <label for="subtitleLang">Second line</label>
+    <label for="subtitleLang">Second line language</label>
     <select id="subtitleLang">
-      <option value="none" selected>None (English only)</option>
+      <option value="none">None (first line only)</option>
+      <option value="en" selected>English</option>
       <option value="zh-CN">Chinese</option>
       <option value="ja">Japanese</option>
       <option value="ko">Korean</option>
@@ -276,8 +279,8 @@
   const settingsModal   = document.getElementById("settingsModal");
   const btnCloseModal   = document.getElementById("btnCloseModal");
   const btnSaveModal    = document.getElementById("btnSaveModal");
-  const spokenLangSel   = document.getElementById("spokenLang");
-  const subtitleLangSel = document.getElementById("subtitleLang");
+  const spokenLangSel   = document.getElementById("spokenLang");   // first-line language
+  const subtitleLangSel = document.getElementById("subtitleLang"); // second-line language
   const fontSizeSelect  = document.getElementById("fontSizeSelect");
 
   let keepListening = false;
@@ -309,6 +312,15 @@
       btnPlay.textContent = "▶";
       statusDot.classList.remove("listening");
     }
+  }
+
+  // Convert digits to Chinese numerals for any Chinese line
+  function convertNumbersToChinese(str) {
+    const map = {
+      "0":"零","1":"一","2":"二","3":"三","4":"四",
+      "5":"五","6":"六","7":"七","8":"八","9":"九"
+    };
+    return str.replace(/[0-9]/g, d => map[d] || d);
   }
 
   // Apply font size choice
@@ -348,6 +360,7 @@
     return data[0].map(seg => seg[0]).join("");
   }
 
+  // Core translation: first line = spokenLang, second line = subtitleLang
   async function doTranslate(text, isLive = false){
     if (isLive && !keepListening) return;
 
@@ -359,56 +372,56 @@
       return;
     }
 
-    const spokenLang = spokenLangSel.value || "en";
-    const secondLang = subtitleLangSel.value || "none";
+    const firstLang  = spokenLangSel.value || "en";  // L1
+    const secondLang = subtitleLangSel.value || "none"; // L2
 
     const currentReq = ++lastReqId;
     showError("");
 
+    // First line: original in firstLang
+    let firstText = trimmed;
+    if (firstLang === "zh-CN") {
+      firstText = convertNumbersToChinese(firstText);
+    }
+    lineEn.textContent = firstText;
+
+    // No second line
+    if (secondLang === "none") {
+      lineOther.style.display = "none";
+      lineOther.textContent = "";
+      return;
+    }
+
     try {
-      // English line
-      const englishPromise =
-        spokenLang === "en"
-          ? Promise.resolve(trimmed)
-          : gTransRaw(trimmed, spokenLang, "en").then(extText);
-
-      // Second line
       let secondPromise;
-      if (secondLang === "none") {
-        secondPromise = Promise.resolve("");
-      } else if (secondLang === spokenLang) {
-        secondPromise = Promise.resolve(trimmed);
+      if (secondLang === firstLang) {
+        // same language: show same text
+        secondPromise = Promise.resolve(firstText);
       } else {
-        secondPromise = gTransRaw(trimmed, spokenLang, secondLang).then(extText);
+        secondPromise = gTransRaw(trimmed, firstLang, secondLang).then(extText);
       }
-
-      englishPromise.then(enText => {
-        if (currentReq !== lastReqId) return;
-        lineEn.textContent = enText || trimmed;
-      }).catch(err => {
-        if (currentReq !== lastReqId) return;
-        lineEn.textContent = trimmed;
-        showError("EN error: " + err.message);
-      });
 
       secondPromise.then(secText => {
         if (currentReq !== lastReqId) return;
-        if (secondLang === "none" || !secText) {
+
+        if (!secText) {
           lineOther.style.display = "none";
           lineOther.textContent = "";
-        } else {
-          lineOther.style.display = "block";
-          lineOther.textContent = secText;
+          return;
         }
+
+        if (secondLang === "zh-CN") {
+          secText = convertNumbersToChinese(secText);
+        }
+
+        lineOther.style.display = "block";
+        lineOther.textContent = secText;
       }).catch(err => {
         if (currentReq !== lastReqId) return;
         lineOther.style.display = "none";
         lineOther.textContent = "";
-        if (secondLang !== "none") {
-          showError("2nd line error: " + err.message);
-        }
+        showError("2nd line error: " + err.message);
       });
-
     } catch (err){
       if (currentReq !== lastReqId) return;
       console.error(err);
@@ -434,6 +447,7 @@
 
   function updateRecognizerLang(){
     if (!recognition) return;
+    // recognizer always follows FIRST language
     recognition.lang = srLangCode(spokenLangSel.value || "en");
   }
 
@@ -537,7 +551,7 @@
     updateRecognizerLang();
   });
 
-  // Also change font size immediately when changing dropdown (nice UX)
+  // Change font size immediately when dropdown changes
   fontSizeSelect.addEventListener("change", () => {
     applyFontSize(fontSizeSelect.value);
   });
