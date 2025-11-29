@@ -63,7 +63,7 @@
       padding: 18px 22px 14px 22px;
       display: flex;
       align-items: center;
-      justify-content: space-between;
+      justify-content: center;
       border-bottom: 1px solid rgba(255, 255, 255, 0.06);
       background: radial-gradient(circle at left, rgba(255, 184, 77, 0.13), transparent 60%);
     }
@@ -72,6 +72,7 @@
       display: flex;
       flex-direction: column;
       gap: 4px;
+      align-items: center;
     }
 
     .app-title {
@@ -484,13 +485,6 @@
         LIVE NOTEBOOK
         <span class="title-pill">Recorder + Transcriber</span>
       </div>
-      <div class="app-subtitle">
-        Record high-quality audio, see live text, save sessions, and export/import everything locally.
-      </div>
-    </div>
-    <div class="app-badge">
-      ● Live
-      <span>Browser-only, no server</span>
     </div>
   </header>
 
@@ -515,9 +509,6 @@
           id="sessionName"
           placeholder="Optional — leave empty to use date/time as name"
         />
-        <span class="hint">
-          If left blank, name will be e.g. <strong>Session_2025-11-24_18-30-05</strong>
-        </span>
       </div>
 
       <div class="field-group">
@@ -545,18 +536,11 @@
           id="transcriptArea"
           placeholder="Transcript will appear here while you speak…"
         ></textarea>
-        <span class="hint">
-          Final sentences are saved with timestamps like <code>[00:00:12] Hello everyone.</code>
-        </span>
       </div>
 
       <div class="field-group">
         <label>Current audio preview</label>
         <audio id="currentAudio" controls></audio>
-        <span class="hint">
-          After you click <strong>Stop</strong>, the latest recording appears here. Then click
-          <strong>Save session</strong> to store audio + text in the notebook.
-        </span>
         <span id="recordTimer" class="hint">Recording time: 00:00</span>
       </div>
     </section>
@@ -566,7 +550,6 @@
       <div class="card-header">
         <div>
           <div class="card-title">Session Notebook</div>
-          <div class="card-subtitle">Saved recordings & transcripts in this browser</div>
         </div>
         <div class="chip-row">
           <span id="sessionCount" class="pill-counter">0 sessions</span>
@@ -584,9 +567,6 @@
           </button>
           <input id="importFile" type="file" accept="application/json" />
         </div>
-        <span class="hint">
-          Export to keep a backup (.json). Import later (or on another browser) to restore sessions.
-        </span>
       </div>
 
       <div class="field-group">
