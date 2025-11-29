@@ -51,10 +51,12 @@
 
   .row {
     display:grid;
-    grid-template-columns:1fr 1fr;
+    grid-template-columns:repeat(2, minmax(0, 1fr)); /* always 2 columns */
     gap:10px;
     margin-top:10px;
   }
+  
+  /* ← remove the @media(max-width:720px){ .row { … } } block entirely */
   @media(max-width:720px){
     .row { grid-template-columns:1fr; }
   }
