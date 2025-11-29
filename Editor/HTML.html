@@ -225,7 +225,6 @@ button.full {
 #editorPanel {
     flex: 1;
     background: var(--bg-soft);
-    border-right: 1px solid var(--border);
     display: flex;
     flex-direction: column;
 }
@@ -241,49 +240,45 @@ button.full {
     font-size: 13px;
 }
 
-/* Commits pane */
-#commitsPane {
-    width: 280px;
-    background: #0d1117;
-    border-left: 1px solid var(--border);
+/* Diff popup */
+#rollbackOverlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.75);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+}
+#rollbackDialog {
+    background: var(--bg-soft);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    max-width: 960px;
+    width: 95%;
+    max-height: 90vh;
     padding: 10px;
-    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
 }
-:root[data-theme="light"] #commitsPane {
-    background: #f6f8fa;
-}
-
-.commit-item {
-    padding: 8px;
-    border-radius: 4px;
-    border: 1px solid transparent;
+#rollbackDialogHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
     margin-bottom: 6px;
-    font-size: 12px;
 }
-.commit-item:hover {
-    border-color: var(--border);
-    background: #161b22;
-    cursor: pointer;
+#rollbackDialogTitle {
+    font-size: 14px;
+    font-weight: 600;
 }
-:root[data-theme="light"] .commit-item:hover {
-    background: #e9eef2;
-}
-.commit-msg {
-    font-weight: 500;
-}
-.commit-meta {
-    color: var(--muted);
+#rollbackDialogMeta {
     font-size: 11px;
-}
-
-#commitDetail {
-    margin-top: 10px;
-    border-top: 1px solid var(--border);
-    padding-top: 8px;
+    color: var(--muted);
 }
 .diff-container {
     display: flex;
     gap: 6px;
+    margin-top: 4px;
 }
 .diff-block {
     flex: 1;
@@ -297,24 +292,26 @@ button.full {
 }
 .diff-block textarea {
     width: 100%;
-    height: 120px;
+    height: 140px;
     font-size: 11px;
     font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
     border-radius: 4px;
     border: 1px solid var(--border);
-    background: var(--bg-soft);
+    background: var(--bg);
     color: var(--fg);
     resize: vertical;
 }
+#rollbackDialogFooter {
+    margin-top: 8px;
+    display: flex;
+    justify-content: flex-end;
+    gap: 6px;
+}
 
-/* Responsive: stack editor + commits on small screens */
-@media (max-width: 900px) {
-    #fileMain { flex-direction: column; }
-    #commitsPane {
-        width: 100%;
-        height: 200px;
-        border-left: none;
-        border-top: 1px solid var(--border);
+/* Responsive: stack diff columns on small screens */
+@media (max-width: 700px) {
+    .diff-container {
+        flex-direction: column;
     }
 }
 </style>
@@ -347,7 +344,7 @@ button.full {
         <div id="fileList"></div>
     </div>
 
-    <!-- FILE VIEW: full screen editor + commits -->
+    <!-- FILE VIEW: editor full screen -->
     <div id="fileView">
         <div id="fileHeader">
             <div class="small-label">FILE</div>
@@ -372,6 +369,7 @@ button.full {
                     <button onclick="clearAllInEditor()">🧹 Clear All</button>
                     <button onclick="autoFormat()">✨ Format</button>
                     <button onclick="cancelEdit()">✖️ Cancel</button>
+                    <button onclick="openRollbackPopup()">⏪ Rollback</button>
                     <button class="primary" onclick="saveAndCommit()">💾 Commit</button>
                 </div>
             </div>
@@ -380,11 +378,6 @@ button.full {
         <div id="fileMain">
             <div id="editorPanel">
                 <textarea id="editorBox"></textarea>
-            </div>
-            <div id="commitsPane">
-                <div class="small-label">COMMITS</div>
-                <div id="commitList" style="margin-top:6px;"></div>
-                <div id="commitDetail"></div>
             </div>
         </div>
     </div>
@@ -402,6 +395,7 @@ let cmEditor = null;
 let isEditing = false;
 let lastSearchTerm = "";
 let lastSearchPos = 0;
+let pendingRollbackCommitId = null;
 
 // ----- Storage helpers -----
 function getFilesMap() {
@@ -453,8 +447,6 @@ function showFileView() {
     document.getElementById("fileView").style.display = "flex";
 }
 function closeFile() {
-    document.getElementById("commitList").innerHTML = "";
-    document.getElementById("commitDetail").innerHTML = "";
     showHomeView();
 }
 
@@ -596,7 +588,6 @@ function renameFile() {
     document.getElementById("fileHeaderName").textContent = currentFileName;
     setEditorModeByFilename(currentFileName);
     loadFilesList();
-    loadCommits(currentFileName);
 }
 
 // ----- Delete file -----
@@ -636,8 +627,6 @@ function openFile(name) {
     lastSearchTerm = "";
     lastSearchPos = 0;
 
-    loadCommits(name);
-    document.getElementById("commitDetail").innerHTML = "";
     showFileView();
 }
 
@@ -674,62 +663,86 @@ function saveAndCommit() {
     });
     setCommitsMap(commits);
 
-    loadCommits(currentFileName);
     setEditingMode(false);
     alert("Saved & committed!");
 }
 
-// ----- Commits -----
-function loadCommits(fileName) {
-    const listDiv = document.getElementById("commitList");
-    listDiv.innerHTML = "";
+// ----- Get latest commit for file -----
+function getLatestCommit(fileName) {
     const commitsMap = getCommitsMap();
     const list = commitsMap[fileName] || [];
+    if (list.length === 0) return null;
+    return list[list.length - 1];
+}
 
-    if (list.length === 0) {
-        listDiv.innerHTML = "<div style='color:#6e7681;font-size:12px;'>No commits yet.</div>";
+// ----- Rollback popup -----
+function openRollbackPopup() {
+    if (!isEditing || !currentFileName || !cmEditor) {
+        alert("Enter edit mode first.");
+        return;
+    }
+    const commit = getLatestCommit(currentFileName);
+    if (!commit) {
+        alert("No commits yet to rollback to.");
         return;
     }
 
-    list.slice().reverse().forEach(commit => {
-        const item = document.createElement("div");
-        item.className = "commit-item";
-        item.innerHTML = `
-            <div class="commit-msg">${commit.message}</div>
-            <div class="commit-meta">${commit.date}</div>
-        `;
-        item.onclick = () => showCommitDetail(fileName, commit);
-        listDiv.appendChild(item);
-    });
-}
+    pendingRollbackCommitId = commit.id;
 
-// Show diff + rollback button
-function showCommitDetail(fileName, commit) {
-    const detailDiv = document.getElementById("commitDetail");
-    const files = getFilesMap();
-    const currentContent = files[fileName] ?? "";
+    const currentContent = cmEditor.getValue();
 
-    detailDiv.innerHTML = `
-        <div class="small-label" style="margin-bottom:4px;">
-            Commit: ${commit.message} • ${commit.date}
-        </div>
-        <div class="diff-container">
-            <div class="diff-block">
-                <label>Commit version</label>
-                <textarea readonly>${commit.content}</textarea>
+    const overlay = document.createElement("div");
+    overlay.id = "rollbackOverlay";
+
+    overlay.innerHTML = `
+        <div id="rollbackDialog">
+            <div id="rollbackDialogHeader">
+                <div>
+                    <div id="rollbackDialogTitle">Rollback to latest commit</div>
+                    <div id="rollbackDialogMeta">
+                        ${commit.message} • ${commit.date}
+                    </div>
+                </div>
+                <button onclick="closeRollbackPopup()">✖</button>
             </div>
-            <div class="diff-block">
-                <label>Current file</label>
-                <textarea readonly>${currentContent}</textarea>
+            <div class="diff-container">
+                <div class="diff-block">
+                    <label>Latest commit</label>
+                    <textarea readonly>${commit.content}</textarea>
+                </div>
+                <div class="diff-block">
+                    <label>Current file</label>
+                    <textarea readonly>${currentContent}</textarea>
+                </div>
             </div>
-        </div>
-        <div style="margin-top:6px;display:flex;gap:6px;justify-content:flex-end;">
-            <button onclick="rollbackCommit('${fileName.replace(/'/g, "\\'")}', ${commit.id})">⏪ Rollback to this</button>
+            <div id="rollbackDialogFooter">
+                <button onclick="closeRollbackPopup()">Cancel</button>
+                <button class="primary" onclick="applyRollbackFromPopup()">Rollback</button>
+            </div>
         </div>
     `;
+
+    document.body.appendChild(overlay);
 }
 
-// ----- Rollback to commit -----
+function closeRollbackPopup() {
+    const overlay = document.getElementById("rollbackOverlay");
+    if (overlay && overlay.parentNode) {
+        overlay.parentNode.removeChild(overlay);
+    }
+    pendingRollbackCommitId = null;
+}
+
+function applyRollbackFromPopup() {
+    if (!currentFileName || pendingRollbackCommitId == null) {
+        closeRollbackPopup();
+        return;
+    }
+    rollbackCommit(currentFileName, pendingRollbackCommitId);
+    closeRollbackPopup();
+}
+
+// Generic rollback using commitId
 function rollbackCommit(fileName, commitId) {
     const commitsMap = getCommitsMap();
     const list = commitsMap[fileName] || [];
@@ -738,7 +751,6 @@ function rollbackCommit(fileName, commitId) {
         alert("Commit not found.");
         return;
     }
-    if (!confirm("Rollback '" + fileName + "' to this commit?")) return;
 
     const files = getFilesMap();
     files[fileName] = commit.content;
@@ -748,7 +760,7 @@ function rollbackCommit(fileName, commitId) {
         cmEditor.setValue(commit.content);
     }
     setEditingMode(false);
-    alert("Rolled back to selected commit.");
+    alert("Rolled back to latest commit.");
 }
 
 // ----- Download file -----
