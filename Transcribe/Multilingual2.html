@@ -238,7 +238,6 @@ const voiceWave        = document.getElementById("voiceWave");
 let activeSpeaker      = "you"; // "you" or "partner"
 let transcriptEntries  = [];
 let typingDebounce     = null;
-let speechDebounce     = null;
 let keepListening      = false;
 
 /* store the last finished translation so Stop can log it once */
@@ -247,11 +246,22 @@ let lastTgtLang = "";
 let lastSourceText = "";
 let lastTranslatedText = "";
 
+/* live speech buffer */
+let liveFinalBuffer = "";   // all final chunks
+let liveInterimText = "";   // most recent interim
+
 /* ---------- Helpers ---------- */
 function isEastAsian(lang){
   if (!lang) return false;
   const l = lang.toLowerCase();
   return l.startsWith("zh") || l.startsWith("ja") || l.startsWith("ko") || l.startsWith("th");
+}
+
+function scrollToBottomAndFocus(el){
+  // put caret at end and scroll so latest text is visible
+  const len = el.value.length;
+  el.selectionStart = el.selectionEnd = len;
+  el.scrollTop = el.scrollHeight;
 }
 
 /* ---------- Speaker switching ---------- */
@@ -304,6 +314,8 @@ startSpeechBtn.onclick = () => {
   if (!recognition) return;
   if (keepListening) return;
   keepListening = true;
+  liveFinalBuffer = "";
+  liveInterimText = "";
   updateRecognizerLanguage();
   try { recognition.start(); } catch(e){}
   voiceWave.classList.add("listening");
@@ -318,8 +330,7 @@ stopSpeechBtn.onclick = async () => {
 
   const currentText = sourceText.value.trim();
   if (currentText){
-    // ensure translation is up to date and saved in last* variables
-    await doTranslate();
+    await doTranslate(); // ensure last* are updated
     if (lastTranslatedText){
       appendToTranscript(lastSrcLang, lastTgtLang, lastSourceText, lastTranslatedText);
     }
@@ -327,25 +338,28 @@ stopSpeechBtn.onclick = async () => {
   statusText.textContent = "Status: Stopped.";
 };
 
-/* Real-time speech: live translate (no transcript) */
+/* Real-time speech: live text & translation (no transcript here) */
 if (recognition){
   recognition.onresult = (event) => {
-    let txt = "";
-    for (let i = 0; i < event.results.length; i++){
-      txt += event.results[i][0].transcript;
+    for (let i = event.resultIndex; i < event.results.length; i++){
+      const res = event.results[i];
+      if (res.isFinal){
+        liveFinalBuffer += res[0].transcript + " ";
+        liveInterimText = "";
+      } else {
+        liveInterimText = res[0].transcript;
+      }
     }
-    txt = txt.trim();
-    if (!txt) return;
+
+    let full = (liveFinalBuffer + " " + liveInterimText).trim();
+    if (!full) return;
 
     // small readability fix for English: insert space before Capital after lowercase
-    txt = txt.replace(/([a-z])([A-Z])/g, "$1 $2");
+    full = full.replace(/([a-z])([A-Z])/g, "$1 $2");
 
-    sourceText.value = txt;
-
-    clearTimeout(speechDebounce);
-    speechDebounce = setTimeout(() => {
-      doTranslate();  // live translation, no transcript logging
-    }, 250);
+    sourceText.value = full;
+    scrollToBottomAndFocus(sourceText);
+    doTranslate();  // live translation while speaking
   };
 
   recognition.onerror = (e) => {
@@ -388,7 +402,7 @@ function extRoman(data){
 }
 
 /* ---------- Core Translation ---------- */
-/* This NEVER writes to transcript. We only store last* values. */
+/* Never writes to transcript directly; just updates last* values. */
 async function doTranslate(){
   const text = sourceText.value.trim();
   if (!text){
@@ -460,6 +474,7 @@ async function doTranslate(){
     }
 
     targetText.value = display;
+    scrollToBottomAndFocus(targetText);
 
     // store last translation so Stop can log exactly one transcript entry
     lastSrcLang = sl;
@@ -478,7 +493,10 @@ async function doTranslate(){
 /* ---------- Auto-translate on typing (no transcript) ---------- */
 sourceText.addEventListener("input", () => {
   clearTimeout(typingDebounce);
-  typingDebounce = setTimeout(() => doTranslate(), 350);
+  typingDebounce = setTimeout(() => {
+    scrollToBottomAndFocus(sourceText);
+    doTranslate();
+  }, 350);
 });
 
 /* ---------- Auto-translate on dropdown change (no transcript) ---------- */
@@ -612,6 +630,8 @@ btnClear.onclick = () => {
   errorBox.textContent = "";
   statusText.textContent = "Status: Idle";
   lastSrcLang = lastTgtLang = lastSourceText = lastTranslatedText = "";
+  liveFinalBuffer = "";
+  liveInterimText = "";
 };
 </script>
 
