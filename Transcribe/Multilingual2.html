@@ -241,6 +241,12 @@ let typingDebounce     = null;
 let speechDebounce     = null;
 let keepListening      = false;
 
+/* store the last finished translation so Stop can log it once */
+let lastSrcLang = "";
+let lastTgtLang = "";
+let lastSourceText = "";
+let lastTranslatedText = "";
+
 /* ---------- Helpers ---------- */
 function isEastAsian(lang){
   if (!lang) return false;
@@ -304,20 +310,24 @@ startSpeechBtn.onclick = () => {
   statusText.textContent = "Status: Listening…";
 };
 
-stopSpeechBtn.onclick = () => {
+stopSpeechBtn.onclick = async () => {
   if (!recognition) return;
   keepListening = false;
   recognition.stop();
   voiceWave.classList.remove("listening");
-  // finalize one transcript entry for this turn
-  if (sourceText.value.trim()){
-    doTranslate(true);  // translate + append once
-  } else {
-    statusText.textContent = "Status: Stopped.";
+
+  const currentText = sourceText.value.trim();
+  if (currentText){
+    // ensure translation is up to date and saved in last* variables
+    await doTranslate();
+    if (lastTranslatedText){
+      appendToTranscript(lastSrcLang, lastTgtLang, lastSourceText, lastTranslatedText);
+    }
   }
+  statusText.textContent = "Status: Stopped.";
 };
 
-/* Real-time speech: live translate, but no transcript here */
+/* Real-time speech: live translate (no transcript) */
 if (recognition){
   recognition.onresult = (event) => {
     let txt = "";
@@ -327,12 +337,14 @@ if (recognition){
     txt = txt.trim();
     if (!txt) return;
 
+    // small readability fix for English: insert space before Capital after lowercase
+    txt = txt.replace(/([a-z])([A-Z])/g, "$1 $2");
+
     sourceText.value = txt;
 
     clearTimeout(speechDebounce);
     speechDebounce = setTimeout(() => {
-      // live update only, do NOT add to transcript here
-      doTranslate(false);
+      doTranslate();  // live translation, no transcript logging
     }, 250);
   };
 
@@ -376,8 +388,8 @@ function extRoman(data){
 }
 
 /* ---------- Core Translation ---------- */
-/* addToTranscript = true only when called from Stop button */
-async function doTranslate(addToTranscript = false){
+/* This NEVER writes to transcript. We only store last* values. */
+async function doTranslate(){
   const text = sourceText.value.trim();
   if (!text){
     targetText.value = "";
@@ -448,9 +460,13 @@ async function doTranslate(addToTranscript = false){
     }
 
     targetText.value = display;
-    if (addToTranscript){
-      appendToTranscript(sl, tl, text, display);
-    }
+
+    // store last translation so Stop can log exactly one transcript entry
+    lastSrcLang = sl;
+    lastTgtLang = tl;
+    lastSourceText = text;
+    lastTranslatedText = display;
+
     statusText.textContent = "Status: Done.";
   } catch(err){
     console.error(err);
@@ -462,14 +478,14 @@ async function doTranslate(addToTranscript = false){
 /* ---------- Auto-translate on typing (no transcript) ---------- */
 sourceText.addEventListener("input", () => {
   clearTimeout(typingDebounce);
-  typingDebounce = setTimeout(() => doTranslate(false), 350);
+  typingDebounce = setTimeout(() => doTranslate(), 350);
 });
 
 /* ---------- Auto-translate on dropdown change (no transcript) ---------- */
 function autoRefresh(){
   updateRecognizerLanguage();
   if (sourceText.value.trim()){
-    doTranslate(false);
+    doTranslate();
   }
 }
 sourceLangSel.addEventListener("change", autoRefresh);
@@ -493,6 +509,7 @@ btnSaveTrans.onclick = () => {
     errorBox.textContent = "No transcript yet.";
     return;
   }
+  errorBox.textContent = "";
   const content = transcriptEntries.join("\n\n");
   const blob = new Blob([content], {type:"text/plain"});
   const url  = URL.createObjectURL(blob);
@@ -594,6 +611,7 @@ btnClear.onclick = () => {
   targetText.value = "";
   errorBox.textContent = "";
   statusText.textContent = "Status: Idle";
+  lastSrcLang = lastTgtLang = lastSourceText = lastTranslatedText = "";
 };
 </script>
 
