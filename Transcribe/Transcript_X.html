@@ -278,7 +278,7 @@ button:not(:disabled):hover {
 }
 
 /* ===========================================
-   SUPPORT STYLES (rows, hints, status)
+   SUPPORT STYLES
    =========================================== */
 .row {
   display: flex;
@@ -318,7 +318,7 @@ button:not(:disabled):hover {
 }
 
 /* ===========================================
-   AUDIO (better scrubbing on mobile/desktop)
+   AUDIO
    =========================================== */
 audio {
   width: 100%;
@@ -623,7 +623,7 @@ body.recording-mode section.card:nth-of-type(2) {
   </main>
 </div>
 
-<!-- AUDIO MODE MODAL (R1: always show on Start) -->
+<!-- AUDIO MODE MODAL -->
 <div id="modeModal" class="mode-modal hidden">
   <div class="mode-modal-content">
     <div class="mode-modal-title">Choose audio mode</div>
@@ -954,9 +954,10 @@ body.recording-mode section.card:nth-of-type(2) {
     }
   }
 
+  // *** UPDATED: make modes more different, especially for far-field ***
   function getConstraintsForMode(mode) {
-    // Different constraints per environment
     if (mode === "noiseEcho") {
+      // Close talk, noisy environment
       return {
         audio: {
           echoCancellation: true,
@@ -965,19 +966,22 @@ body.recording-mode section.card:nth-of-type(2) {
         }
       };
     } else if (mode === "smallRoom") {
+      // More sensitivity: keep AGC, remove heavy suppression
       return {
         audio: {
           echoCancellation: false,
-          noiseSuppression: true,
+          noiseSuppression: false,
           autoGainControl: true
         }
       };
     } else if (mode === "bigRoom") {
+      // Far / lecture: as raw as possible
       return {
         audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: false
+          echoCancellation: false,
+          noiseSuppression: false,
+          autoGainControl: false,
+          channelCount: 1
         }
       };
     }
@@ -1227,7 +1231,7 @@ body.recording-mode section.card:nth-of-type(2) {
   initRecognition();
 
   // ---------------------------
-  // Audio recording setup
+  // Audio recording setup (with gain)
   // ---------------------------
 
   async function startRecording(modeKey) {
@@ -1239,8 +1243,24 @@ body.recording-mode section.card:nth-of-type(2) {
     selectedAudioMode = modeKey || "noiseEcho";
 
     const constraints = getConstraintsForMode(selectedAudioMode);
-    const stream = await navigator.mediaDevices.getUserMedia(constraints);
+    console.log("Starting recording with mode:", selectedAudioMode, constraints);
+
+    const inputStream = await navigator.mediaDevices.getUserMedia(constraints);
     recordedChunks = [];
+
+    // --- Web Audio gain stage to boost quiet audio ---
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    const audioContext = new AudioContext();
+    const source = audioContext.createMediaStreamSource(inputStream);
+    const gainNode = audioContext.createGain();
+
+    // Adjust this value if recordings are too loud/quiet (2–4 is a sane range)
+    gainNode.gain.value = 3.0;
+
+    const dest = audioContext.createMediaStreamDestination();
+    source.connect(gainNode).connect(dest);
+    const stream = dest.stream;
+    // --- end gain stage ---
 
     let options = {};
     if (
@@ -1283,7 +1303,7 @@ body.recording-mode section.card:nth-of-type(2) {
   }
 
   // ---------------------------
-  // Start flow with audio mode (R1)
+  // Start flow with audio mode
   // ---------------------------
 
   async function startFullRecordingFlow(modeKey) {
@@ -1346,7 +1366,7 @@ body.recording-mode section.card:nth-of-type(2) {
   // Button handlers
   // ---------------------------
 
-  // Start = open mode modal (R1)
+  // Start = open mode modal
   startBtn.addEventListener("click", () => {
     openModeModal();
   });
