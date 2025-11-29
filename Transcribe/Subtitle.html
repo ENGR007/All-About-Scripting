@@ -89,22 +89,22 @@
     line-height: 1.2;
   }
 
+  .line-en,
+  .line-other {
+    text-shadow: 0 0 4px rgba(0,0,0,0.9);
+    white-space: nowrap;       /* keep one line */
+    overflow: hidden;
+    text-overflow: ellipsis;   /* cut with ... if too long */
+  }
+
   .line-en {
     font-size: 15px;
     font-weight: 500;
-    text-shadow: 0 0 4px rgba(0,0,0,0.9);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
   }
 
   .line-other {
     font-size: 14px;
     margin-top: 1px;
-    text-shadow: 0 0 4px rgba(0,0,0,0.9);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
     opacity: 0.95;
   }
 
@@ -204,8 +204,6 @@
     .subtitle-bar {
       padding-inline: 6px;
     }
-    .line-en { font-size: 14px; }
-    .line-other { font-size: 13px; }
   }
 </style>
 </head>
@@ -230,7 +228,7 @@
 <div id="settingsModal" class="modal-backdrop">
   <div class="modal">
     <h2>Subtitle Settings</h2>
-    <p>Choose your spoken language and the second subtitle line.</p>
+    <p>Choose languages and subtitle size.</p>
 
     <label for="spokenLang">Spoken language (mic)</label>
     <select id="spokenLang">
@@ -250,6 +248,14 @@
       <option value="ko">Korean</option>
       <option value="th">Thai</option>
       <option value="tl">Filipino</option>
+    </select>
+
+    <label for="fontSizeSelect">Subtitle size</label>
+    <select id="fontSizeSelect">
+      <option value="medium" selected>Medium (default)</option>
+      <option value="small">Small</option>
+      <option value="large">Large</option>
+      <option value="xlarge">Extra large</option>
     </select>
 
     <div class="modal-actions">
@@ -272,9 +278,9 @@
   const btnSaveModal    = document.getElementById("btnSaveModal");
   const spokenLangSel   = document.getElementById("spokenLang");
   const subtitleLangSel = document.getElementById("subtitleLang");
+  const fontSizeSelect  = document.getElementById("fontSizeSelect");
 
   let keepListening = false;
-  let lastInputText = "";
   let lastReqId = 0;
 
   function srLangCode(code){
@@ -305,6 +311,29 @@
     }
   }
 
+  // Apply font size choice
+  function applyFontSize(size){
+    switch (size) {
+      case "small":
+        lineEn.style.fontSize = "13px";
+        lineOther.style.fontSize = "12px";
+        break;
+      case "large":
+        lineEn.style.fontSize = "18px";
+        lineOther.style.fontSize = "17px";
+        break;
+      case "xlarge":
+        lineEn.style.fontSize = "22px";
+        lineOther.style.fontSize = "21px";
+        break;
+      case "medium":
+      default:
+        lineEn.style.fontSize = "15px";
+        lineOther.style.fontSize = "14px";
+        break;
+    }
+  }
+
   async function gTransRaw(text, sl, tl){
     const url =
       "https://translate.googleapis.com/translate_a/single?client=gtx" +
@@ -322,8 +351,7 @@
   async function doTranslate(text, isLive = false){
     if (isLive && !keepListening) return;
 
-    const raw = text || "";
-    const trimmed = raw.trim();
+    const trimmed = (text || "").trim();
     if (!trimmed){
       lineEn.textContent = "Tap ▶ and speak…";
       lineOther.style.display = "none";
@@ -331,7 +359,6 @@
       return;
     }
 
-    lastInputText = trimmed;
     const spokenLang = spokenLangSel.value || "en";
     const secondLang = subtitleLangSel.value || "none";
 
@@ -355,7 +382,6 @@
         secondPromise = gTransRaw(trimmed, spokenLang, secondLang).then(extText);
       }
 
-      // Update English as soon as it's ready
       englishPromise.then(enText => {
         if (currentReq !== lastReqId) return;
         lineEn.textContent = enText || trimmed;
@@ -365,7 +391,6 @@
         showError("EN error: " + err.message);
       });
 
-      // Update second line
       secondPromise.then(secText => {
         if (currentReq !== lastReqId) return;
         if (secondLang === "none" || !secText) {
@@ -404,7 +429,7 @@
     showError("This browser does not support the Web Speech API.");
   }
 
-  let liveFinalBuffer = "";
+  let liveFinalText = "";
   let liveInterimText = "";
 
   function updateRecognizerLang(){
@@ -415,7 +440,7 @@
   function startListening(){
     if (!recognition || keepListening) return;
     keepListening = true;
-    liveFinalBuffer = "";
+    liveFinalText = "";
     liveInterimText = "";
     updateRecognizerLang();
     try { recognition.start(); } catch(e){}
@@ -431,20 +456,22 @@
 
   if (recognition){
     recognition.onresult = (event) => {
+      // keep only the most recent phrase
       for (let i = event.resultIndex; i < event.results.length; i++){
         const res = event.results[i];
+        const chunk = res[0].transcript;
+
         if (res.isFinal){
-          liveFinalBuffer += res[0].transcript + " ";
+          liveFinalText = chunk;
           liveInterimText = "";
         } else {
-          liveInterimText = res[0].transcript;
+          liveInterimText = chunk;
         }
       }
 
-      const full = (liveFinalBuffer + " " + liveInterimText).trim();
+      const full = (liveInterimText || liveFinalText).trim();
       if (!full) return;
 
-      // Live, smooth updating (same pattern as your original)
       doTranslate(full, true);
     };
 
@@ -497,6 +524,7 @@
   btnSaveModal.addEventListener("click", () => {
     settingsModal.classList.remove("open");
     updateRecognizerLang();
+    applyFontSize(fontSizeSelect.value);
   });
 
   settingsModal.addEventListener("click", (e) => {
@@ -509,7 +537,13 @@
     updateRecognizerLang();
   });
 
-  // init
+  // Also change font size immediately when changing dropdown (nice UX)
+  fontSizeSelect.addEventListener("change", () => {
+    applyFontSize(fontSizeSelect.value);
+  });
+
+  // init default font size & recognizer language
+  applyFontSize("medium");
   updateRecognizerLang();
 </script>
 </body>
