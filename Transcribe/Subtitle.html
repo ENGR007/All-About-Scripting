@@ -245,8 +245,8 @@
     <label for="subtitleLang">Second line language</label>
     <select id="subtitleLang">
       <option value="none">None (first line only)</option>
-      <option value="en" selected>English</option>
-      <option value="zh-CN">Chinese</option>
+      <option value="en">English</option>
+      <option value="zh-CN" selected>Chinese</option>
       <option value="ja">Japanese</option>
       <option value="ko">Korean</option>
       <option value="th">Thai</option>
@@ -372,8 +372,8 @@
       return;
     }
 
-    const firstLang  = spokenLangSel.value || "en";  // L1
-    const secondLang = subtitleLangSel.value || "none"; // L2
+    const firstLang  = spokenLangSel.value || "en";        // L1
+    const secondLang = subtitleLangSel.value || "none";    // L2
 
     const currentReq = ++lastReqId;
     showError("");
