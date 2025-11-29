@@ -367,6 +367,7 @@ button.full {
                     <button onclick="undoEdit()">↩️ Undo</button>
                     <button onclick="redoEdit()">↪️ Redo</button>
                     <button onclick="searchInEditor()">🔍 Search</button>
+                    <button onclick="selectAllInEditor()">📋 All</button>
                     <button onclick="autoFormat()">✨ Format</button>
                     <button onclick="cancelEdit()">✖️ Cancel</button>
                     <button class="primary" onclick="saveAndCommit()">💾 Commit</button>
@@ -841,7 +842,7 @@ function smartPythonFormat(code) {
     return result.join("\n");
 }
 
-// ----- Undo / Redo / Search -----
+// ----- Undo / Redo / Search / Select All -----
 function undoEdit() {
     if (!isEditing || !cmEditor) return;
     cmEditor.undo();
@@ -877,6 +878,10 @@ function searchInEditor() {
 
     lastSearchTerm = term;
     lastSearchPos = index + term.length;
+}
+function selectAllInEditor() {
+    if (!isEditing || !cmEditor) return;
+    cmEditor.execCommand("selectAll");
 }
 
 // ----- Export project as ZIP -----
