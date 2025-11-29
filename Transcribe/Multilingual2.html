@@ -31,7 +31,8 @@
   .subtitle { font-size:.8rem; color:var(--muted); margin-bottom:10px; }
 
   textarea {
-    width:100%; min-height:130px; padding:8px;
+    width:100%; min-height:190px; /* taller boxes */
+    padding:8px;
     background:#020617; color:var(--text);
     border-radius:10px; border:1px solid var(--border);
     font-size:.9rem; resize:vertical;
@@ -48,17 +49,22 @@
     font-size:.9rem;
   }
 
+  /* always 2 columns for paired rows, even on very small screens */
+  .pair-row {
+    display:grid;
+    grid-template-columns:repeat(2, minmax(0, 1fr));
+    gap:10px;
+    margin-top:10px;
+  }
+
   button {
     border:none; border-radius:999px;
     padding:12px; cursor:pointer;
     font-size:.9rem;
   }
 
-  .row { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
-  @media(max-width:720px){ .row { grid-template-columns:1fr; } }
-
-  .btn-rec { background:#ef4444; color:white; width:100%; margin-top:8px; }
-  .btn-stop { background:#475569; color:white; width:100%; margin-top:6px; }
+  .btn-rec { background:#ef4444; color:white; width:100%; }
+  .btn-stop { background:#475569; color:white; width:100%; }
 
   .btn-speaker {
     background:#111827; color:#e5e7eb;
@@ -73,8 +79,8 @@
 
   .btn-copy  { background:#38bdf8; color:#0b1120; width:100%; }
   .btn-clear { background:#1e293b; color:white; width:100%; }
-  .btn-speak { background:#10b981; color:white; width:100%; margin-top:8px; }
-  .btn-save  { background:#22c55e; color:#052e16; width:100%; margin-top:8px; }
+  .btn-speak { background:#10b981; color:white; width:100%; }
+  .btn-save  { background:#22c55e; color:#052e16; width:100%; }
 
   .conv-box {
     margin-top:6px; padding:10px;
@@ -87,8 +93,49 @@
     white-space:pre-wrap;
   }
 
-  .status { margin-top:10px; font-size:.75rem; color:var(--muted); }
+  .status-row {
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    margin-top:6px;
+  }
+
+  .status { font-size:.75rem; color:var(--muted); }
+
   .error  { min-height:18px; font-size:.78rem; color:var(--danger); }
+
+  /* animated waveform */
+  .wave {
+    display:flex;
+    gap:4px;
+    height:16px;
+    align-items:flex-end;
+  }
+  .wave span {
+    width:3px;
+    border-radius:999px;
+    background:var(--accent);
+    animation: wave 1s infinite ease-in-out;
+    opacity:.25; /* idle */
+  }
+  .wave span:nth-child(2){ animation-delay:.15s; }
+  .wave span:nth-child(3){ animation-delay:.30s; }
+  .wave span:nth-child(4){ animation-delay:.45s; }
+
+  .wave.listening span {
+    opacity:1;
+  }
+
+  @keyframes wave {
+    0%,100% { transform:scaleY(0.3); }
+    50%     { transform:scaleY(1.2); }
+  }
+
+  .label-small {
+    font-size:.8rem;
+    margin-top:10px;
+    display:block;
+  }
 </style>
 </head>
 
@@ -100,15 +147,28 @@
     Voice input follows speaker & language automatically.
   </div>
 
-  <button id="startSpeech" class="btn-rec">🎤 Start Speech</button>
-  <button id="stopSpeech"  class="btn-stop">⏹ Stop</button>
+  <!-- Row 1: Start / Stop -->
+  <div class="pair-row">
+    <button id="startSpeech" class="btn-rec">🎤 Start Speech</button>
+    <button id="stopSpeech"  class="btn-stop">⏹ Stop</button>
+  </div>
 
-  <div class="row" style="margin-top:8px;">
+  <!-- Row 2: Status + waveform -->
+  <div class="status-row">
+    <div id="statusText" class="status">Status: Idle</div>
+    <div id="voiceWave" class="wave">
+      <span></span><span></span><span></span><span></span>
+    </div>
+  </div>
+
+  <!-- Row 3: You / Partner -->
+  <div class="pair-row">
     <button id="btnYou" class="btn-speaker active">🗣 You Speaking</button>
     <button id="btnPartner" class="btn-speaker">👤 Partner Speaking</button>
   </div>
 
-  <label style="font-size:.8rem;margin-top:10px;display:block;">Source language (You)</label>
+  <!-- Dropdowns -->
+  <label class="label-small">Source language (You)</label>
   <select id="sourceLang">
     <option value="en" selected>English</option>
     <option value="tl">Filipino</option>
@@ -118,7 +178,7 @@
     <option value="th">Thai</option>
   </select>
 
-  <label style="font-size:.8rem;margin-top:10px;display:block;">Target language (Partner)</label>
+  <label class="label-small">Target language (Partner)</label>
   <select id="targetLang">
     <option value="tl" selected>Filipino</option>
     <option value="en">English</option>
@@ -128,23 +188,28 @@
     <option value="th">Thai</option>
   </select>
 
-  <div class="row" style="margin-top:10px;">
+  <!-- Row 4: textareas -->
+  <div class="pair-row" style="margin-top:10px;">
     <textarea id="sourceText" placeholder="Speak or type here…"></textarea>
     <textarea id="targetText" readonly placeholder="Translation will appear…"></textarea>
   </div>
 
-  <div class="row" style="margin-top:10px;">
+  <!-- Row 5: Copy / Clear -->
+  <div class="pair-row" style="margin-top:10px;">
     <button id="btnCopy"  class="btn-copy">📋 Copy Translation</button>
     <button id="btnClear" class="btn-clear">🧹 Clear</button>
   </div>
 
-  <button id="btnSpeak"         class="btn-speak">🔊 Speak Translation</button>
-  <button id="btnSaveTranscript" class="btn-save">💾 Save Transcript</button>
+  <!-- Row 6: Speak / Save -->
+  <div class="pair-row" style="margin-top:10px;">
+    <button id="btnSpeak"         class="btn-speak">🔊 Speak Translation</button>
+    <button id="btnSaveTranscript" class="btn-save">💾 Save Transcript</button>
+  </div>
 
+  <!-- Transcript -->
   <div style="font-size:.8rem;margin-top:12px;color:var(--muted);">Conversation Transcript</div>
   <div id="conversationBox" class="conv-box">No conversation yet.</div>
 
-  <div id="statusText" class="status">Status: Idle</div>
   <div id="errorBox"   class="error"></div>
 </div>
 
@@ -168,13 +233,15 @@ const btnClear         = document.getElementById("btnClear");
 const btnSpeak         = document.getElementById("btnSpeak");
 const btnSaveTrans     = document.getElementById("btnSaveTranscript");
 const conversationBox  = document.getElementById("conversationBox");
+const voiceWave        = document.getElementById("voiceWave");
 
 let activeSpeaker      = "you"; // "you" or "partner"
 let transcriptEntries  = [];
 let typingDebounce     = null;
 let speechDebounce     = null;
+let keepListening      = false;
 
-/* ---------- Helper functions ---------- */
+/* ---------- Helpers ---------- */
 function isEastAsian(lang){
   if (!lang) return false;
   const l = lang.toLowerCase();
@@ -226,16 +293,22 @@ function updateRecognizerLanguage(){
   recognition.lang = langToSRCode(sl);
 }
 
+/* Start / Stop with auto-restart support */
 startSpeechBtn.onclick = () => {
   if (!recognition) return;
+  if (keepListening) return;
+  keepListening = true;
   updateRecognizerLanguage();
   try { recognition.start(); } catch(e){}
+  voiceWave.classList.add("listening");
   statusText.textContent = "Status: Listening…";
 };
 
 stopSpeechBtn.onclick = () => {
   if (!recognition) return;
+  keepListening = false;
   recognition.stop();
+  voiceWave.classList.remove("listening");
   statusText.textContent = "Status: Stopped.";
 };
 
@@ -259,7 +332,16 @@ if (recognition){
 
   recognition.onerror = (e) => {
     console.error(e);
+    voiceWave.classList.remove("listening");
     statusText.textContent = "Status: Speech error.";
+  };
+
+  recognition.onend = () => {
+    if (keepListening){
+      try { recognition.start(); } catch(e){}
+    } else {
+      voiceWave.classList.remove("listening");
+    }
   };
 }
 
@@ -315,7 +397,6 @@ async function doTranslate(){
     let display = "";
 
     if (slEA || tlEA) {
-      // Decide script/meaning languages
       let scriptLang, meaningLang;
 
       if (slEA && !tlEA) {
@@ -325,16 +406,13 @@ async function doTranslate(){
         scriptLang  = tl;
         meaningLang = sl;
       } else {
-        // both EA → show target script, English meaning if possible
         scriptLang  = tl;
         meaningLang = (sl === "en" || tl === "en") ? "en" : sl;
       }
 
-      // Always let Google create both script & meaning from recognized text
       const scriptText  = extText(await gTransRaw(text, sl, scriptLang));
       const meaningText = extText(await gTransRaw(text, sl, meaningLang));
 
-      // Romanization
       let roman = "";
       const sLL = scriptLang.toLowerCase();
       if (sLL.startsWith("zh")){
@@ -358,7 +436,6 @@ async function doTranslate(){
       display += "\n" + meaningText;
 
     } else {
-      // Non-EA languages: simple direct translation
       const translated = extText(await gTransRaw(text, sl, tl));
       display = translated;
     }
