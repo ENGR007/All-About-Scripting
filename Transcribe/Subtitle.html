@@ -219,7 +219,7 @@
   </div>
 
   <div class="subtitle-text">
-    <div id="lineEn" class="line-en">Tap ▶ and speak English…</div>
+    <div id="lineEn" class="line-en">Tap ▶ and speak…</div>
     <div id="lineOther" class="line-other" style="display:none;"></div>
   </div>
 </div>
@@ -230,8 +230,287 @@
 <div id="settingsModal" class="modal-backdrop">
   <div class="modal">
     <h2>Subtitle Settings</h2>
-    <p>Spoken language is fixed to English. Choose the second subtitle line.</p>
+    <p>Choose your spoken language and the second subtitle line.</p>
+
+    <label for="spokenLang">Spoken language (mic)</label>
+    <select id="spokenLang">
+      <option value="en" selected>English</option>
+      <option value="zh-CN">Chinese</option>
+      <option value="ja">Japanese</option>
+      <option value="ko">Korean</option>
+      <option value="th">Thai</option>
+      <option value="tl">Filipino</option>
+    </select>
 
     <label for="subtitleLang">Second line</label>
     <select id="subtitleLang">
-     
+      <option value="none" selected>None (English only)</option>
+      <option value="zh-CN">Chinese</option>
+      <option value="ja">Japanese</option>
+      <option value="ko">Korean</option>
+      <option value="th">Thai</option>
+      <option value="tl">Filipino</option>
+    </select>
+
+    <div class="modal-actions">
+      <button id="btnCloseModal" class="btn-sm secondary">Close</button>
+      <button id="btnSaveModal" class="btn-sm primary">Save</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const btnMenu         = document.getElementById("btnMenu");
+  const btnPlay         = document.getElementById("btnPlay");
+  const statusDot       = document.getElementById("statusDot");
+  const lineEn          = document.getElementById("lineEn");
+  const lineOther       = document.getElementById("lineOther");
+  const errorBox        = document.getElementById("errorBox");
+
+  const settingsModal   = document.getElementById("settingsModal");
+  const btnCloseModal   = document.getElementById("btnCloseModal");
+  const btnSaveModal    = document.getElementById("btnSaveModal");
+  const spokenLangSel   = document.getElementById("spokenLang");
+  const subtitleLangSel = document.getElementById("subtitleLang");
+
+  let keepListening = false;
+  let lastInputText = "";
+  let lastReqId = 0;
+
+  function srLangCode(code){
+    switch (code) {
+      case "en":   return "en-US";
+      case "zh-CN":return "zh-CN";
+      case "ja":   return "ja-JP";
+      case "ko":   return "ko-KR";
+      case "th":   return "th-TH";
+      case "tl":   return "fil-PH";
+      default:     return "en-US";
+    }
+  }
+
+  function showError(msg){
+    errorBox.textContent = msg || "";
+  }
+
+  function setListeningUI(on){
+    if (on){
+      btnPlay.classList.add("playing");
+      btnPlay.textContent = "⏸";
+      statusDot.classList.add("listening");
+    } else {
+      btnPlay.classList.remove("playing");
+      btnPlay.textContent = "▶";
+      statusDot.classList.remove("listening");
+    }
+  }
+
+  async function gTransRaw(text, sl, tl){
+    const url =
+      "https://translate.googleapis.com/translate_a/single?client=gtx" +
+      `&sl=${encodeURIComponent(sl)}&tl=${encodeURIComponent(tl)}&dt=t&q=${encodeURIComponent(text)}`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error("Network error " + res.status);
+    return res.json();
+  }
+
+  function extText(data){
+    if (!data || !data[0]) return "";
+    return data[0].map(seg => seg[0]).join("");
+  }
+
+  async function doTranslate(text, isLive = false){
+    if (isLive && !keepListening) return;
+
+    const raw = text || "";
+    const trimmed = raw.trim();
+    if (!trimmed){
+      lineEn.textContent = "Tap ▶ and speak…";
+      lineOther.style.display = "none";
+      lineOther.textContent = "";
+      return;
+    }
+
+    lastInputText = trimmed;
+    const spokenLang = spokenLangSel.value || "en";
+    const secondLang = subtitleLangSel.value || "none";
+
+    const currentReq = ++lastReqId;
+    showError("");
+
+    try {
+      // English line
+      const englishPromise =
+        spokenLang === "en"
+          ? Promise.resolve(trimmed)
+          : gTransRaw(trimmed, spokenLang, "en").then(extText);
+
+      // Second line
+      let secondPromise;
+      if (secondLang === "none") {
+        secondPromise = Promise.resolve("");
+      } else if (secondLang === spokenLang) {
+        secondPromise = Promise.resolve(trimmed);
+      } else {
+        secondPromise = gTransRaw(trimmed, spokenLang, secondLang).then(extText);
+      }
+
+      // Update English as soon as it's ready
+      englishPromise.then(enText => {
+        if (currentReq !== lastReqId) return;
+        lineEn.textContent = enText || trimmed;
+      }).catch(err => {
+        if (currentReq !== lastReqId) return;
+        lineEn.textContent = trimmed;
+        showError("EN error: " + err.message);
+      });
+
+      // Update second line
+      secondPromise.then(secText => {
+        if (currentReq !== lastReqId) return;
+        if (secondLang === "none" || !secText) {
+          lineOther.style.display = "none";
+          lineOther.textContent = "";
+        } else {
+          lineOther.style.display = "block";
+          lineOther.textContent = secText;
+        }
+      }).catch(err => {
+        if (currentReq !== lastReqId) return;
+        lineOther.style.display = "none";
+        lineOther.textContent = "";
+        if (secondLang !== "none") {
+          showError("2nd line error: " + err.message);
+        }
+      });
+
+    } catch (err){
+      if (currentReq !== lastReqId) return;
+      console.error(err);
+      showError("Translation error: " + err.message);
+    }
+  }
+
+  /* Speech recognition setup */
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  let recognition = null;
+
+  if (SpeechRecognition){
+    recognition = new SpeechRecognition();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+  } else {
+    lineEn.textContent = "Speech recognition not supported.";
+    showError("This browser does not support the Web Speech API.");
+  }
+
+  let liveFinalBuffer = "";
+  let liveInterimText = "";
+
+  function updateRecognizerLang(){
+    if (!recognition) return;
+    recognition.lang = srLangCode(spokenLangSel.value || "en");
+  }
+
+  function startListening(){
+    if (!recognition || keepListening) return;
+    keepListening = true;
+    liveFinalBuffer = "";
+    liveInterimText = "";
+    updateRecognizerLang();
+    try { recognition.start(); } catch(e){}
+    setListeningUI(true);
+  }
+
+  function stopListening(){
+    if (!recognition) return;
+    keepListening = false;
+    try { recognition.stop(); } catch(e){}
+    setListeningUI(false);
+  }
+
+  if (recognition){
+    recognition.onresult = (event) => {
+      for (let i = event.resultIndex; i < event.results.length; i++){
+        const res = event.results[i];
+        if (res.isFinal){
+          liveFinalBuffer += res[0].transcript + " ";
+          liveInterimText = "";
+        } else {
+          liveInterimText = res[0].transcript;
+        }
+      }
+
+      const full = (liveFinalBuffer + " " + liveInterimText).trim();
+      if (!full) return;
+
+      // Live, smooth updating (same pattern as your original)
+      doTranslate(full, true);
+    };
+
+    recognition.onerror = (e) => {
+      console.error(e);
+      setListeningUI(false);
+      keepListening = false;
+
+      if (e.error === "not-allowed" || e.error === "denied") {
+        showError("Mic permission denied. Allow microphone access and reload.");
+        lineEn.textContent = "Microphone access blocked.";
+      } else if (e.error === "no-speech") {
+        showError("No speech detected. Try speaking closer to the mic.");
+      } else {
+        showError("Speech error: " + e.error);
+      }
+    };
+
+    recognition.onend = () => {
+      if (keepListening){
+        try { recognition.start(); } catch(e){}
+      } else {
+        setListeningUI(false);
+      }
+    };
+  }
+
+  /* UI events */
+  btnPlay.addEventListener("click", () => {
+    if (!recognition){
+      showError("Speech recognition not supported in this browser.");
+      return;
+    }
+    if (!keepListening){
+      showError("");
+      startListening();
+    } else {
+      stopListening();
+    }
+  });
+
+  btnMenu.addEventListener("click", () => {
+    settingsModal.classList.add("open");
+  });
+
+  btnCloseModal.addEventListener("click", () => {
+    settingsModal.classList.remove("open");
+  });
+
+  btnSaveModal.addEventListener("click", () => {
+    settingsModal.classList.remove("open");
+    updateRecognizerLang();
+  });
+
+  settingsModal.addEventListener("click", (e) => {
+    if (e.target === settingsModal){
+      settingsModal.classList.remove("open");
+    }
+  });
+
+  spokenLangSel.addEventListener("change", () => {
+    updateRecognizerLang();
+  });
+
+  // init
+  updateRecognizerLang();
+</script>
+</body>
+</html>
