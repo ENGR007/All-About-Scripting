@@ -31,7 +31,7 @@
   .subtitle { font-size:.8rem; color:var(--muted); margin-bottom:10px; }
 
   textarea {
-    width:100%; min-height:190px; /* taller boxes */
+    width:100%; min-height:190px;
     padding:8px;
     background:#020617; color:var(--text);
     border-radius:10px; border:1px solid var(--border);
@@ -49,7 +49,7 @@
     font-size:.9rem;
   }
 
-  /* always 2 columns for paired rows, even on very small screens */
+  /* always 2 columns for paired rows */
   .pair-row {
     display:grid;
     grid-template-columns:repeat(2, minmax(0, 1fr));
@@ -201,7 +201,7 @@
   </div>
 
   <!-- Row 6: Speak / Save -->
-  <div class="pair-row" style="margin-top:10px;">
+  <div class="pair-row" style="margin-top:10px%;">
     <button id="btnSpeak"         class="btn-speak">🔊 Speak Translation</button>
     <button id="btnSaveTranscript" class="btn-save">💾 Save Transcript</button>
   </div>
@@ -312,12 +312,15 @@ stopSpeechBtn.onclick = () => {
   statusText.textContent = "Status: Stopped.";
 };
 
-/* Real-time speech: update text as you talk, debounce translation */
+/* Real-time speech: live translate, transcript only on final */
 if (recognition){
   recognition.onresult = (event) => {
     let txt = "";
+    let anyFinal = false;
+
     for (let i = 0; i < event.results.length; i++){
       txt += event.results[i][0].transcript;
+      if (event.results[i].isFinal) anyFinal = true;
     }
     txt = txt.trim();
     if (!txt) return;
@@ -326,7 +329,8 @@ if (recognition){
 
     clearTimeout(speechDebounce);
     speechDebounce = setTimeout(() => {
-      doTranslate();
+      // Only append to transcript when we got a final result
+      doTranslate(anyFinal);
     }, 250);
   };
 
@@ -370,7 +374,8 @@ function extRoman(data){
 }
 
 /* ---------- Core Translation ---------- */
-async function doTranslate(){
+/* addToTranscript = true only for final speech results */
+async function doTranslate(addToTranscript = false){
   const text = sourceText.value.trim();
   if (!text){
     targetText.value = "";
@@ -441,7 +446,9 @@ async function doTranslate(){
     }
 
     targetText.value = display;
-    appendToTranscript(sl, tl, text, display);
+    if (addToTranscript){
+      appendToTranscript(sl, tl, text, display);
+    }
     statusText.textContent = "Status: Done.";
   } catch(err){
     console.error(err);
@@ -450,17 +457,17 @@ async function doTranslate(){
   }
 }
 
-/* ---------- Auto-translate on typing ---------- */
+/* ---------- Auto-translate on typing (no transcript) ---------- */
 sourceText.addEventListener("input", () => {
   clearTimeout(typingDebounce);
-  typingDebounce = setTimeout(doTranslate, 350);
+  typingDebounce = setTimeout(() => doTranslate(false), 350);
 });
 
-/* ---------- Auto-translate on dropdown change ---------- */
+/* ---------- Auto-translate on dropdown change (no transcript) ---------- */
 function autoRefresh(){
   updateRecognizerLanguage();
   if (sourceText.value.trim()){
-    doTranslate();
+    doTranslate(false);
   }
 }
 sourceLangSel.addEventListener("change", autoRefresh);
