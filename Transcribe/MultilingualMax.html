@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<title>Auto Two-Language Conversation Translator</title>
+<title>Multi-Language Conversation Translator (Auto Voice)</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <style>
   :root {
@@ -31,7 +31,7 @@
   .subtitle { font-size:.8rem; color:var(--muted); margin-bottom:10px; }
 
   textarea {
-    width:100%; min-height:230px;
+    width:100%; min-height:230px; /* bigger boxes */
     padding:8px;
     background:#020617; color:var(--text);
     border-radius:10px; border:1px solid var(--border);
@@ -43,12 +43,13 @@
   }
 
   select {
-    width:100%; padding:10px; margin-top:4px;
+    width:100%; padding:10px; margin-top:6px;
     background:#020617; color:var(--text);
     border-radius:8px; border:1px solid var(--border);
     font-size:.9rem;
   }
 
+  /* always 2 columns for paired rows */
   .pair-row {
     display:grid;
     grid-template-columns:repeat(2, minmax(0, 1fr));
@@ -64,6 +65,17 @@
 
   .btn-rec { background:#ef4444; color:white; width:100%; }
   .btn-stop { background:#475569; color:white; width:100%; }
+
+  .btn-speaker {
+    background:#111827; color:#e5e7eb;
+    border-radius:12px;
+    border:1px solid #1f2937;
+    width:100%;
+  }
+  .btn-speaker.active {
+    border-color:#38bdf8;
+    box-shadow:0 0 0 1px rgba(56,189,248,0.5);
+  }
 
   .btn-copy  { background:#38bdf8; color:#0b1120; width:100%; }
   .btn-clear { background:#1e293b; color:white; width:100%; }
@@ -92,6 +104,7 @@
 
   .error  { min-height:18px; font-size:.78rem; color:var(--danger); }
 
+  /* animated waveform */
   .wave {
     display:flex;
     gap:4px;
@@ -103,13 +116,15 @@
     border-radius:999px;
     background:var(--accent);
     animation: wave 1s infinite ease-in-out;
-    opacity:.25;
+    opacity:.25; /* idle */
   }
   .wave span:nth-child(2){ animation-delay:.15s; }
   .wave span:nth-child(3){ animation-delay:.30s; }
   .wave span:nth-child(4){ animation-delay:.45s; }
 
-  .wave.listening span { opacity:1; }
+  .wave.listening span {
+    opacity:1;
+  }
 
   @keyframes wave {
     0%,100% { transform:scaleY(0.3); }
@@ -118,7 +133,7 @@
 
   .label-small {
     font-size:.8rem;
-    margin-top:6px;
+    margin-top:10px;
     display:block;
   }
 </style>
@@ -126,11 +141,10 @@
 
 <body>
 <div class="app">
-  <h1>🌐 Auto Two-Language Conversation Translator</h1>
+  <h1>🌐 Auto Voice Conversation Translator</h1>
   <div class="subtitle">
-    Choose two languages (Source / Partner).  
-    Speak either one. It auto-detects which and translates to the other.  
-    Chinese / Japanese / Korean / Thai show script + romanization + translation.
+    Chinese / Japanese / Korean / Thai → script + romanization + translation.  
+    Voice input follows speaker & language automatically.
   </div>
 
   <!-- Row 1: Start / Stop -->
@@ -147,10 +161,16 @@
     </div>
   </div>
 
-  <!-- Row 3: Language dropdowns in one row -->
-  <div class="pair-row" style="margin-top:10px;">
+  <!-- Row 3: You / Partner -->
+  <div class="pair-row">
+    <button id="btnYou" class="btn-speaker active">🗣 You Speaking</button>
+    <button id="btnPartner" class="btn-speaker">👤 Partner Speaking</button>
+  </div>
+
+  <!-- Row 4: Source & Target dropdowns in one row -->
+  <div class="pair-row">
     <div>
-      <span class="label-small">Source language</span>
+      <label class="label-small">Source language (You)</label>
       <select id="sourceLang">
         <option value="en" selected>English</option>
         <option value="tl">Filipino</option>
@@ -161,11 +181,11 @@
       </select>
     </div>
     <div>
-      <span class="label-small">Partner language</span>
+      <label class="label-small">Target language (Partner)</label>
       <select id="targetLang">
-        <option value="zh-CN">Chinese</option>
+        <option value="tl" selected>Filipino</option>
         <option value="en">English</option>
-        <option value="tl">Filipino</option>
+        <option value="zh-CN">Chinese</option>
         <option value="ja">Japanese</option>
         <option value="ko">Korean</option>
         <option value="th">Thai</option>
@@ -173,26 +193,26 @@
     </div>
   </div>
 
-  <!-- Row 4: textareas -->
+  <!-- Row 5: textareas -->
   <div class="pair-row" style="margin-top:10px;">
-    <textarea id="sourceText" placeholder="Live speech transcript will appear here…"></textarea>
-    <textarea id="targetText" readonly placeholder="Live translation will appear here…"></textarea>
+    <textarea id="sourceText" placeholder="Speak or type here…"></textarea>
+    <textarea id="targetText" readonly placeholder="Translation will appear…"></textarea>
   </div>
 
-  <!-- Row 5: Copy / Clear -->
+  <!-- Row 6: Copy / Clear -->
   <div class="pair-row" style="margin-top:10px;">
     <button id="btnCopy"  class="btn-copy">📋 Copy Translation</button>
     <button id="btnClear" class="btn-clear">🧹 Clear</button>
   </div>
 
-  <!-- Row 6: Speak / Save -->
-  <div class="pair-row" style="margin-top:10px;">
+  <!-- Row 7: Speak / Save -->
+  <div class="pair-row" style="margin-top:10px%;">
     <button id="btnSpeak"         class="btn-speak">🔊 Speak Translation</button>
     <button id="btnSaveTranscript" class="btn-save">💾 Save Transcript</button>
   </div>
 
   <!-- Voice choice -->
-  <span class="label-small">Voice for Speak Translation</span>
+  <label class="label-small">Voice for Speak Translation</label>
   <select id="voiceSelect">
     <option value="auto" selected>Auto (best match)</option>
   </select>
@@ -201,13 +221,11 @@
   <div style="font-size:.8rem;margin-top:12px;color:var(--muted);">Conversation Transcript</div>
   <div id="conversationBox" class="conv-box">No conversation yet.</div>
 
-  <div id="errorBox" class="error"></div>
+  <div id="errorBox"   class="error"></div>
 </div>
 
 <!-- Pinyin for Chinese -->
 <script src="https://cdn.jsdelivr.net/npm/pinyin-pro@3.27.0/dist/index.js"></script>
-<!-- franc-min for 2-language detection -->
-<script src="https://cdn.jsdelivr.net/npm/franc-min@5/dist/franc-min.min.js"></script>
 
 <script>
 /* ---------- DOM ---------- */
@@ -219,6 +237,8 @@ const sourceLangSel    = document.getElementById("sourceLang");
 const targetLangSel    = document.getElementById("targetLang");
 const statusText       = document.getElementById("statusText");
 const errorBox         = document.getElementById("errorBox");
+const btnYou           = document.getElementById("btnYou");
+const btnPartner       = document.getElementById("btnPartner");
 const btnCopy          = document.getElementById("btnCopy");
 const btnClear         = document.getElementById("btnClear");
 const btnSpeak         = document.getElementById("btnSpeak");
@@ -227,44 +247,29 @@ const conversationBox  = document.getElementById("conversationBox");
 const voiceWave        = document.getElementById("voiceWave");
 const voiceSelect      = document.getElementById("voiceSelect");
 
-/* ---------- State ---------- */
+let activeSpeaker      = "you"; // "you" or "partner"
 let transcriptEntries  = [];
 let typingDebounce     = null;
 let keepListening      = false;
 
-/* last translation info (for transcript + TTS) */
+/* store the last finished translation so Stop can log it once */
 let lastSrcLang = "";
 let lastTgtLang = "";
 let lastSourceText = "";
 let lastTranslatedText = "";
 
-/* live speech buffers */
-let liveFinalBuffer = "";
-let liveInterimText = "";
+/* live speech buffer */
+let liveFinalBuffer = "";   // all final chunks
+let liveInterimText = "";   // most recent interim
 
 /* voices */
 let allVoices = [];
-let currentRecBase = "en";   // which base language SR is currently set to
-let lastDetectedSide = "A";  // "A"=source, "B"=target
 
 /* ---------- Helpers ---------- */
-function baseFromLang(code){
-  if (!code) return "";
-  if (code.startsWith("zh")) return "zh";
-  if (code.startsWith("en")) return "en";
-  if (code.startsWith("tl")) return "tl";
-  if (code.startsWith("ja")) return "ja";
-  if (code.startsWith("ko")) return "ko";
-  if (code.startsWith("th")) return "th";
-  return code;
-}
-
-function isEastAsianBase(base){
-  return base === "zh" || base === "ja" || base === "ko" || base === "th";
-}
-
-function isEastAsian(code){
-  return isEastAsianBase(baseFromLang(code));
+function isEastAsian(lang){
+  if (!lang) return false;
+  const l = lang.toLowerCase();
+  return l.startsWith("zh") || l.startsWith("ja") || l.startsWith("ko") || l.startsWith("th");
 }
 
 function scrollToBottomAndFocus(el){
@@ -273,87 +278,81 @@ function scrollToBottomAndFocus(el){
   el.scrollTop = el.scrollHeight;
 }
 
-function srCodeFromBase(base){
-  switch(base){
-    case "en": return "en-US";
-    case "tl": return "fil-PH";
-    case "zh": return "zh-CN";
-    case "ja": return "ja-JP";
-    case "ko": return "ko-KR";
-    case "th": return "th-TH";
-    default:   return "en-US";
+function langToSRCode(code){
+  switch (code) {
+    case "en":   return "en-US";
+    case "tl":   return "fil-PH";
+    case "zh-CN":return "zh-CN";
+    case "ja":   return "ja-JP";
+    case "ko":   return "ko-KR";
+    case "th":   return "th-TH";
+    default:     return "en-US";
   }
 }
 
-function ttsCodeFromLang(code){
-  return srCodeFromBase(baseFromLang(code));
+/* TTS language (same mapping) */
+function langToTTSCode(code){
+  return langToSRCode(code);
 }
 
-/* script detection: returns base "zh","ja","ko","th" or null */
-function detectScriptBase(text){
-  if (!text) return null;
-  const t = text;
-  const hasHan    = /\p{Script=Han}/u.test(t);
-  const hasHira   = /[\u3040-\u309F]/.test(t);
-  const hasKata   = /[\u30A0-\u30FF]/.test(t);
-  const hasHangul = /[\uAC00-\uD7AF]/.test(t);
-  const hasThai   = /[\u0E00-\u0E7F]/.test(t);
-
-  if (hasHan)               return "zh";
-  if (hasHira || hasKata)   return "ja";
-  if (hasHangul)            return "ko";
-  if (hasThai)              return "th";
-  return null;
+/* which language will Speak Translation use right now */
+function currentSpeakLangCode(){
+  let tl;
+  if (activeSpeaker === "you"){
+    tl = targetLangSel.value;
+  } else {
+    tl = sourceLangSel.value;
+  }
+  return langToTTSCode(tl);
 }
 
-/* franc-min between two languages only */
-function detectByFranc(text, baseA, baseB){
-  if (!window.franc || !text || text.length < 5) return null;
-  const mapBaseToIso = { en:"eng", tl:"tgl", zh:"cmn", ja:"jpn", ko:"kor", th:"tha" };
-  const isoA = mapBaseToIso[baseA];
-  const isoB = mapBaseToIso[baseB];
-  const only = [];
-  if (isoA) only.push(isoA);
-  if (isoB && isoB !== isoA) only.push(isoB);
-  if (!only.length) return null;
+/* populate voice dropdown for the current speak language */
+function populateVoiceOptions(){
+  if (!window.speechSynthesis || !voiceSelect) return;
+  allVoices = window.speechSynthesis.getVoices() || [];
 
-  try {
-    const iso = window.franc(text, {only});
-    if (!iso || iso === "und") return null;
-    const mapIsoToBase = { eng:"en", tgl:"tl", cmn:"zh", jpn:"ja", kor:"ko", tha:"th" };
-    return mapIsoToBase[iso] || null;
-  } catch(e){
-    return null;
-  }
+  const speakLang = currentSpeakLangCode(); // e.g. "ko-KR"
+  const base = speakLang.split("-")[0].toLowerCase();
+
+  const prevSelection = voiceSelect.value || "auto";
+  voiceSelect.innerHTML = "";
+  const autoOpt = document.createElement("option");
+  autoOpt.value = "auto";
+  autoOpt.textContent = "Auto (best match)";
+  voiceSelect.appendChild(autoOpt);
+
+  const matches = allVoices
+    .map((v, idx) => ({v, idx}))
+    .filter(({v}) => {
+      const lang = (v.lang || "").toLowerCase();
+      return lang === speakLang.toLowerCase() || lang.startsWith(base + "-");
+    });
+
+  // if nothing matches exactly, still allow user to pick any voice
+  const candidateList = matches.length ? matches : allVoices.map((v, idx)=>({v,idx}));
+
+  candidateList.forEach(({v, idx}) => {
+    const opt = document.createElement("option");
+    opt.value = String(idx);
+    opt.textContent = `${v.name} (${v.lang})`;
+    voiceSelect.appendChild(opt);
+  });
+
+  // try to keep previous choice if still valid
+  const hasPrev = Array.from(voiceSelect.options).some(o => o.value === prevSelection);
+  voiceSelect.value = hasPrev ? prevSelection : "auto";
 }
 
-/* Auto-detect which side (A=source, B=partner) is speaking */
-function detectSide(text, langA, langB){
-  const baseA = baseFromLang(langA);
-  const baseB = baseFromLang(langB);
-
-  if (baseA === baseB){
-    return lastDetectedSide || "A";
-  }
-
-  // 1) script detection
-  const scriptBase = detectScriptBase(text);
-  if (scriptBase){
-    if (scriptBase === baseA && scriptBase !== baseB) return "A";
-    if (scriptBase === baseB && scriptBase !== baseA) return "B";
-    // if both languages use same script (rare for EA here), fall through
-  }
-
-  // 2) franc-min only between A & B
-  const francBase = detectByFranc(text, baseA, baseB);
-  if (francBase){
-    if (francBase === baseA) return "A";
-    if (francBase === baseB) return "B";
-  }
-
-  // 3) fallback: keep previous, or default to A
-  return lastDetectedSide || "A";
+/* ---------- Speaker switching ---------- */
+function setSpeaker(who){
+  activeSpeaker = who;
+  btnYou.classList.toggle("active", who === "you");
+  btnPartner.classList.toggle("active", who === "partner");
+  updateRecognizerLanguage();
+  populateVoiceOptions();
 }
+btnYou.onclick     = () => setSpeaker("you");
+btnPartner.onclick = () => setSpeaker("partner");
 
 /* ---------- Speech Recognition ---------- */
 let SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -367,26 +366,25 @@ if (SpeechRecognition){
   statusText.textContent = "Status: Speech recognition not supported.";
 }
 
-function updateRecognizerLanguage(base){
+function updateRecognizerLanguage(){
   if (!recognition) return;
-  if (base && base !== currentRecBase){
-    currentRecBase = base;
-    try {
-      recognition.lang = srCodeFromBase(base);
-    } catch(e){}
+  let sl;
+  if (activeSpeaker === "you"){
+    sl = sourceLangSel.value;
+  } else {
+    sl = targetLangSel.value;
   }
+  recognition.lang = langToSRCode(sl);
 }
 
-/* Start / Stop */
+/* Start / Stop with auto-restart support */
 startSpeechBtn.onclick = () => {
   if (!recognition) return;
   if (keepListening) return;
   keepListening = true;
   liveFinalBuffer = "";
   liveInterimText = "";
-  const baseA = baseFromLang(sourceLangSel.value);
-  currentRecBase = baseA || "en";
-  updateRecognizerLanguage(currentRecBase);
+  updateRecognizerLanguage();
   try { recognition.start(); } catch(e){}
   voiceWave.classList.add("listening");
   statusText.textContent = "Status: Listening…";
@@ -400,7 +398,7 @@ stopSpeechBtn.onclick = async () => {
 
   const currentText = sourceText.value.trim();
   if (currentText){
-    await doTranslate(); // ensures last* filled
+    await doTranslate(); // ensure last* are updated
     if (lastTranslatedText){
       appendToTranscript(lastSrcLang, lastTgtLang, lastSourceText, lastTranslatedText);
     }
@@ -408,7 +406,7 @@ stopSpeechBtn.onclick = async () => {
   statusText.textContent = "Status: Stopped.";
 };
 
-/* Live speech: update text & translation (no transcript here) */
+/* Real-time speech: live text & translation (no transcript here) */
 if (recognition){
   recognition.onresult = (event) => {
     for (let i = event.resultIndex; i < event.results.length; i++){
@@ -424,7 +422,7 @@ if (recognition){
     let full = (liveFinalBuffer + " " + liveInterimText).trim();
     if (!full) return;
 
-    full = full.replace(/([a-z])([A-Z])/g, "$1 $2"); // readability for English
+    full = full.replace(/([a-z])([A-Z])/g, "$1 $2"); // readability
 
     sourceText.value = full;
     scrollToBottomAndFocus(sourceText);
@@ -470,7 +468,7 @@ function extRoman(data){
   return parts.join(" ").trim();
 }
 
-/* ---------- Core Translation (auto A↔B) ---------- */
+/* ---------- Core Translation ---------- */
 async function doTranslate(){
   const text = sourceText.value.trim();
   if (!text){
@@ -479,71 +477,53 @@ async function doTranslate(){
     return;
   }
 
-  const langA = sourceLangSel.value;
-  const langB = targetLangSel.value;
-  const baseA = baseFromLang(langA);
-  const baseB = baseFromLang(langB);
-
-  // detect which side is speaking, but only A/B
-  let side = detectSide(text, langA, langB);
-  if (!side) side = "A";
-  lastDetectedSide = side;
-
-  let sl, tl; // sl = spoken language, tl = target language
-  if (side === "A"){
-    sl = langA;
-    tl = langB;
+  let sl, tl;
+  if (activeSpeaker === "you"){
+    sl = sourceLangSel.value;
+    tl = targetLangSel.value;
   } else {
-    sl = langB;
-    tl = langA;
+    sl = targetLangSel.value;   // partner speaking
+    tl = sourceLangSel.value;
   }
 
-  // adjust speech recognition language for future chunks
-  if (recognition && keepListening){
-    const newBase = baseFromLang(sl);
-    updateRecognizerLanguage(newBase);
-  }
+  const slEA = isEastAsian(sl);
+  const tlEA = isEastAsian(tl);
 
-  const slBase = baseFromLang(sl);
-  const tlBase = baseFromLang(tl);
-  const slEA   = isEastAsian(sl);
-  const tlEA   = isEastAsian(tl);
-
-  statusText.textContent = `Status: Translating (${sl} → ${tl})…`;
+  statusText.textContent = "Status: Translating…";
   errorBox.textContent   = "";
 
   try {
     let display = "";
 
-    if (slEA || tlEA){
+    if (slEA || tlEA) {
       let scriptLang, meaningLang;
 
-      if (slEA && !tlEA){
+      if (slEA && !tlEA) {
         scriptLang  = sl;
         meaningLang = tl;
-      } else if (!slEA && tlEA){
+      } else if (!slEA && tlEA) {
         scriptLang  = tl;
         meaningLang = sl;
       } else {
         scriptLang  = tl;
-        meaningLang = (slBase === "en" || tlBase === "en") ? "en" : sl;
+        meaningLang = (sl === "en" || tl === "en") ? "en" : sl;
       }
 
       const scriptText  = extText(await gTransRaw(text, sl, scriptLang));
       const meaningText = extText(await gTransRaw(text, sl, meaningLang));
 
       let roman = "";
-      const sBase = baseFromLang(scriptLang);
-      if (sBase === "zh"){
+      const sLL = scriptLang.toLowerCase();
+      if (sLL.startsWith("zh")){
         if (window.pinyinPro){
           roman = window.pinyinPro.pinyin(scriptText, {toneType:"mark", type:"string"});
         }
-      } else if (sBase === "ja"){
+      } else if (sLL.startsWith("ja")){
         try {
-          const rawJa = await gTransRaw(scriptText, "ja", "ja", "&dt=rm");
+          const rawJa = await gTransRaw(scriptText,"ja","ja","&dt=rm");
           roman = extRoman(rawJa);
         } catch(e){}
-      } else if (sBase === "ko" || sBase === "th"){
+      } else if (sLL.startsWith("ko") || sLL.startsWith("th")){
         try {
           const raw = await gTransRaw(scriptText, scriptLang, scriptLang, "&dt=rm");
           roman = extRoman(raw);
@@ -562,6 +542,7 @@ async function doTranslate(){
     targetText.value = display;
     scrollToBottomAndFocus(targetText);
 
+    // store last translation so Stop can log exactly one transcript entry
     lastSrcLang = sl;
     lastTgtLang = tl;
     lastSourceText = text;
@@ -575,7 +556,7 @@ async function doTranslate(){
   }
 }
 
-/* ---------- Typing auto-translate ---------- */
+/* ---------- Auto-translate on typing (no transcript) ---------- */
 sourceText.addEventListener("input", () => {
   clearTimeout(typingDebounce);
   typingDebounce = setTimeout(() => {
@@ -584,18 +565,16 @@ sourceText.addEventListener("input", () => {
   }, 350);
 });
 
-/* ---------- Dropdown change ---------- */
-function onLangChange(){
-  // reset recognizer base to Source language
-  const baseA = baseFromLang(sourceLangSel.value);
-  currentRecBase = baseA || "en";
-  updateRecognizerLanguage(currentRecBase);
+/* ---------- Auto-translate on dropdown change (no transcript) ---------- */
+function autoRefresh(){
+  updateRecognizerLanguage();
+  populateVoiceOptions();
   if (sourceText.value.trim()){
     doTranslate();
   }
 }
-sourceLangSel.addEventListener("change", onLangChange);
-targetLangSel.addEventListener("change", onLangChange);
+sourceLangSel.addEventListener("change", autoRefresh);
+targetLangSel.addEventListener("change", autoRefresh);
 
 /* ---------- Transcript ---------- */
 function appendToTranscript(sl, tl, src, out){
@@ -634,58 +613,19 @@ btnSaveTrans.onclick = () => {
   statusText.textContent = "Status: Transcript saved.";
 };
 
-/* ---------- Voices ---------- */
-function loadVoices(){
+/* ---------- Voice loading ---------- */
+function loadVoicesAndPopulate(){
   if (!window.speechSynthesis) return;
   allVoices = window.speechSynthesis.getVoices() || [];
-}
-
-function populateVoiceOptions(speakLang){
-  if (!window.speechSynthesis || !voiceSelect) return;
-  if (!speakLang){
-    const fallbackCode = lastTgtLang || targetLangSel.value;
-    speakLang = ttsCodeFromLang(fallbackCode);
-  }
-  loadVoices();
-
-  const prev = voiceSelect.value || "auto";
-  voiceSelect.innerHTML = "";
-  const autoOpt = document.createElement("option");
-  autoOpt.value = "auto";
-  autoOpt.textContent = "Auto (best match)";
-  voiceSelect.appendChild(autoOpt);
-
-  const base = speakLang.split("-")[0].toLowerCase();
-  const matches = allVoices
-    .map((v, idx) => ({v, idx}))
-    .filter(({v}) => {
-      const lang = (v.lang || "").toLowerCase();
-      return lang === speakLang.toLowerCase() || lang.startsWith(base + "-");
-    });
-
-  const list = matches.length ? matches : allVoices.map((v, idx)=>({v,idx}));
-
-  list.forEach(({v, idx}) => {
-    const opt = document.createElement("option");
-    opt.value = String(idx);
-    opt.textContent = `${v.name} (${v.lang})`;
-    voiceSelect.appendChild(opt);
-  });
-
-  const hasPrev = Array.from(voiceSelect.options).some(o => o.value === prev);
-  voiceSelect.value = hasPrev ? prev : "auto";
-}
-
-if (window.speechSynthesis){
-  window.speechSynthesis.onvoiceschanged = () => {
-    loadVoices();
-    populateVoiceOptions();
-  };
-  loadVoices();
   populateVoiceOptions();
 }
+if (window.speechSynthesis){
+  window.speechSynthesis.onvoiceschanged = loadVoicesAndPopulate;
+  // in some browsers voices are immediately available
+  loadVoicesAndPopulate();
+}
 
-/* ---------- Speak Translation ---------- */
+/* ---------- Speak Translation (with selectable voice) ---------- */
 btnSpeak.onclick = async () => {
   const txt = targetText.value.trim();
   if (!txt){
@@ -699,17 +639,24 @@ btnSpeak.onclick = async () => {
     return;
   }
 
-  const tgtLangForTTS = lastTgtLang || targetLangSel.value;
-  const speakLang = ttsCodeFromLang(tgtLangForTTS);
-  const tgtBase = baseFromLang(tgtLangForTTS);
-  const speakText = isEastAsianBase(tgtBase) ? lines[0] : lines[lines.length - 1];
+  let sl, tl;
+  if (activeSpeaker === "you"){
+    sl = sourceLangSel.value;
+    tl = targetLangSel.value;
+  } else {
+    sl = targetLangSel.value;
+    tl = sourceLangSel.value;
+  }
+
+  const speakLang = langToTTSCode(tl);
+  const speakText = isEastAsian(tl) ? lines[0] : lines[lines.length - 1];
 
   if (!window.speechSynthesis){
     statusText.textContent = "Status: Speech not supported.";
     return;
   }
 
-  // ensure voices loaded and options reflect current language
+  // wait for voices if needed
   await new Promise(resolve => {
     const v = window.speechSynthesis.getVoices();
     if (v && v.length){
@@ -721,23 +668,24 @@ btnSpeak.onclick = async () => {
       resolve();
     };
   });
-  populateVoiceOptions(speakLang);
+  populateVoiceOptions();
 
   let voice = null;
 
-  // 1) user-selected
+  // 1) user-selected voice
   if (voiceSelect && voiceSelect.value !== "auto"){
     const idx = parseInt(voiceSelect.value, 10);
     if (!isNaN(idx) && allVoices[idx]) voice = allVoices[idx];
   }
 
-  // 2) auto best
+  // 2) Auto: our best guess for clear female / Google voice
   if (!voice){
     const base = speakLang.split("-")[0].toLowerCase();
     const candidates = allVoices.filter(v => {
       const lang = (v.lang || "").toLowerCase();
       return lang === speakLang.toLowerCase() || lang.startsWith(base + "-");
     });
+
     const pool = candidates.length ? candidates : allVoices;
 
     let female = pool.find(v =>
@@ -786,7 +734,6 @@ btnClear.onclick = () => {
   lastSrcLang = lastTgtLang = lastSourceText = lastTranslatedText = "";
   liveFinalBuffer = "";
   liveInterimText = "";
-  lastDetectedSide = "A";
 };
 </script>
 
