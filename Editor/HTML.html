@@ -126,60 +126,91 @@ button.full {
 }
 
 #container {
-    display: flex;
     height: calc(100vh - 48px);
 }
 
-/* Sidebar */
-#sidebar {
-    width: 230px;
-    background: #0d1117;
-    border-right: 1px solid var(--border);
-    padding: 10px;
-    overflow-y: auto;
-}
-:root[data-theme="light"] #sidebar {
-    background: #f6f8fa;
-}
-
-#fileList div {
-    padding: 6px 8px;
-    font-size: 13px;
-    border-radius: 4px;
-    cursor: pointer;
-}
-#fileList div:hover {
-    background: #21262d;
-}
-:root[data-theme="light"] #fileList div:hover {
-    background: #e9eef2;
-}
-#fileList div.active {
-    background: #1f6feb33;
-    border: 1px solid #1f6feb;
-}
-
-/* Editor */
-#editor {
-    flex: 1;
+/* HOME VIEW (file list only) */
+#homeView {
+    height: 100%;
+    padding: 12px;
+    max-width: 800px;
+    margin: 0 auto;
     display: flex;
     flex-direction: column;
-    background: var(--bg-soft);
-    border-right: 1px solid var(--border);
 }
 
-#currentFileBar {
-    padding: 6px 10px;
+#homeHeaderButtons {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 12px;
+}
+
+#fileList {
+    margin-top: 10px;
+}
+
+.file-row {
+    padding: 8px 10px;
+    border-radius: 6px;
+    border: 1px solid transparent;
+    font-size: 14px;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.file-row:hover {
+    border-color: var(--border);
+    background: var(--bg-soft);
+}
+.file-name {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+}
+
+/* FILE VIEW (full screen) */
+#fileView {
+    height: 100%;
+    display: none; /* hidden by default */
+    flex-direction: column;
+}
+
+#fileHeader {
+    padding: 8px 10px;
     border-bottom: 1px solid var(--border);
     display: flex;
     justify-content: space-between;
     align-items: center;
+}
+
+#fileHeaderLeft {
+    display: flex;
+    flex-direction: column;
+}
+#fileHeaderName {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
     font-size: 13px;
 }
 
-#currentFileName {
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-    font-size: 12px;
+#fileHeaderButtons {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+#fileMain {
+    flex: 1;
+    display: flex;
+    min-height: 0;
+}
+
+/* Editor panel in file view */
+#editorPanel {
+    flex: 1;
+    background: var(--bg-soft);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
 }
 
 #editorBox {
@@ -188,7 +219,6 @@ button.full {
     height: 100%;
 }
 
-/* CodeMirror fills editor area */
 .CodeMirror {
     height: 100%;
     font-size: 13px;
@@ -260,18 +290,14 @@ button.full {
     resize: vertical;
 }
 
-/* Responsive */
+/* Responsive: stack editor + commits on small screens */
 @media (max-width: 900px) {
-    #container { flex-direction: column; height: auto; }
-    #sidebar, #commitsPane {
+    #fileMain { flex-direction: column; }
+    #commitsPane {
         width: 100%;
-        height: 160px;
-        border-right: none;
+        height: 200px;
         border-left: none;
-        border-bottom: 1px solid var(--border);
-    }
-    #editor {
-        height: calc(100vh - 48px - 160px - 160px);
+        border-top: 1px solid var(--border);
     }
 }
 </style>
@@ -292,22 +318,26 @@ button.full {
 </div>
 
 <div id="container">
-    <!-- Sidebar: Files -->
-    <div id="sidebar">
-        <button class="full primary" onclick="createFile()">➕ New File</button>
-        <button class="full" style="margin-top:6px;" onclick="exportZip()">📦 Export as ZIP</button>
-        <div style="margin-top:10px;" class="small-label">FILES</div>
+    <!-- HOME VIEW: only list of files -->
+    <div id="homeView">
+        <div id="homeHeaderButtons">
+            <button class="full primary" onclick="createFile()">➕ New File</button>
+            <button class="full" onclick="exportZip()">📦 Export as ZIP</button>
+        </div>
+        <div class="small-label">FILES</div>
         <div id="fileList"></div>
     </div>
 
-    <!-- Editor -->
-    <div id="editor">
-        <div id="currentFileBar">
-            <div>
-                <div class="small-label">CURRENT FILE</div>
-                <div id="currentFileName">(none)</div>
+    <!-- FILE VIEW: full screen editor + commits -->
+    <div id="fileView">
+        <div id="fileHeader">
+            <div id="fileHeaderLeft">
+                <span class="small-label">FILE</span>
+                <span id="fileHeaderName">(none)</span>
             </div>
-            <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;">
+            <div id="fileHeaderButtons">
+                <button onclick="closeFile()">⬅️ Close</button>
+
                 <!-- VIEW MODE BUTTONS -->
                 <div id="viewButtons" style="display:flex;gap:6px;flex-wrap:wrap;">
                     <button onclick="renameFile()">✏️ Rename</button>
@@ -316,6 +346,7 @@ button.full {
                     <button onclick="downloadFile()">⬇️ Download</button>
                     <button onclick="enterEditMode()">✍️ Edit</button>
                 </div>
+
                 <!-- EDIT MODE BUTTONS -->
                 <div id="editButtons" style="display:none;gap:6px;flex-wrap:wrap;">
                     <button onclick="undoEdit()">↩️ Undo</button>
@@ -328,14 +359,16 @@ button.full {
             </div>
         </div>
 
-        <textarea id="editorBox"></textarea>
-    </div>
-
-    <!-- Commits -->
-    <div id="commitsPane">
-        <div class="small-label">COMMITS</div>
-        <div id="commitList" style="margin-top:6px;"></div>
-        <div id="commitDetail"></div>
+        <div id="fileMain">
+            <div id="editorPanel">
+                <textarea id="editorBox"></textarea>
+            </div>
+            <div id="commitsPane">
+                <div class="small-label">COMMITS</div>
+                <div id="commitList" style="margin-top:6px;"></div>
+                <div id="commitDetail"></div>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -381,6 +414,27 @@ function toggleTheme() {
     document.documentElement.dataset.theme = next;
     localStorage.setItem("vc_theme", next);
     applyTheme();
+}
+
+// ----- View switching -----
+function showHomeView() {
+    document.getElementById("homeView").style.display = "flex";
+    document.getElementById("fileView").style.display = "none";
+    currentFileName = null;
+    if (cmEditor) {
+        cmEditor.setValue("");
+        cmEditor.setOption("readOnly", true);
+    }
+    isEditing = false;
+}
+function showFileView() {
+    document.getElementById("homeView").style.display = "none";
+    document.getElementById("fileView").style.display = "flex";
+}
+function closeFile() {
+    document.getElementById("commitList").innerHTML = "";
+    document.getElementById("commitDetail").innerHTML = "";
+    showHomeView();
 }
 
 // ----- Editing mode -----
@@ -451,11 +505,21 @@ function loadFilesList() {
     }
 
     names.forEach(name => {
-        const div = document.createElement("div");
-        div.textContent = name;
-        if (name === currentFileName) div.classList.add("active");
-        div.onclick = () => openFile(name);
-        container.appendChild(div);
+        const row = document.createElement("div");
+        row.className = "file-row";
+        row.onclick = () => openFile(name);
+
+        const left = document.createElement("div");
+        left.className = "file-name";
+        left.textContent = name;
+
+        const right = document.createElement("div");
+        right.className = "small-label";
+        right.textContent = "Open";
+
+        row.appendChild(left);
+        row.appendChild(right);
+        container.appendChild(row);
     });
 }
 
@@ -476,9 +540,9 @@ function createFile() {
     commits[name] = [];
     setCommitsMap(commits);
 
+    loadFilesList();
     openFile(name);
     setEditingMode(true); // new file starts in edit mode
-    loadFilesList();
 }
 
 // ----- Rename file -----
@@ -496,12 +560,10 @@ function renameFile() {
         return;
     }
 
-    // move file content
     files[newName] = files[currentFileName];
     delete files[currentFileName];
     setFilesMap(files);
 
-    // move commits
     const commits = getCommitsMap();
     if (commits[currentFileName]) {
         commits[newName] = commits[currentFileName];
@@ -510,7 +572,7 @@ function renameFile() {
     setCommitsMap(commits);
 
     currentFileName = newName;
-    document.getElementById("currentFileName").textContent = currentFileName;
+    document.getElementById("fileHeaderName").textContent = currentFileName;
     setEditorModeByFilename(currentFileName);
     loadFilesList();
     loadCommits(currentFileName);
@@ -532,20 +594,14 @@ function deleteFile() {
     delete commits[currentFileName];
     setCommitsMap(commits);
 
-    currentFileName = null;
-    document.getElementById("currentFileName").textContent = "(none)";
-    if (cmEditor) cmEditor.setValue("");
-    document.getElementById("commitList").innerHTML = "";
-    document.getElementById("commitDetail").innerHTML = "";
-
-    setEditingMode(false);
     loadFilesList();
+    closeFile();
 }
 
-// ----- Open file (read-only) -----
+// ----- Open file -----
 function openFile(name) {
     currentFileName = name;
-    document.getElementById("currentFileName").textContent = name;
+    document.getElementById("fileHeaderName").textContent = name;
 
     const files = getFilesMap();
     const content = files[name] ?? "";
@@ -559,9 +615,9 @@ function openFile(name) {
     lastSearchTerm = "";
     lastSearchPos = 0;
 
-    loadFilesList();
     loadCommits(name);
     document.getElementById("commitDetail").innerHTML = "";
+    showFileView();
 }
 
 // ----- Auto-save draft -----
@@ -581,14 +637,12 @@ function saveAndCommit() {
 
     const content = cmEditor.getValue();
     const msg = prompt("Commit message:", "Update " + currentFileName);
-    if (msg === null) return; // cancelled
+    if (msg === null) return;
 
-    // save content
     const files = getFilesMap();
     files[currentFileName] = content;
     setFilesMap(files);
 
-    // add commit
     const commits = getCommitsMap();
     if (!commits[currentFileName]) commits[currentFileName] = [];
     commits[currentFileName].push({
@@ -600,7 +654,7 @@ function saveAndCommit() {
     setCommitsMap(commits);
 
     loadCommits(currentFileName);
-    setEditingMode(false); // back to read-only
+    setEditingMode(false);
     alert("Saved & committed!");
 }
 
@@ -665,7 +719,6 @@ function rollbackCommit(fileName, commitId) {
     }
     if (!confirm("Rollback '" + fileName + "' to this commit?")) return;
 
-    // update file content
     const files = getFilesMap();
     files[fileName] = commit.content;
     setFilesMap(files);
@@ -707,7 +760,7 @@ function openInBrowser() {
     window.open(url, "_blank");
 }
 
-// ----- Auto-format (improved Python) -----
+// ----- Auto-format (JS/HTML/CSS via js-beautify, Python via smart indent) -----
 function autoFormat() {
     if (!isEditing || !currentFileName || !cmEditor) {
         alert("Enter edit mode first.");
@@ -749,38 +802,27 @@ function autoFormat() {
 
 // Smarter Python indentation formatter
 function smartPythonFormat(code) {
-    const TAB = "    "; // 4 spaces
+    const TAB = "    ";
     const lines = code.replace(/\t/g, TAB).split("\n");
     let indentLevel = 0;
     const result = [];
-
     const dedentKeywords = /^(elif\b|else:|except\b|finally:)/;
 
     for (let raw of lines) {
         const stripped = raw.trim();
-
-        // Preserve completely empty lines
         if (stripped === "") {
             result.push("");
             continue;
         }
-
-        // If this line starts with dedent keyword, reduce indent first
         if (dedentKeywords.test(stripped) && indentLevel > 0) {
             indentLevel -= 1;
         }
-
-        // Apply current indent
         result.push(TAB.repeat(indentLevel) + stripped);
-
-        // If line ends with ":" and is not a comment-only line,
-        // increase indent for the next lines.
         const isCommentOnly = stripped.startsWith("#");
         if (!isCommentOnly && stripped.endsWith(":")) {
             indentLevel += 1;
         }
     }
-
     return result.join("\n");
 }
 
@@ -849,6 +891,7 @@ setupEditor();
 document.documentElement.dataset.theme = localStorage.getItem("vc_theme") || "dark";
 applyTheme();
 loadFilesList();
+showHomeView(); // start on home
 </script>
 </body>
 </html>
