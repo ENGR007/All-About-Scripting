@@ -309,18 +309,20 @@ stopSpeechBtn.onclick = () => {
   keepListening = false;
   recognition.stop();
   voiceWave.classList.remove("listening");
-  statusText.textContent = "Status: Stopped.";
+  // finalize one transcript entry for this turn
+  if (sourceText.value.trim()){
+    doTranslate(true);  // translate + append once
+  } else {
+    statusText.textContent = "Status: Stopped.";
+  }
 };
 
-/* Real-time speech: live translate, transcript only on final */
+/* Real-time speech: live translate, but no transcript here */
 if (recognition){
   recognition.onresult = (event) => {
     let txt = "";
-    let anyFinal = false;
-
     for (let i = 0; i < event.results.length; i++){
       txt += event.results[i][0].transcript;
-      if (event.results[i].isFinal) anyFinal = true;
     }
     txt = txt.trim();
     if (!txt) return;
@@ -329,8 +331,8 @@ if (recognition){
 
     clearTimeout(speechDebounce);
     speechDebounce = setTimeout(() => {
-      // Only append to transcript when we got a final result
-      doTranslate(anyFinal);
+      // live update only, do NOT add to transcript here
+      doTranslate(false);
     }, 250);
   };
 
@@ -374,7 +376,7 @@ function extRoman(data){
 }
 
 /* ---------- Core Translation ---------- */
-/* addToTranscript = true only for final speech results */
+/* addToTranscript = true only when called from Stop button */
 async function doTranslate(addToTranscript = false){
   const text = sourceText.value.trim();
   if (!text){
