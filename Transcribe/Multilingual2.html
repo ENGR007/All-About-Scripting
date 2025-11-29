@@ -587,13 +587,34 @@ function autoRefresh(){
 sourceLangSel.addEventListener("change", autoRefresh);
 targetLangSel.addEventListener("change", autoRefresh);
 
-/* Transcript */
+/* --- Transcript (with pinyin/romaji de-duplication) --- */
 function appendToTranscript(sl, tl, src, out){
+  let cleanOut = out;
+
+  if (isEastAsian(sl) || isEastAsian(tl)) {
+    const srcLines = src.split("\n").map(l => l.trim()).filter(Boolean);
+    const outLines = out.split("\n").map(l => l.trim()).filter(Boolean);
+
+    if (srcLines.length >= 2 && outLines.length >= 2) {
+      const srcRoman = srcLines[srcLines.length - 1];
+      const outRoman = outLines[outLines.length - 1];
+
+      if (srcRoman && outRoman) {
+        const sNorm = srcRoman.replace(/\s+/g, "").toLowerCase();
+        const oNorm = outRoman.replace(/\s+/g, "").toLowerCase();
+        if (sNorm === oNorm) {
+          // Drop the duplicated romanization line from Translation
+          cleanOut = outLines.slice(0, outLines.length - 1).join("\n");
+        }
+      }
+    }
+  }
+
   const time = new Date().toLocaleTimeString([], {hour:"2-digit", minute:"2-digit", second:"2-digit"});
   transcriptEntries.push(
 `[${time}] (${sl} → ${tl})
 Source     : ${src}
-Translation: ${out}`
+Translation: ${cleanOut}`
   );
   conversationBox.textContent = transcriptEntries.join("\n\n");
   conversationBox.scrollTop = conversationBox.scrollHeight;
