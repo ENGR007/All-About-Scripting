@@ -206,6 +206,12 @@
     <button id="btnSaveTranscript" class="btn-save">💾 Save Transcript</button>
   </div>
 
+  <!-- Voice choice -->
+  <label class="label-small">Voice for Speak Translation</label>
+  <select id="voiceSelect">
+    <option value="auto" selected>Auto (best match)</option>
+  </select>
+
   <!-- Transcript -->
   <div style="font-size:.8rem;margin-top:12px;color:var(--muted);">Conversation Transcript</div>
   <div id="conversationBox" class="conv-box">No conversation yet.</div>
@@ -234,6 +240,7 @@ const btnSpeak         = document.getElementById("btnSpeak");
 const btnSaveTrans     = document.getElementById("btnSaveTranscript");
 const conversationBox  = document.getElementById("conversationBox");
 const voiceWave        = document.getElementById("voiceWave");
+const voiceSelect      = document.getElementById("voiceSelect");
 
 let activeSpeaker      = "you"; // "you" or "partner"
 let transcriptEntries  = [];
@@ -250,6 +257,9 @@ let lastTranslatedText = "";
 let liveFinalBuffer = "";   // all final chunks
 let liveInterimText = "";   // most recent interim
 
+/* voices */
+let allVoices = [];
+
 /* ---------- Helpers ---------- */
 function isEastAsian(lang){
   if (!lang) return false;
@@ -258,10 +268,74 @@ function isEastAsian(lang){
 }
 
 function scrollToBottomAndFocus(el){
-  // put caret at end and scroll so latest text is visible
   const len = el.value.length;
   el.selectionStart = el.selectionEnd = len;
   el.scrollTop = el.scrollHeight;
+}
+
+function langToSRCode(code){
+  switch (code) {
+    case "en":   return "en-US";
+    case "tl":   return "fil-PH";
+    case "zh-CN":return "zh-CN";
+    case "ja":   return "ja-JP";
+    case "ko":   return "ko-KR";
+    case "th":   return "th-TH";
+    default:     return "en-US";
+  }
+}
+
+/* TTS language (same mapping) */
+function langToTTSCode(code){
+  return langToSRCode(code);
+}
+
+/* which language will Speak Translation use right now */
+function currentSpeakLangCode(){
+  let tl;
+  if (activeSpeaker === "you"){
+    tl = targetLangSel.value;
+  } else {
+    tl = sourceLangSel.value;
+  }
+  return langToTTSCode(tl);
+}
+
+/* populate voice dropdown for the current speak language */
+function populateVoiceOptions(){
+  if (!window.speechSynthesis || !voiceSelect) return;
+  allVoices = window.speechSynthesis.getVoices() || [];
+
+  const speakLang = currentSpeakLangCode(); // e.g. "ko-KR"
+  const base = speakLang.split("-")[0].toLowerCase();
+
+  const prevSelection = voiceSelect.value || "auto";
+  voiceSelect.innerHTML = "";
+  const autoOpt = document.createElement("option");
+  autoOpt.value = "auto";
+  autoOpt.textContent = "Auto (best match)";
+  voiceSelect.appendChild(autoOpt);
+
+  const matches = allVoices
+    .map((v, idx) => ({v, idx}))
+    .filter(({v}) => {
+      const lang = (v.lang || "").toLowerCase();
+      return lang === speakLang.toLowerCase() || lang.startsWith(base + "-");
+    });
+
+  // if nothing matches exactly, still allow user to pick any voice
+  const candidateList = matches.length ? matches : allVoices.map((v, idx)=>({v,idx}));
+
+  candidateList.forEach(({v, idx}) => {
+    const opt = document.createElement("option");
+    opt.value = String(idx);
+    opt.textContent = `${v.name} (${v.lang})`;
+    voiceSelect.appendChild(opt);
+  });
+
+  // try to keep previous choice if still valid
+  const hasPrev = Array.from(voiceSelect.options).some(o => o.value === prevSelection);
+  voiceSelect.value = hasPrev ? prevSelection : "auto";
 }
 
 /* ---------- Speaker switching ---------- */
@@ -270,6 +344,7 @@ function setSpeaker(who){
   btnYou.classList.toggle("active", who === "you");
   btnPartner.classList.toggle("active", who === "partner");
   updateRecognizerLanguage();
+  populateVoiceOptions();
 }
 btnYou.onclick     = () => setSpeaker("you");
 btnPartner.onclick = () => setSpeaker("partner");
@@ -284,18 +359,6 @@ if (SpeechRecognition){
   recognition.interimResults = true;
 } else {
   statusText.textContent = "Status: Speech recognition not supported.";
-}
-
-function langToSRCode(code){
-  switch (code) {
-    case "en":   return "en-US";
-    case "tl":   return "fil-PH";
-    case "zh-CN":return "zh-CN";
-    case "ja":   return "ja-JP";
-    case "ko":   return "ko-KR";
-    case "th":   return "th-TH";
-    default:     return "en-US";
-  }
 }
 
 function updateRecognizerLanguage(){
@@ -354,8 +417,7 @@ if (recognition){
     let full = (liveFinalBuffer + " " + liveInterimText).trim();
     if (!full) return;
 
-    // small readability fix for English: insert space before Capital after lowercase
-    full = full.replace(/([a-z])([A-Z])/g, "$1 $2");
+    full = full.replace(/([a-z])([A-Z])/g, "$1 $2"); // readability
 
     sourceText.value = full;
     scrollToBottomAndFocus(sourceText);
@@ -402,7 +464,6 @@ function extRoman(data){
 }
 
 /* ---------- Core Translation ---------- */
-/* Never writes to transcript directly; just updates last* values. */
 async function doTranslate(){
   const text = sourceText.value.trim();
   if (!text){
@@ -502,6 +563,7 @@ sourceText.addEventListener("input", () => {
 /* ---------- Auto-translate on dropdown change (no transcript) ---------- */
 function autoRefresh(){
   updateRecognizerLanguage();
+  populateVoiceOptions();
   if (sourceText.value.trim()){
     doTranslate();
   }
@@ -546,7 +608,19 @@ btnSaveTrans.onclick = () => {
   statusText.textContent = "Status: Transcript saved.";
 };
 
-/* ---------- Speak Translation (female-preferred) ---------- */
+/* ---------- Voice loading ---------- */
+function loadVoicesAndPopulate(){
+  if (!window.speechSynthesis) return;
+  allVoices = window.speechSynthesis.getVoices() || [];
+  populateVoiceOptions();
+}
+if (window.speechSynthesis){
+  window.speechSynthesis.onvoiceschanged = loadVoicesAndPopulate;
+  // in some browsers voices are immediately available
+  loadVoicesAndPopulate();
+}
+
+/* ---------- Speak Translation (with selectable voice) ---------- */
 btnSpeak.onclick = async () => {
   const txt = targetText.value.trim();
   if (!txt){
@@ -569,46 +643,69 @@ btnSpeak.onclick = async () => {
     tl = sourceLangSel.value;
   }
 
-  const speakLangMap = {
-    "en":"en-US","tl":"fil-PH","zh-CN":"zh-CN","ja":"ja-JP","ko":"ko-KR","th":"th-TH"
-  };
-  const speakLang = speakLangMap[tl] || "en-US";
-
+  const speakLang = langToTTSCode(tl);
   const speakText = isEastAsian(tl) ? lines[0] : lines[lines.length - 1];
 
-  await new Promise(resolve => {
-    let v = speechSynthesis.getVoices();
-    if (v.length) return resolve();
-    speechSynthesis.onvoiceschanged = resolve;
-  });
-
-  const voices = speechSynthesis.getVoices();
-
-  let female = voices.find(v =>
-    v.lang === speakLang && (/female/i.test(v.name) || /女/i.test(v.name))
-  );
-  if (!female){
-    female = voices.find(v =>
-      v.lang === speakLang &&
-      ( /Google/.test(v.name) ||
-        /Samantha/i.test(v.name) ||
-        /Kyoko/i.test(v.name) ||
-        /Mei-Jia/i.test(v.name) ||
-        /Ting-Ting/i.test(v.name) ||
-        /Yuna/i.test(v.name)
-      )
-    );
+  if (!window.speechSynthesis){
+    statusText.textContent = "Status: Speech not supported.";
+    return;
   }
-  const voice = female || voices.find(v => v.lang === speakLang) || voices[0];
+
+  // wait for voices if needed
+  await new Promise(resolve => {
+    const v = window.speechSynthesis.getVoices();
+    if (v && v.length){
+      allVoices = v;
+      return resolve();
+    }
+    window.speechSynthesis.onvoiceschanged = () => {
+      allVoices = window.speechSynthesis.getVoices() || [];
+      resolve();
+    };
+  });
+  populateVoiceOptions();
+
+  let voice = null;
+
+  // 1) user-selected voice
+  if (voiceSelect && voiceSelect.value !== "auto"){
+    const idx = parseInt(voiceSelect.value, 10);
+    if (!isNaN(idx) && allVoices[idx]) voice = allVoices[idx];
+  }
+
+  // 2) Auto: our best guess for clear female / Google voice
+  if (!voice){
+    const base = speakLang.split("-")[0].toLowerCase();
+    const candidates = allVoices.filter(v => {
+      const lang = (v.lang || "").toLowerCase();
+      return lang === speakLang.toLowerCase() || lang.startsWith(base + "-");
+    });
+
+    const pool = candidates.length ? candidates : allVoices;
+
+    let female = pool.find(v =>
+      (/female/i.test(v.name) || /女/i.test(v.name))
+    );
+    if (!female){
+      female = pool.find(v =>
+        /Google|Samantha|Kyoko|Mei-Jia|Ting-Ting|Yuna/i.test(v.name)
+      );
+    }
+    voice = female || pool[0] || null;
+  }
 
   const utter = new SpeechSynthesisUtterance(speakText);
-  utter.voice = voice;
-  utter.lang  = speakLang;
+  if (voice){
+    utter.voice = voice;
+    utter.lang  = voice.lang || speakLang;
+  } else {
+    utter.lang  = speakLang;
+  }
   utter.rate  = 1.0;
   utter.pitch = 1.0;
 
-  speechSynthesis.cancel();
-  speechSynthesis.speak(utter);
+  window.speechSynthesis.cancel();
+  window.speechSynthesis.speak(utter);
   statusText.textContent = `Status: Speaking (${voice ? voice.name : speakLang})…`;
 };
 
