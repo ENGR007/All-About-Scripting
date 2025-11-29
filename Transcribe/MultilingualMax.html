@@ -383,7 +383,7 @@ stopSpeechBtn.onclick = async () => {
 
   const currentText = sourceText.value.trim();
   if (currentText){
-    await doTranslate(false);   // final call (with English)
+    await doTranslate(null, false);   // final call
     if (lastTranslatedText){
       appendToTranscript(lastSrcLang, lastTgtLang, lastSourceText, lastTranslatedText);
     }
@@ -408,9 +408,10 @@ if (recognition){
     if (!full) return;
     full = full.replace(/([a-z])([A-Z])/g, "$1 $2");
 
+    // display raw on left first; doTranslate will decorate if needed
     sourceText.value = full;
     scrollToBottomAndFocus(sourceText);
-    doTranslate(true);   // live call
+    doTranslate(full, true);   // live call with raw override
   };
 
   recognition.onerror = (e) => {
@@ -451,14 +452,15 @@ function extRoman(data){
 }
 
 /* Core Translation
-   isLive = true → live stream: script + roman (no English)
-   isLive = false → final: script + roman + meaning
+   rawOverride: optional raw text from recognizer
+   isLive: true when streaming; false for final/typed
 */
-async function doTranslate(isLive=false){
-  // NEW: ignore late live updates after we've stopped listening
+async function doTranslate(rawOverride = null, isLive = false){
+  // ignore late live updates after stop
   if (isLive && !keepListening) return;
 
-  const text = sourceText.value.trim();
+  const baseText = (typeof rawOverride === "string") ? rawOverride : sourceText.value;
+  const text = baseText.trim();
   if (!text){
     targetText.value = "";
     statusText.textContent = "Status: Idle";
@@ -481,7 +483,7 @@ async function doTranslate(isLive=false){
   errorBox.textContent   = "";
 
   try {
-    let display = "";
+    let displayRight = "";
 
     if (slEA || tlEA) {
       let scriptLang, meaningLang;
@@ -518,30 +520,46 @@ async function doTranslate(isLive=false){
         } catch(e){}
       }
 
-      if (isLive){
-        // live: script + roman only
-        display = scriptText;
-        if (roman) display += "\n" + roman;
+      if (slEA && !tlEA){
+        /* You/Partner is speaking EA (e.g. Chinese), partner is non-EA.
+           LEFT: script + pinyin
+           RIGHT: meaning only (English).
+        */
+        const leftDisplay = scriptText + (roman ? "\n" + roman : "");
+        sourceText.value = leftDisplay;
+        displayRight = meaningText;
+        targetText.value = displayRight;
+      } else if (!slEA && tlEA){
+        /* You/Partner is speaking non-EA, partner language is EA.
+           LEFT: raw text
+           RIGHT: script + roman + meaning.
+        */
+        displayRight = scriptText;
+        if (roman) displayRight += "\n" + roman;
+        displayRight += "\n" + meaningText;
+        targetText.value = displayRight;
       } else {
-        // final: script + roman + English meaning
-        display = scriptText;
-        if (roman) display += "\n" + roman;
-        display += "\n" + meaningText;
+        /* both EA: just show all on right */
+        displayRight = scriptText;
+        if (roman) displayRight += "\n" + roman;
+        displayRight += "\n" + meaningText;
+        targetText.value = displayRight;
       }
 
     } else {
+      /* neither side is EA: simple translation */
       const translated = extText(await gTransRaw(text, sl, tl));
-      display = translated;
+      displayRight = translated;
+      targetText.value = displayRight;
     }
 
-    targetText.value = display;
     scrollToBottomAndFocus(targetText);
 
     if (!isLive){
       lastSrcLang = sl;
       lastTgtLang = tl;
       lastSourceText = text;
-      lastTranslatedText = display;
+      lastTranslatedText = targetText.value;
     }
 
     statusText.textContent = "Status: Done.";
@@ -557,7 +575,7 @@ sourceText.addEventListener("input", () => {
   clearTimeout(typingDebounce);
   typingDebounce = setTimeout(() => {
     scrollToBottomAndFocus(sourceText);
-    doTranslate(false);
+    doTranslate(); // uses current sourceText.value
   }, 350);
 });
 
@@ -566,7 +584,7 @@ function autoRefresh(){
   updateRecognizerLanguage();
   populateVoiceOptions();
   if (sourceText.value.trim()){
-    doTranslate(false);
+    doTranslate();
   }
 }
 sourceLangSel.addEventListener("change", autoRefresh);
