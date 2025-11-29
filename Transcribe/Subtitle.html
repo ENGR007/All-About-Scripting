@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<title>Edge Subtitle Translator</title>
+<title>Subtitle Auto Translator</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <style>
   * { box-sizing: border-box; }
@@ -15,7 +15,7 @@
     overflow: hidden;
   }
 
-  /* Thin subtitle bar pinned to TOP, full width */
+  /* Thin bar at the TOP, full width */
   .subtitle-bar {
     position: fixed;
     top: 0;
@@ -81,10 +81,15 @@
     100% { transform: scale(1); opacity: 1; }
   }
 
-  /* Single subtitle line from left to right */
-  .subtitle-line {
+  .subtitle-text {
     flex: 1 1 auto;
     min-width: 0;
+    display: flex;
+    flex-direction: column;
+    line-height: 1.2;
+  }
+
+  .line-en {
     font-size: 15px;
     font-weight: 500;
     text-shadow: 0 0 4px rgba(0,0,0,0.9);
@@ -93,12 +98,14 @@
     text-overflow: ellipsis;
   }
 
-  .hint {
-    font-size: 10px;
-    color: #9ca3af;
-    margin-left: 6px;
-    flex-shrink: 0;
+  .line-other {
+    font-size: 14px;
+    margin-top: 1px;
+    text-shadow: 0 0 4px rgba(0,0,0,0.9);
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    opacity: 0.95;
   }
 
   /* Modal */
@@ -184,7 +191,7 @@
   .error {
     position: fixed;
     left: 50%;
-    top: 38px;
+    top: 40px;
     transform: translateX(-50%);
     font-size: 11px;
     color: #fecaca;
@@ -197,12 +204,8 @@
     .subtitle-bar {
       padding-inline: 6px;
     }
-    .subtitle-line {
-      font-size: 14px;
-    }
-    .hint {
-      display: none;
-    }
+    .line-en { font-size: 14px; }
+    .line-other { font-size: 13px; }
   }
 </style>
 </head>
@@ -215,11 +218,10 @@
     <div id="statusDot" class="status-dot"></div>
   </div>
 
-  <div id="subtitleLine" class="subtitle-line">
-    Tap ▶ and start speaking.
+  <div class="subtitle-text">
+    <div id="lineEn" class="line-en">Tap ▶ and speak English…</div>
+    <div id="lineOther" class="line-other" style="display:none;"></div>
   </div>
-
-  <div class="hint">EN + optional CN/TH/KR/FIL</div>
 </div>
 
 <div id="errorBox" class="error"></div>
@@ -228,329 +230,8 @@
 <div id="settingsModal" class="modal-backdrop">
   <div class="modal">
     <h2>Subtitle Settings</h2>
-    <p>Choose the spoken language and an optional second subtitle language.</p>
+    <p>Spoken language is fixed to English. Choose the second subtitle line.</p>
 
-    <label for="spokenLang">Spoken language (mic)</label>
-    <select id="spokenLang">
-      <option value="en" selected>English</option>
-      <option value="zh-CN">Chinese (Mandarin)</option>
-      <option value="th">Thai</option>
-      <option value="ko">Korean</option>
-      <option value="tl">Filipino</option>
-    </select>
-
-    <label for="subtitleLang">2nd subtitle language</label>
+    <label for="subtitleLang">Second line</label>
     <select id="subtitleLang">
-      <option value="none" selected>None (English only)</option>
-      <option value="zh-CN">Chinese</option>
-      <option value="th">Thai</option>
-      <option value="ko">Korean</option>
-      <option value="tl">Filipino</option>
-    </select>
-
-    <div class="modal-actions">
-      <button id="btnCloseModal" class="btn-sm secondary">Close</button>
-      <button id="btnSaveModal" class="btn-sm primary">Save</button>
-    </div>
-  </div>
-</div>
-
-<script src="https://cdn.jsdelivr.net/npm/pinyin-pro@3.27.0/dist/index.js"></script>
-<script>
-  const btnMenu        = document.getElementById("btnMenu");
-  const btnPlay        = document.getElementById("btnPlay");
-  const statusDot      = document.getElementById("statusDot");
-  const subtitleLine   = document.getElementById("subtitleLine");
-  const errorBox       = document.getElementById("errorBox");
-
-  const settingsModal  = document.getElementById("settingsModal");
-  const btnCloseModal  = document.getElementById("btnCloseModal");
-  const btnSaveModal   = document.getElementById("btnSaveModal");
-  const spokenLangSel  = document.getElementById("spokenLang");
-  const subtitleLangSel= document.getElementById("subtitleLang");
-
-  let keepListening = false;
-  let translateTimeout = null;
-  let lastInputText = "";
-
-  function isEastAsian(lang){
-    if (!lang) return false;
-    const l = lang.toLowerCase();
-    return l.startsWith("zh") || l.startsWith("ja") || l.startsWith("ko") || l.startsWith("th");
-  }
-
-  function srLangCode(code){
-    switch (code) {
-      case "en":   return "en-US";
-      case "zh-CN":return "zh-CN";
-      case "th":   return "th-TH";
-      case "ko":   return "ko-KR";
-      case "tl":   return "fil-PH";
-      default:     return "en-US";
-    }
-  }
-
-  function showError(msg){
-    errorBox.textContent = msg || "";
-  }
-
-  function setListeningUI(on){
-    if (on){
-      btnPlay.classList.add("playing");
-      btnPlay.textContent = "⏸";
-      statusDot.classList.add("listening");
-    } else {
-      btnPlay.classList.remove("playing");
-      btnPlay.textContent = "▶";
-      statusDot.classList.remove("listening");
-    }
-  }
-
-  function normalizeChineseNumbers(text){
-    const map = { '0':'零','1':'一','2':'二','3':'三','4':'四','5':'五','6':'六','7':'七','8':'八','9':'九' };
-    return text.replace(/[0-9]/g, d => map[d] || d);
-  }
-
-  async function gTransRaw(text, sl, tl, extra=""){
-    const url =
-      "https://translate.googleapis.com/translate_a/single?client=gtx" +
-      `&sl=${encodeURIComponent(sl)}&tl=${encodeURIComponent(tl)}&dt=t${extra}&q=${encodeURIComponent(text)}`;
-    const res = await fetch(url);
-    if (!res.ok) throw new Error("Network error " + res.status);
-    return res.json();
-  }
-
-  function extText(data){
-    if (!data || !data[0]) return "";
-    return data[0].map(seg => seg[0]).join("");
-  }
-
-  function extRoman(data){
-    if (!data || !data[0]) return "";
-    const parts = [];
-    for (const seg of data[0]){
-      if (seg[3]) parts.push(seg[3]);
-    }
-    return parts.join(" ").trim();
-  }
-
-  async function translateWithRoman(text, srcLang, destLang){
-    let script;
-    if (srcLang === destLang){
-      script = text;
-    } else {
-      const data = await gTransRaw(text, srcLang, destLang);
-      script = extText(data);
-    }
-
-    let displayScript = script;
-    let roman = "";
-    const lower = destLang.toLowerCase();
-
-    if (lower.startsWith("zh")){
-      displayScript = normalizeChineseNumbers(script);
-      if (window.pinyinPro){
-        roman = window.pinyinPro.pinyin(displayScript, {toneType:"mark", type:"string"});
-      }
-    } else if (lower.startsWith("ja") || lower.startsWith("ko") || lower.startsWith("th")){
-      try {
-        const raw = await gTransRaw(displayScript, destLang, destLang, "&dt=rm");
-        roman = extRoman(raw);
-      } catch(e){}
-    }
-
-    return roman ? `${displayScript} · ${roman}` : displayScript;
-  }
-
-  function renderSubtitle(enText, altText, altLang){
-    if (!enText && !altText){
-      subtitleLine.textContent = "Tap ▶ and start speaking.";
-      return;
-    }
-
-    if (!altText || altLang === "none"){
-      subtitleLine.textContent = enText || altText || "";
-    } else {
-      // single line: English | Second language
-      subtitleLine.textContent = `${enText}  |  ${altText}`;
-    }
-  }
-
-  async function translateAndRender(text){
-    const srcLang = spokenLangSel.value || "en";
-    const altLang = subtitleLangSel.value || "none";
-
-    if (!text.trim()){
-      renderSubtitle("", "", "none");
-      return;
-    }
-
-    showError("");
-
-    try {
-      // English top line
-      let englishPromise;
-      if (srcLang === "en"){
-        englishPromise = Promise.resolve(text);
-      } else {
-        englishPromise = gTransRaw(text, srcLang, "en").then(extText);
-      }
-
-      // Second language line
-      let altPromise;
-      if (altLang === "none"){
-        altPromise = Promise.resolve("");
-      } else if (!isEastAsian(altLang)){
-        if (srcLang === altLang){
-          altPromise = Promise.resolve(text);
-        } else {
-          altPromise = gTransRaw(text, srcLang, altLang).then(extText);
-        }
-      } else {
-        altPromise = translateWithRoman(text, srcLang, altLang);
-      }
-
-      const [enText, altText] = await Promise.all([englishPromise, altPromise]);
-      renderSubtitle(enText || text, altText, altLang);
-
-    } catch (err){
-      console.error(err);
-      showError("Translation error: " + err.message);
-      // fallback: just show raw input
-      renderSubtitle(text, "", "none");
-    }
-  }
-
-  function queueTranslate(text, isLive){
-    if (text === lastInputText && isLive) return;
-    lastInputText = text;
-    clearTimeout(translateTimeout);
-    translateTimeout = setTimeout(
-      () => translateAndRender(text),
-      isLive ? 220 : 0
-    );
-  }
-
-  /* Speech recognition */
-  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-  let recognition = null;
-
-  if (SpeechRecognition){
-    recognition = new SpeechRecognition();
-    recognition.continuous = true;
-    recognition.interimResults = true;
-  } else {
-    subtitleLine.textContent = "Speech recognition not supported in this browser.";
-    showError("Use Edge/Chrome on desktop Android/Windows. iOS browser may not support mic subtitles.");
-  }
-
-  let liveFinalBuffer = "";
-  let liveInterimText = "";
-
-  function updateRecognizerLang(){
-    if (!recognition) return;
-    recognition.lang = srLangCode(spokenLangSel.value || "en");
-  }
-
-  function startListening(){
-    if (!recognition || keepListening) return;
-    keepListening = true;
-    liveFinalBuffer = "";
-    liveInterimText = "";
-    updateRecognizerLang();
-    try { recognition.start(); } catch(e){}
-    setListeningUI(true);
-    // IMPORTANT: do NOT overwrite text with "Listening..."
-    // keep the last subtitle on screen
-  }
-
-  function stopListening(){
-    if (!recognition) return;
-    keepListening = false;
-    try { recognition.stop(); } catch(e){}
-    setListeningUI(false);
-  }
-
-  if (recognition){
-    recognition.onresult = (event) => {
-      for (let i = event.resultIndex; i < event.results.length; i++){
-        const res = event.results[i];
-        if (res.isFinal){
-          liveFinalBuffer += res[0].transcript + " ";
-          liveInterimText = "";
-        } else {
-          liveInterimText = res[0].transcript;
-        }
-      }
-
-      const full = (liveFinalBuffer + " " + liveInterimText).trim();
-      if (!full) return;
-      queueTranslate(full, true);
-    };
-
-    recognition.onerror = (e) => {
-      console.error(e);
-      setListeningUI(false);
-      keepListening = false;
-
-      if (e.error === "not-allowed" || e.error === "denied") {
-        showError("Mic permission denied. Allow microphone access and reload.");
-        subtitleLine.textContent = "Microphone access blocked.";
-      } else if (e.error === "no-speech") {
-        showError("No speech detected. Try speaking closer to the mic.");
-      } else {
-        showError("Speech error: " + e.error);
-      }
-    };
-
-    recognition.onend = () => {
-      if (keepListening){
-        try { recognition.start(); } catch(e){}
-      } else {
-        setListeningUI(false);
-      }
-    };
-  }
-
-  /* UI events */
-  btnPlay.addEventListener("click", () => {
-    if (!recognition){
-      showError("Speech recognition not supported in this browser.");
-      return;
-    }
-    if (!keepListening){
-      showError("");
-      startListening();
-    } else {
-      stopListening();
-    }
-  });
-
-  btnMenu.addEventListener("click", () => {
-    settingsModal.classList.add("open");
-  });
-
-  btnCloseModal.addEventListener("click", () => {
-    settingsModal.classList.remove("open");
-  });
-
-  btnSaveModal.addEventListener("click", () => {
-    settingsModal.classList.remove("open");
-    updateRecognizerLang();
-  });
-
-  settingsModal.addEventListener("click", (e) => {
-    if (e.target === settingsModal){
-      settingsModal.classList.remove("open");
-    }
-  });
-
-  spokenLangSel.addEventListener("change", () => {
-    updateRecognizerLang();
-  });
-
-  // init
-  updateRecognizerLang();
-</script>
-</body>
-</html>
+     
