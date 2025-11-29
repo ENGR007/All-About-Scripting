@@ -5,494 +5,476 @@
   <title>Live Recorder & Transcriber Notebook</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
-/* ===========================================
-   GLOBAL VARIABLES & BASE STYLING
-   =========================================== */
-:root {
-  --bg: #0b1020;
-  --card-bg: #141b2f;
-  --accent: #ffb84d;
-  --accent-soft: rgba(255, 184, 77, 0.15);
-  --accent-strong: #ff9f1c;
-  --border: #26324d;
-  --text: #f5f7ff;
-  --text-soft: #a7b3d9;
-  --danger: #ff4d6a;
-  --success: #5bd38a;
-  --muted-chip: #1f2942;
-  --scroll-thumb: #36456a;
-}
+    /* ===========================================
+       GLOBAL VARIABLES & BASE STYLING
+       =========================================== */
+    :root {
+      --bg: #0b1020;
+      --card-bg: #141b2f;
+      --accent: #ffb84d;
+      --accent-soft: rgba(255, 184, 77, 0.15);
+      --accent-strong: #ff9f1c;
+      --border: #26324d;
+      --text: #f5f7ff;
+      --text-soft: #a7b3d9;
+      --danger: #ff4d6a;
+      --success: #5bd38a;
+      --muted-chip: #1f2942;
+      --scroll-thumb: #36456a;
+    }
 
-* {
-  box-sizing: border-box;
-}
+    * {
+      box-sizing: border-box;
+    }
 
-body {
-  margin: 0;
-  padding: 0;
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  background: radial-gradient(circle at top, #1d2642 0, #050814 55%, #020309 100%);
-  color: var(--text);
-  min-height: 100vh;
-  display: flex;
-  justify-content: center;
-  align-items: flex-start;
-}
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: radial-gradient(circle at top, #1d2642 0, #050814 55%, #020309 100%);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+    }
 
-/* ===========================================
-   APP CONTAINER
-   =========================================== */
-.app-shell {
-  width: 100%;
-  max-width: 1080px;
-  margin: 24px;
-  background: linear-gradient(145deg, rgba(10, 14, 31, 0.95), rgba(7, 9, 20, 0.98));
-  border-radius: 20px;
-  border: 1px solid rgba(255, 255, 255, 0.04);
-  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.02);
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  backdrop-filter: blur(20px);
-}
+    /* ===========================================
+       APP CONTAINER
+       =========================================== */
+    .app-shell {
+      width: 100%;
+      max-width: 1080px;
+      margin: 24px;
+      background: linear-gradient(145deg, rgba(10, 14, 31, 0.95), rgba(7, 9, 20, 0.98));
+      border-radius: 20px;
+      border: 1px solid rgba(255, 255, 255, 0.04);
+      box-shadow: 0 30px 60px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.02);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      backdrop-filter: blur(20px);
+    }
 
-/* ===========================================
-   HEADER
-   =========================================== */
-.app-header {
-  padding: 18px 22px 14px 22px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  background: radial-gradient(circle at left, rgba(255, 184, 77, 0.13), transparent 60%);
-}
+    /* ===========================================
+       HEADER
+       =========================================== */
+    .app-header {
+      padding: 18px 22px 14px 22px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      background: radial-gradient(circle at left, rgba(255, 184, 77, 0.13), transparent 60%);
+    }
 
-.app-title-area {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
+    .app-title-area {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      align-items: center;
+    }
 
-.app-title {
-  font-size: 20px;
-  font-weight: 650;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
+    .app-title {
+      font-size: 20px;
+      font-weight: 650;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
 
-.title-pill {
-  font-size: 11px;
-  padding: 2px 8px;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  background: rgba(4, 9, 24, 0.8);
-  color: var(--text-soft);
-}
+    .title-pill {
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      background: rgba(4, 9, 24, 0.8);
+      color: var(--text-soft);
+    }
 
-.app-subtitle {
-  font-size: 12px;
-  color: var(--text-soft);
-}
+    .app-subtitle {
+      font-size: 12px;
+      color: var(--text-soft);
+    }
 
-.app-badge {
-  padding: 4px 10px;
-  border-radius: 999px;
-  background: var(--accent-soft);
-  color: var(--accent-strong);
-  font-size: 11px;
-  font-weight: 600;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  border: 1px solid rgba(255, 184, 77, 0.4);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
+    .app-badge {
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: var(--accent-soft);
+      color: var(--accent-strong);
+      font-size: 11px;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border: 1px solid rgba(255, 184, 77, 0.4);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
 
-/* ===========================================
-   BODY LAYOUT (2 COLUMNS)
-   =========================================== */
-.app-body {
-  display: grid;
-  grid-template-columns: minmax(0, 2.3fr) minmax(0, 2fr);
-  gap: 16px;
-  padding: 16px 18px 20px 18px;
-}
+    /* ===========================================
+       BODY LAYOUT (2 COLUMNS)
+       =========================================== */
+    .app-body {
+      display: grid;
+      grid-template-columns: minmax(0, 2.3fr) minmax(0, 2fr);
+      gap: 16px;
+      padding: 16px 18px 20px 18px;
+    }
 
-/* MOBILE: 1 COLUMN */
-@media (max-width: 1100px) {
-  .app-body {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
+    /* MOBILE: 1 COLUMN */
+    @media (max-width: 1100px) {
+      .app-body {
+        grid-template-columns: minmax(0, 1fr);
+      }
+    }
 
-/* ===========================================
-   CARDS
-   =========================================== */
-.card {
-  background: var(--card-bg);
-  border-radius: 16px;
-  padding: 14px 14px 12px 14px;
-  border: 1px solid var(--border);
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  min-height: 0;
-}
+    /* ===========================================
+       CARDS
+       =========================================== */
+    .card {
+      background: var(--card-bg);
+      border-radius: 16px;
+      padding: 14px 14px 12px 14px;
+      border: 1px solid var(--border);
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      min-height: 0;
+    }
 
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: 8px;
-}
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 8px;
+    }
 
-.card-title {
-  font-size: 14px;
-  font-weight: 600;
-  letter-spacing: 0.05em;
-  color: var(--text);
-}
+    .card-title {
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      color: var(--text);
+      text-transform: uppercase;
+    }
 
-.card-subtitle {
-  font-size: 11px;
-  color: var(--text-soft);
-}
+    .card-subtitle {
+      font-size: 11px;
+      color: var(--text-soft);
+    }
 
-/* ===========================================
-   CHIPS
-   =========================================== */
-.chip-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
+    /* ===========================================
+       CHIPS
+       =========================================== */
+    .chip-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
 
-.chip {
-  padding: 2px 8px;
-  border-radius: 999px;
-  font-size: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: var(--muted-chip);
-  color: var(--text-soft);
-}
+    .chip {
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: var(--muted-chip);
+      color: var(--text-soft);
+    }
 
-.chip.live {
-  border-color: rgba(255, 77, 106, 0.8);
-  color: var(--danger);
-  background: rgba(255, 77, 106, 0.1);
-}
+    .chip.live {
+      border-color: rgba(255, 77, 106, 0.8);
+      color: var(--danger);
+      background: rgba(255, 77, 106, 0.1);
+    }
 
-.chip.ok {
-  border-color: rgba(91, 211, 138, 0.7);
-  color: var(--success);
-  background: rgba(91, 211, 138, 0.08);
-}
+    .chip.ok {
+      border-color: rgba(91, 211, 138, 0.7);
+      color: var(--success);
+      background: rgba(91, 211, 138, 0.08);
+    }
 
-/* ===========================================
-   FORM INPUTS
-   =========================================== */
-.field-group {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
+    /* ===========================================
+       FORM INPUTS
+       =========================================== */
+    .field-group {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
 
-label {
-  font-size: 11px;
-  text-transform: uppercase;
-  color: var(--text-soft);
-}
+    label {
+      font-size: 11px;
+      text-transform: uppercase;
+      color: var(--text-soft);
+      letter-spacing: 0.07em;
+    }
 
-input[type="text"] {
-  background: #0b1020;
-  border-radius: 10px;
-  border: 1px solid var(--border);
-  padding: 6px 9px;
-  font-size: 13px;
-  color: var(--text);
-}
+    input[type="text"] {
+      background: #0b1020;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      padding: 6px 9px;
+      font-size: 13px;
+      color: var(--text);
+      outline: none;
+    }
 
-textarea {
-  width: 100%;
-  resize: vertical;
-  min-height: 360px;
-  max-height: 700px;
-  background: #050814;
-  border-radius: 12px;
-  border: 1px solid var(--border);
-  padding: 10px;
-  font-size: 13px;
-  color: var(--text);
-  line-height: 1.4;
-  font-family: "SF Mono", ui-monospace, Menlo, Monaco, Consolas, monospace;
-}
+    input[type="text"]:focus {
+      border-color: var(--accent-strong);
+      box-shadow: 0 0 0 1px rgba(255, 184, 77, 0.5);
+    }
 
-textarea:focus {
-  border-color: var(--accent-strong);
-  box-shadow: 0 0 0 1px rgba(255, 184, 77, 0.5);
-}
+    textarea {
+      width: 100%;
+      resize: vertical;
+      min-height: 360px;
+      max-height: 700px;
+      background: #050814;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      padding: 10px;
+      font-size: 13px;
+      color: var(--text);
+      line-height: 1.4;
+      font-family: "SF Mono", ui-monospace, Menlo, Monaco, Consolas, monospace;
+      outline: none;
+    }
 
-/* ===========================================
-   BUTTONS
-   =========================================== */
-button {
-  border-radius: 999px;
-  border: 1px solid transparent;
-  padding: 7px 14px;
-  font-size: 12px;
-  cursor: pointer;
-  background: var(--muted-chip);
-  color: var(--text);
-}
+    textarea:focus {
+      border-color: var(--accent-strong);
+      box-shadow: 0 0 0 1px rgba(255, 184, 77, 0.5);
+    }
 
-button:disabled {
-  opacity: 0.35;
-}
+    .row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
 
-button:not(:disabled):hover {
-  transform: translateY(-1px);
-  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.5);
-}
+    /* ===========================================
+       BUTTONS
+       =========================================== */
+    button {
+      border-radius: 999px;
+      border: 1px solid transparent;
+      padding: 7px 14px;
+      font-size: 12px;
+      cursor: pointer;
+      background: var(--muted-chip);
+      color: var(--text);
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: transform 0.04s ease-out, box-shadow 0.1s ease-out,
+        background 0.15s, border-color 0.15s;
+    }
 
-.btn-primary {
-  background: var(--accent-strong);
-  color: #15100a;
-  border-color: rgba(255, 184, 77, 0.9);
-}
+    button:disabled {
+      opacity: 0.35;
+      cursor: default;
+      box-shadow: none;
+      transform: none;
+    }
 
-.btn-danger {
-  background: rgba(255, 77, 106, 0.2);
-  border-color: rgba(255, 77, 106, 0.7);
-  color: var(--danger);
-}
+    button:not(:disabled):hover {
+      transform: translateY(-1px);
+      box-shadow: 0 8px 18px rgba(0, 0, 0, 0.5);
+    }
 
-.btn-ghost {
-  background: transparent;
-  border-color: var(--border);
-}
+    .btn-primary {
+      background: var(--accent-strong);
+      color: #15100a;
+      border-color: rgba(255, 184, 77, 0.9);
+    }
 
-/* ===========================================
-   SUPPORT STYLES (rows, hints, status)
-   =========================================== */
-.row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  align-items: center;
-}
+    .btn-danger {
+      background: rgba(255, 77, 106, 0.2);
+      border-color: rgba(255, 77, 106, 0.7);
+      color: var(--danger);
+    }
 
-.hint {
-  font-size: 11px;
-  color: var(--text-soft);
-  opacity: 0.9;
-}
+    .btn-ghost {
+      background: transparent;
+      border-color: var(--border);
+    }
 
-.status-text {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 11px;
-  color: var(--text-soft);
-}
+    /* ===========================================
+       STATUS / HINTS
+       =========================================== */
+    .status-text {
+      font-size: 11px;
+      color: var(--text-soft);
+      margin-top: 4px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
 
-.dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #555;
-}
+    .dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 999px;
+      background: var(--scroll-thumb);
+    }
 
-.dot.live {
-  background: var(--danger);
-  box-shadow: 0 0 8px rgba(255, 77, 106, 0.7);
-}
+    .dot.live {
+      background: var(--danger);
+      box-shadow: 0 0 0 4px rgba(255, 77, 106, 0.3);
+    }
 
-.dot.idle {
-  background: var(--scroll-thumb);
-}
+    .dot.idle {
+      background: var(--scroll-thumb);
+    }
 
-/* ===========================================
-   AUDIO (better scrubbing on mobile/desktop)
-   =========================================== */
-audio {
-  width: 100%;
-  pointer-events: auto;
-  touch-action: manipulation;
-  position: relative;
-  z-index: 10;
-}
+    .hint {
+      font-size: 10px;
+      color: var(--text-soft);
+      opacity: 0.9;
+    }
 
-/* ===========================================
-   SESSIONS LIST
-   =========================================== */
-.sessions-list {
-  overflow-y: auto;
-  max-height: 370px;
-  padding-right: 4px;
-}
+    .pill-counter {
+      font-size: 11px;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      color: var(--text-soft);
+    }
 
-.sessions-list::-webkit-scrollbar {
-  width: 6px;
-}
+    .badge-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 7px;
+      border-radius: 999px;
+      font-size: 10px;
+      background: rgba(255, 184, 77, 0.12);
+      color: var(--accent);
+      border: 1px solid rgba(255, 184, 77, 0.4);
+    }
 
-.sessions-list::-webkit-scrollbar-thumb {
-  background: var(--scroll-thumb);
-  border-radius: 999px;
-}
+    /* ===========================================
+       SESSIONS LIST
+       =========================================== */
+    .backup-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
 
-.session-card {
-  border-radius: 10px;
-  border: 1px solid var(--border);
-  padding: 8px 10px;
-  margin-bottom: 8px;
-  background: #0c1224;
-}
+    .sessions-list {
+      overflow-y: auto;
+      max-height: 370px;
+      padding-right: 4px;
+    }
 
-.session-header-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 8px;
-}
+    .sessions-list::-webkit-scrollbar {
+      width: 6px;
+    }
 
-.session-name-input {
-  flex: 1;
-  min-width: 0;
-  background: #050814;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-  padding: 4px 8px;
-  font-size: 12px;
-  color: var(--text);
-}
+    .sessions-list::-webkit-scrollbar-thumb {
+      background: var(--scroll-thumb);
+      border-radius: 999px;
+    }
 
-.session-meta {
-  font-size: 11px;
-  color: var(--text-soft);
-  text-align: right;
-}
+    .session-card {
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      padding: 10px 10px 8px 10px;
+      background: rgba(5, 9, 24, 0.95);
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-bottom: 8px;
+    }
 
-.badge-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 10px;
-  padding: 2px 6px;
-  border-radius: 999px;
-  background: var(--muted-chip);
-  color: var(--text-soft);
-}
+    .session-header-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      align-items: center;
+    }
 
-.session-buttons {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 6px;
-}
+    .session-name-input {
+      flex: 1;
+      background: #050814;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      padding: 4px 7px;
+      font-size: 12px;
+      color: var(--text);
+    }
 
-.pill-counter {
-  font-size: 11px;
-  padding: 2px 8px;
-  border-radius: 999px;
-  background: var(--muted-chip);
-  color: var(--text-soft);
-}
+    .session-meta {
+      font-size: 11px;
+      color: var(--text-soft);
+      text-align: right;
+    }
 
-.backup-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  align-items: center;
-}
+    .session-buttons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 4px;
+    }
 
-/* ===========================================
-   FULLSCREEN MODE DURING RECORDING
-   =========================================== */
-body.recording-mode .app-body {
-  display: block !important;
-  grid-template-columns: 1fr !important;
-}
+    audio {
+      width: 100%;
+      margin-top: 4px;
+    }
 
-body.recording-mode .card {
-  width: 100% !important;
-  max-width: none !important;
-  border-radius: 0 !important;
-  min-height: 100vh !important;
-}
+    /* Improve audio scrubbing on iPhone/Safari/Edge/Chrome */
+    audio {
+      width: 100% !important;
+      pointer-events: auto !important;
+      touch-action: manipulation !important;
+      position: relative !important;
+      z-index: 10;
+    }
 
-/* Left side panel goes full-screen */
-body.recording-mode section.card:first-of-type {
-  height: 100vh !important;
-  overflow-y: auto !important;
-}
+    input[type="file"] {
+      font-size: 11px;
+      color: var(--text-soft);
+    }
 
-/* Transcript = 75% of screen */
-body.recording-mode #transcriptArea {
-  height: 75vh !important;
-  min-height: 75vh !important;
-  max-height: 75vh !important;
-  resize: none !important;
-}
+    /* ===========================================
+       FULLSCREEN MODE DURING RECORDING
+       =========================================== */
+    body.recording-mode .app-body {
+      display: block !important;
+      grid-template-columns: 1fr !important;
+    }
 
-/* Hide notebook */
-body.recording-mode section.card:nth-of-type(2) {
-  display: none !important;
-}
+    body.recording-mode .card {
+      width: 100% !important;
+      max-width: none !important;
+      border-radius: 0 !important;
+      min-height: 100vh !important;
+    }
 
-/* ===========================================
-   AUDIO MODE MODAL
-   =========================================== */
-.mode-modal {
-  position: fixed;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(0, 0, 0, 0.55);
-  z-index: 999;
-}
+    /* Left side panel goes full-screen */
+    body.recording-mode section.card:first-of-type {
+      height: 100vh !important;
+      overflow-y: auto !important;
+    }
 
-.mode-modal.hidden {
-  display: none;
-}
+    /* Transcript = 75% of screen */
+    body.recording-mode #transcriptArea {
+      height: 75vh !important;
+      min-height: 75vh !important;
+      max-height: 75vh !important;
+      resize: none !important;
+    }
 
-.mode-modal-content {
-  background: #141b2f;
-  border-radius: 16px;
-  padding: 18px 18px 16px 18px;
-  border: 1px solid var(--border);
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8);
-  max-width: 320px;
-  width: 90%;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.mode-modal-title {
-  font-size: 15px;
-  font-weight: 600;
-}
-
-.mode-modal-buttons {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-top: 4px;
-}
-
-.mode-cancel {
-  align-self: flex-end;
-  font-size: 11px;
-  padding: 4px 10px;
-  margin-top: 4px;
-}
+    /* Hide notebook on the right */
+    body.recording-mode section.card:nth-of-type(2) {
+      display: none !important;
+    }
   </style>
 </head>
 <body>
@@ -503,13 +485,6 @@ body.recording-mode section.card:nth-of-type(2) {
         LIVE NOTEBOOK
         <span class="title-pill">Recorder + Transcriber</span>
       </div>
-      <div class="app-subtitle">
-        Record high-quality audio, see live text, save sessions, and export/import everything locally.
-      </div>
-    </div>
-    <div class="app-badge">
-      ● Live
-      <span>Browser-only, no server</span>
     </div>
   </header>
 
@@ -534,9 +509,6 @@ body.recording-mode section.card:nth-of-type(2) {
           id="sessionName"
           placeholder="Optional — leave empty to use date/time as name"
         />
-        <span class="hint">
-          If left blank, name will be e.g. <strong>Session_2025-11-24_18-30-05</strong>
-        </span>
       </div>
 
       <div class="field-group">
@@ -564,19 +536,11 @@ body.recording-mode section.card:nth-of-type(2) {
           id="transcriptArea"
           placeholder="Transcript will appear here while you speak…"
         ></textarea>
-        <span class="hint">
-          Final phrases are stored with timestamps like
-          <code>[00:00:03] Hello everyone.</code>
-        </span>
       </div>
 
       <div class="field-group">
         <label>Current audio preview</label>
         <audio id="currentAudio" controls></audio>
-        <span class="hint">
-          After you click <strong>Stop</strong>, the latest recording appears here. Then click
-          <strong>Save session</strong> to store audio + text in the notebook.
-        </span>
         <span id="recordTimer" class="hint">Recording time: 00:00</span>
       </div>
     </section>
@@ -586,7 +550,6 @@ body.recording-mode section.card:nth-of-type(2) {
       <div class="card-header">
         <div>
           <div class="card-title">Session Notebook</div>
-          <div class="card-subtitle">Saved recordings & transcripts in this browser</div>
         </div>
         <div class="chip-row">
           <span id="sessionCount" class="pill-counter">0 sessions</span>
@@ -604,9 +567,6 @@ body.recording-mode section.card:nth-of-type(2) {
           </button>
           <input id="importFile" type="file" accept="application/json" />
         </div>
-        <span class="hint">
-          Export to keep a backup (.json). Import later (or on another browser) to restore sessions.
-        </span>
       </div>
 
       <div class="field-group">
@@ -621,28 +581,6 @@ body.recording-mode section.card:nth-of-type(2) {
       </div>
     </section>
   </main>
-</div>
-
-<!-- AUDIO MODE MODAL (R1: always show on Start) -->
-<div id="modeModal" class="mode-modal hidden">
-  <div class="mode-modal-content">
-    <div class="mode-modal-title">Choose audio mode</div>
-    <div class="hint">
-      Select the environment before recording starts.
-    </div>
-    <div class="mode-modal-buttons">
-      <button class="btn-primary" data-mode="noiseEcho">
-        Noise + Echo Reduction
-      </button>
-      <button class="btn-ghost" data-mode="smallRoom">
-        Small Room Lecture (High Sensitivity)
-      </button>
-      <button class="btn-ghost" data-mode="bigRoom">
-        Big Room Lecture (Echo Focus)
-      </button>
-    </div>
-    <button id="modeCancelBtn" class="btn-ghost mode-cancel">Cancel</button>
-  </div>
 </div>
 
 <script>
@@ -685,14 +623,9 @@ body.recording-mode section.card:nth-of-type(2) {
   const importFileInput = document.getElementById("importFile");
   const recordTimerEl = document.getElementById("recordTimer");
 
-  // Modal elements
-  const modeModal = document.getElementById("modeModal");
-  const modeCancelBtn = document.getElementById("modeCancelBtn");
-  const modeButtons = modeModal.querySelectorAll("[data-mode]");
-
   let recognition = null;
   let recognizing = false;
-  let finalTranscript = "";       // plain text with [HH:MM:SS] at line start
+  let finalTranscript = "";
   let interimTranscript = "";
 
   let mediaRecorder = null;
@@ -713,8 +646,9 @@ body.recording-mode section.card:nth-of-type(2) {
 
   let dbPromise = null;
 
-  // Audio mode
-  let selectedAudioMode = "noiseEcho"; // default
+  // Dynamic sentence-based entries:
+  // each: { timeSec: number, text: string }
+  let sentenceEntries = [];
 
   // ---------------------------
   // IndexedDB helpers (audio only)
@@ -922,66 +856,80 @@ body.recording-mode section.card:nth-of-type(2) {
     }
   }
 
-  function formatDuration(secTotal) {
-    const sec = Math.max(0, Math.floor(secTotal || 0));
-    const h = Math.floor(sec / 3600);
-    const m = Math.floor((sec % 3600) / 60);
-    const s = sec % 60;
-    const pad = (n) => String(n).padStart(2, "0");
-    if (h > 0) return `${pad(h)}:${pad(m)}:${pad(s)}`;
-    return `${pad(m)}:${pad(s)}`;
-  }
-
-  // Format seconds to plain timestamp "[HH:MM:SS]"
-  function formatPlainTimestamp(totalSeconds) {
+  // Format seconds to HH:MM:SS
+  function formatTimeHHMMSS(totalSeconds) {
     const pad = (n) => String(n).padStart(2, "0");
     const hours = Math.floor(totalSeconds / 3600);
     const minutes = Math.floor((totalSeconds % 3600) / 60);
     const seconds = totalSeconds % 60;
-    return `[${pad(hours)}:${pad(minutes)}:${pad(seconds)}]`;
+    return pad(hours) + ":" + pad(minutes) + ":" + pad(seconds);
   }
 
-  function audioModeLabel(mode) {
-    switch (mode) {
-      case "noiseEcho":
-        return "Noise+Echo";
-      case "smallRoom":
-        return "Small room";
-      case "bigRoom":
-        return "Big room";
-      default:
-        return "Default";
+  // For displaying duration in session meta
+  function formatDuration(totalSeconds) {
+    const pad = (n) => String(n).padStart(2, "0");
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    if (hours > 0) {
+      return pad(hours) + ":" + pad(minutes) + ":" + pad(seconds);
     }
+    return pad(minutes) + ":" + pad(seconds);
   }
 
-  function getConstraintsForMode(mode) {
-    // Different constraints per environment
-    if (mode === "noiseEcho") {
-      return {
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true
-        }
-      };
-    } else if (mode === "smallRoom") {
-      return {
-        audio: {
-          echoCancellation: false,
-          noiseSuppression: true,
-          autoGainControl: true
-        }
-      };
-    } else if (mode === "bigRoom") {
-      return {
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: false
-        }
-      };
+  // Build S1-style transcript from sentence entries:
+  // [HH:MM:SS] Sentence here.
+  function buildSentenceTranscript() {
+    if (!sentenceEntries.length) return "";
+    return sentenceEntries
+      .map((entry) => {
+        const ts = formatTimeHHMMSS(entry.timeSec);
+        return `[${ts}] ${entry.text}`;
+      })
+      .join("\n");
+  }
+
+  // Process a final recognized chunk into one or more sentences
+  function addFinalChunkAsSentences(textChunk, elapsedSeconds) {
+    if (!textChunk) return;
+    const working = textChunk.trim();
+    if (!working) return;
+
+    // Split by sentence-ending punctuation . ? !
+    const sentenceRegex = /(.+?[.?!])(\s+|$)/g;
+    let match;
+    let lastIndex = 0;
+    let anySentence = false;
+
+    while ((match = sentenceRegex.exec(working)) !== null) {
+      const sentence = match[1].trim();
+      if (sentence) {
+        sentenceEntries.push({
+          timeSec: elapsedSeconds,
+          text: sentence,
+        });
+        anySentence = true;
+      }
+      lastIndex = sentenceRegex.lastIndex;
     }
-    return { audio: true };
+
+    const remainder = working.slice(lastIndex).trim();
+
+    if (!anySentence) {
+      // No punctuation at all → treat full chunk as one sentence
+      if (working) {
+        sentenceEntries.push({
+          timeSec: elapsedSeconds,
+          text: working,
+        });
+      }
+    } else if (remainder) {
+      // There was punctuation, but leftover text remains → store it too
+      sentenceEntries.push({
+        timeSec: elapsedSeconds,
+        text: remainder,
+      });
+    }
   }
 
   // ---------------------------
@@ -1029,21 +977,18 @@ body.recording-mode section.card:nth-of-type(2) {
         const metaDiv = document.createElement("div");
         metaDiv.className = "session-meta";
 
-        const modeLabel = session.audioMode
-          ? ` · <span>${audioModeLabel(session.audioMode)}</span>`
-          : "";
-
-        const durationLabel =
-          typeof session.durationSec === "number"
-            ? ` · <span class="session-duration">${formatDuration(
-                session.durationSec
-              )}</span>`
-            : "";
+        let durationLabel = "";
+        if (
+          session.durationSec !== undefined &&
+          session.durationSec !== null &&
+          !isNaN(session.durationSec)
+        ) {
+          durationLabel = " • " + formatDuration(session.durationSec);
+        }
 
         metaDiv.innerHTML =
           '<span class="badge-pill">Saved</span> ' +
           formatDateTime(session.createdAt) +
-          modeLabel +
           durationLabel;
 
         headerRow.appendChild(nameInput);
@@ -1158,10 +1103,7 @@ body.recording-mode section.card:nth-of-type(2) {
 
     recognition.onstart = () => {
       recognizing = true;
-      setStatus(
-        "Listening + recording… (" + audioModeLabel(selectedAudioMode) + ")",
-        "live"
-      );
+      setStatus("Listening + recording…", "live");
     };
 
     recognition.onerror = (event) => {
@@ -1202,22 +1144,24 @@ body.recording-mode section.card:nth-of-type(2) {
           const elapsedSeconds = Math.floor(
             (Date.now() - recordStartTime) / 1000
           );
-          const ts = formatPlainTimestamp(elapsedSeconds);
-          // Append as a new line with [HH:MM:SS] prefix
-          finalTranscript += (finalTranscript ? "\n" : "") + ts + " " + textChunk;
+
+          // Convert this final chunk into one or more sentences with timestamps
+          addFinalChunkAsSentences(textChunk, elapsedSeconds);
         } else {
-          // Show interim as one line (no timestamp)
-          interimTranscript = textChunk;
+          interimTranscript += textChunk + " ";
         }
       }
 
-      // Live view: final lines + current interim line at bottom
+      // Build S1-style final transcript
+      finalTranscript = buildSentenceTranscript();
+
+      // Live view: final sentences + blank line + interim partial
       if (finalTranscript) {
         transcriptArea.value =
           finalTranscript +
-          (interimTranscript ? "\n" + interimTranscript : "");
+          (interimTranscript ? "\n\n" + interimTranscript.trim() : "");
       } else {
-        transcriptArea.value = interimTranscript;
+        transcriptArea.value = interimTranscript.trim();
       }
 
       transcriptArea.scrollTop = transcriptArea.scrollHeight;
@@ -1230,15 +1174,13 @@ body.recording-mode section.card:nth-of-type(2) {
   // Audio recording setup
   // ---------------------------
 
-  async function startRecording(modeKey) {
+  async function startRecording() {
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       alert("Audio recording not supported in this browser.");
       return;
     }
 
-    selectedAudioMode = modeKey || "noiseEcho";
-
-    const constraints = getConstraintsForMode(selectedAudioMode);
+    const constraints = { audio: true };
     const stream = await navigator.mediaDevices.getUserMedia(constraints);
     recordedChunks = [];
 
@@ -1270,7 +1212,8 @@ body.recording-mode section.card:nth-of-type(2) {
       saveSessionBtn.disabled = false;
     };
 
-    mediaRecorder.start();   // full recording, single blob => seekable & scrubbable
+    // Full recording, single file, seekable (no chunks)
+    mediaRecorder.start();
   }
 
   function stopRecording() {
@@ -1283,13 +1226,16 @@ body.recording-mode section.card:nth-of-type(2) {
   }
 
   // ---------------------------
-  // Start flow with audio mode (R1)
+  // Button handlers
   // ---------------------------
 
-  async function startFullRecordingFlow(modeKey) {
+  startBtn.addEventListener("click", async () => {
+    document.body.classList.add("recording-mode"); // full-screen left card
+
     // reset current
     finalTranscript = "";
     interimTranscript = "";
+    sentenceEntries = [];
     transcriptArea.value = "";
     currentAudio.src = "";
     currentAudioBlob = null;
@@ -1297,10 +1243,8 @@ body.recording-mode section.card:nth-of-type(2) {
     lastRecordingDurationSec = 0;
     resetRecordTimer();
 
-    document.body.classList.add("recording-mode");
-
     try {
-      await startRecording(modeKey);
+      await startRecording();
       isRecording = true;
 
       if (recognition && SpeechRecognition) {
@@ -1309,17 +1253,9 @@ body.recording-mode section.card:nth-of-type(2) {
         } catch (e) {
           console.error("Recognition start error:", e);
         }
-        setStatus(
-          "Listening + recording… (" + audioModeLabel(selectedAudioMode) + ")",
-          "live"
-        );
+        setStatus("Listening + recording…", "live");
       } else {
-        setStatus(
-          "Recording (" +
-            audioModeLabel(selectedAudioMode) +
-            "; speech-to-text not available).",
-          "live"
-        );
+        setStatus("Recording (speech-to-text not available).", "live");
       }
 
       startBtn.disabled = true;
@@ -1329,58 +1265,21 @@ body.recording-mode section.card:nth-of-type(2) {
       console.error(e);
       isRecording = false;
       stopRecordTimer();
-      document.body.classList.remove("recording-mode");
       setStatus("Could not start recording: " + e.message, "idle");
-    }
-  }
-
-  function openModeModal() {
-    modeModal.classList.remove("hidden");
-  }
-
-  function closeModeModal() {
-    modeModal.classList.add("hidden");
-  }
-
-  // ---------------------------
-  // Button handlers
-  // ---------------------------
-
-  // Start = open mode modal (R1)
-  startBtn.addEventListener("click", () => {
-    openModeModal();
-  });
-
-  // Mode choices
-  modeButtons.forEach((btn) => {
-    btn.addEventListener("click", async () => {
-      const modeKey = btn.getAttribute("data-mode");
-      closeModeModal();
-      await startFullRecordingFlow(modeKey);
-    });
-  });
-
-  // Cancel modal
-  modeCancelBtn.addEventListener("click", () => {
-    closeModeModal();
-  });
-
-  // Click outside content to close
-  modeModal.addEventListener("click", (e) => {
-    if (e.target === modeModal) {
-      closeModeModal();
+      document.body.classList.remove("recording-mode");
     }
   });
 
   stopBtn.addEventListener("click", () => {
-    document.body.classList.remove("recording-mode");
+    document.body.classList.remove("recording-mode"); // exit full-screen
     isRecording = false;
 
-    // Capture duration once when stopping
+    // Capture total duration
     if (recordStartTime) {
       const diff = Date.now() - recordStartTime;
-      lastRecordingDurationSec = Math.max(0, Math.floor(diff / 1000));
-      recordStartTime = null;
+      lastRecordingDurationSec = Math.floor(diff / 1000);
+    } else {
+      lastRecordingDurationSec = 0;
     }
 
     stopRecordTimer();
@@ -1394,14 +1293,7 @@ body.recording-mode section.card:nth-of-type(2) {
     }
     startBtn.disabled = false;
     stopBtn.disabled = true;
-
-    const durLabel = lastRecordingDurationSec
-      ? " Duration: " + formatDuration(lastRecordingDurationSec) + "."
-      : "";
-    setStatus(
-      "Stopped." + durLabel + " You can review, then Save session.",
-      "idle"
-    );
+    setStatus("Stopped. You can review, then Save session.", "idle");
   });
 
   saveSessionBtn.addEventListener("click", async () => {
@@ -1410,7 +1302,7 @@ body.recording-mode section.card:nth-of-type(2) {
       return;
     }
 
-    // Prefer time-stamped transcript if available; fallback to text area
+    // Prefer sentence-based final transcript; fallback to text area
     const text = finalTranscript || transcriptArea.value || "";
     const nameRaw = sessionNameInput.value.trim();
     const name = nameRaw || "Session_" + nowForName(); // if no input, use timestamp
@@ -1434,7 +1326,6 @@ body.recording-mode section.card:nth-of-type(2) {
         transcript: text,
         mimeType,
         durationSec: lastRecordingDurationSec,
-        audioMode: selectedAudioMode
       });
       saveSessionsToStorage(sessions);
 
@@ -1522,8 +1413,8 @@ body.recording-mode section.card:nth-of-type(2) {
             createdAt: meta.createdAt || new Date().toISOString(),
             transcript: meta.transcript || "",
             mimeType: meta.mimeType || "audio/webm",
-            durationSec: typeof meta.durationSec === "number" ? meta.durationSec : undefined,
-            audioMode: meta.audioMode || "noiseEcho"
+            durationSec:
+              meta.durationSec !== undefined ? meta.durationSec : null,
           });
 
           // store audio
