@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Subtitle Auto Translator</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<style>
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: #000;
+    color: #f9fafb;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    overflow: hidden;
+  }
+
+  /* Subtitle bar */
+  .subtitle-bar {
+    position: fixed;
+    left: 50%;
+    bottom: 18px;
+    transform: translateX(-50%);
+    background: rgba(15, 23, 42, 0.96);
+    border-radius: 14px;
+    border: 1px solid #1f2937;
+    box-shadow: 0 12px 30px rgba(0,0,0,0.8);
+    padding: 6px 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    max-width: 70vw;
+    min-width: 420px;
+  }
+
+  .controls {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+
+  .btn-icon {
+    border: none;
+    background: #020617;
+    color: #e5e7eb;
+    border-radius: 999px;
+    width: 32px;
+    height: 32px;
+    font-size: 16px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    border: 1px solid #1f2937;
+  }
+
+  .btn-icon:hover {
+    background: #0b1120;
+  }
+
+  .btn-icon.playing {
+    background: #22c55e;
+    color: #022c22;
+    border-color: #4ade80;
+  }
+
+  .status-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 999px;
+    background: #4b5563;
+    margin-left: 2px;
+  }
+
+  .status-dot.listening {
+    background: #22c55e;
+    box-shadow: 0 0 0 4px rgba(34,197,94,0.35);
+    animation: pulse 1.2s infinite;
+  }
+
+  @keyframes pulse {
+    0%   { transform: scale(1);   opacity: 1; }
+    50%  { transform: scale(1.3); opacity: 0.6; }
+    100% { transform: scale(1);   opacity: 1; }
+  }
+
+  .subtitle-text {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    min-width: 0;
+  }
+
+  .line-primary {
+    font-size: 15px;
+    font-weight: 500;
+    text-shadow: 0 0 4px rgba(0,0,0,0.9);
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    overflow: hidden;
+  }
+
+  .line-secondary {
+    font-size: 13px;
+    color: #e5e7eb;
+    opacity: 0.9;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    overflow: hidden;
+    margin-top: 2px;
+  }
+
+  .hint {
+    font-size: 10px;
+    color: #9ca3af;
+    margin-left: auto;
+    flex-shrink: 0;
+    padding-left: 8px;
+    white-space: nowrap;
+  }
+
+  /* Modal */
+  .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.75);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+  }
+
+  .modal-backdrop.open {
+    display: flex;
+  }
+
+  .modal {
+    background: #020617;
+    border-radius: 14px;
+    border: 1px solid #1f2937;
+    padding: 14px 16px;
+    width: 320px;
+    color: #e5e7eb;
+    box-shadow: 0 20px 45px rgba(0,0,0,0.9);
+  }
+
+  .modal h2 {
+    font-size: 14px;
+    margin: 0 0 8px;
+  }
+
+  .modal p {
+    font-size: 11px;
+    margin: 0 0 8px;
+    color: #9ca3af;
+  }
+
+  .modal label {
+    font-size: 11px;
+    margin-bottom: 4px;
+    display: block;
+    color: #d1d5db;
+  }
+
+  .modal select {
+    width: 100%;
+    background: #020617;
+    color: #e5e7eb;
+    border-radius: 8px;
+    border: 1px solid #1f2937;
+    padding: 6px 8px;
+    font-size: 12px;
+    margin-bottom: 8px;
+  }
+
+  .modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 10px;
+  }
+
+  .btn-sm {
+    border-radius: 999px;
+    border: 1px solid #1f2937;
+    padding: 4px 10px;
+    font-size: 11px;
+    cursor: pointer;
+  }
+
+  .btn-sm.primary {
+    background: #0ea5e9;
+    color: #0b1120;
+    border-color: #38bdf8;
+  }
+
+  .btn-sm.secondary {
+    background: #020617;
+    color: #e5e7eb;
+  }
+
+  .error {
+    position: fixed;
+    left: 50%;
+    bottom: 4px;
+    transform: translateX(-50%);
+    font-size: 11px;
+    color: #fecaca;
+    text-shadow: 0 0 4px rgba(0,0,0,0.8);
+  }
+
+  @media (max-width: 480px) {
+    .subtitle-bar {
+      max-width: 96vw;
+      min-width: 0;
+    }
+    .line-primary { font-size: 14px; }
+    .line-secondary { font-size: 12px; }
+    .hint { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="subtitle-bar">
+  <div class="controls">
+    <button id="btnMenu" class="btn-icon" title="Settings">
+      ⋮
+    </button>
+    <button id="btnPlay" class="btn-icon" title="Start / Stop">
+      ▶
+    </button>
+    <div id="statusDot" class="status-dot"></div>
+  </div>
+
+  <div class="subtitle-text">
+    <div id="lineEn" class="line-primary">Ready. Tap play and start speaking.</div>
+    <div id="lineAlt" class="line-secondary" style="display:none;"></div>
+  </div>
+
+  <div class="hint">
+    EN + 2nd line (中 / ไทย / 한국 / FIL)
+  </div>
+</div>
+
+<div id="errorBox" class="error"></div>
+
+<!-- Settings Modal -->
+<div id="settingsModal" class="modal-backdrop">
+  <div class="modal">
+    <h2>Subtitle Settings</h2>
+    <p>Choose the spoken language and an optional second subtitle line.</p>
+
+    <label for="spokenLang">Spoken language (mic)</label>
+    <select id="spokenLang">
+      <option value="en" selected>English</option>
+      <option value="zh-CN">Chinese (Mandarin)</option>
+      <option value="th">Thai</option>
+      <option value="ko">Korean</option>
+      <option value="tl">Filipino</option>
+    </select>
+
+    <label for="subtitleLang">2nd subtitle line</label>
+    <select id="subtitleLang">
+      <option value="none" selected>None (English only)</option>
+      <option value="zh-CN">Chinese</option>
+      <option value="th">Thai</option>
+      <option value="ko">Korean</option>
+      <option value="tl">Filipino</option>
+    </select>
+
+    <div class="modal-actions">
+      <button id="btnCloseModal" class="btn-sm secondary">Close</button>
+      <button id="btnSaveModal" class="btn-sm primary">Save</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/pinyin-pro@3.27.0/dist/index.js"></script>
+<script>
+  const btnMenu       = document.getElementById("btnMenu");
+  const btnPlay       = document.getElementById("btnPlay");
+  const statusDot     = document.getElementById("statusDot");
+  const lineEn        = document.getElementById("lineEn");
+  const lineAlt       = document.getElementById("lineAlt");
+  const errorBox      = document.getElementById("errorBox");
+
+  const settingsModal = document.getElementById("settingsModal");
+  const btnCloseModal = document.getElementById("btnCloseModal");
+  const btnSaveModal  = document.getElementById("btnSaveModal");
+  const spokenLangSel = document.getElementById("spokenLang");
+  const subtitleLangSel = document.getElementById("subtitleLang");
+
+  let keepListening = false;
+  let translateTimeout = null;
+  let lastInputText = "";
+
+  /* Helpers */
+  function isEastAsian(lang){
+    if (!lang) return false;
+    const l = lang.toLowerCase();
+    return l.startsWith("zh") || l.startsWith("ja") || l.startsWith("ko") || l.startsWith("th");
+  }
+
+  function srLangCode(code){
+    switch (code) {
+      case "en":   return "en-US";
+      case "zh-CN":return "zh-CN";
+      case "th":   return "th-TH";
+      case "ko":   return "ko-KR";
+      case "tl":   return "fil-PH";
+      default:     return "en-US";
+    }
+  }
+
+  function showError(msg){
+    errorBox.textContent = msg || "";
+  }
+
+  function setListeningUI(on){
+    if (on){
+      btnPlay.classList.add("playing");
+      btnPlay.textContent = "⏸";
+      statusDot.classList.add("listening");
+    } else {
+      btnPlay.classList.remove("playing");
+      btnPlay.textContent = "▶";
+      statusDot.classList.remove("listening");
+    }
+  }
+
+  function normalizeChineseNumbers(text){
+    const map = { '0':'零','1':'一','2':'二','3':'三','4':'四','5':'五','6':'六','7':'七','8':'八','9':'九' };
+    return text.replace(/[0-9]/g, d => map[d] || d);
+  }
+
+  async function gTransRaw(text, sl, tl, extra=""){
+    const url =
+      "https://translate.googleapis.com/translate_a/single?client=gtx" +
+      `&sl=${encodeURIComponent(sl)}&tl=${encodeURIComponent(tl)}&dt=t${extra}&q=${encodeURIComponent(text)}`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error("Network error " + res.status);
+    return res.json();
+  }
+
+  function extText(data){
+    if (!data || !data[0]) return "";
+    return data[0].map(seg => seg[0]).join("");
+  }
+
+  function extRoman(data){
+    if (!data || !data[0]) return "";
+    const parts = [];
+    for (const seg of data[0]){
+      if (seg[3]) parts.push(seg[3]);
+    }
+    return parts.join(" ").trim();
+  }
+
+  async function romanizeOnly(text, lang){
+    let script = text;
+    let displayScript = script;
+    let roman = "";
+
+    const lower = lang.toLowerCase();
+
+    if (lower.startsWith("zh")){
+      displayScript = normalizeChineseNumbers(script);
+      if (window.pinyinPro){
+        roman = window.pinyinPro.pinyin(displayScript, {toneType:"mark", type:"string"});
+      }
+    } else if (lower.startsWith("ja") || lower.startsWith("ko") || lower.startsWith("th")){
+      try {
+        const raw = await gTransRaw(displayScript, lang, lang, "&dt=rm");
+        roman = extRoman(raw);
+      } catch(e){}
+    }
+
+    return roman ? `${displayScript} · ${roman}` : displayScript;
+  }
+
+  async function translateWithRoman(text, srcLang, destLang){
+    let script;
+    if (srcLang === destLang){
+      script = text;
+    } else {
+      const data = await gTransRaw(text, srcLang, destLang);
+      script = extText(data);
+    }
+
+    let displayScript = script;
+    let roman = "";
+    const lower = destLang.toLowerCase();
+
+    if (lower.startsWith("zh")){
+      displayScript = normalizeChineseNumbers(script);
+      if (window.pinyinPro){
+        roman = window.pinyinPro.pinyin(displayScript, {toneType:"mark", type:"string"});
+      }
+    } else if (lower.startsWith("ja") || lower.startsWith("ko") || lower.startsWith("th")){
+      try {
+        const raw = await gTransRaw(displayScript, destLang, destLang, "&dt=rm");
+        roman = extRoman(raw);
+      } catch(e){}
+    }
+
+    return roman ? `${displayScript} · ${roman}` : displayScript;
+  }
+
+  async function translateAndRender(text){
+    const srcLang = spokenLangSel.value || "en";
+    const altLang = subtitleLangSel.value || "none";
+
+    if (!text.trim()){
+      lineEn.textContent = "Ready. Tap play and start speaking.";
+      lineAlt.textContent = "";
+      lineAlt.style.display = "none";
+      return;
+    }
+
+    showError("");
+    lineEn.textContent = "Translating…";
+
+    try {
+      // English line on top
+      let englishPromise;
+      if (srcLang === "en") {
+        englishPromise = Promise.resolve(text);
+      } else {
+        englishPromise = gTransRaw(text, srcLang, "en").then(extText);
+      }
+
+      // Secondary line
+      let altPromise;
+      if (altLang === "none"){
+        altPromise = Promise.resolve("");
+      } else if (!isEastAsian(altLang)) {
+        if (srcLang === altLang){
+          altPromise = Promise.resolve(text);
+        } else {
+          altPromise = gTransRaw(text, srcLang, altLang).then(extText);
+        }
+      } else {
+        // East Asian secondary: script + romanization
+        altPromise = translateWithRoman(text, srcLang, altLang);
+      }
+
+      const [enText, altText] = await Promise.all([englishPromise, altPromise]);
+
+      lineEn.textContent = enText || text;
+
+      if (altText && altLang !== "none"){
+        lineAlt.textContent = altText;
+        lineAlt.style.display = "block";
+      } else {
+        lineAlt.textContent = "";
+        lineAlt.style.display = "none";
+      }
+
+    } catch (err){
+      console.error(err);
+      showError("Translation error: " + err.message);
+      lineEn.textContent = text;
+    }
+  }
+
+  function queueTranslate(text, isLive){
+    if (text === lastInputText && isLive) return;
+    lastInputText = text;
+    clearTimeout(translateTimeout);
+    translateTimeout = setTimeout(() => translateAndRender(text), isLive ? 220 : 0);
+  }
+
+  /* Speech recognition setup */
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  let recognition = null;
+
+  if (SpeechRecognition){
+    recognition = new SpeechRecognition();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+  } else {
+    lineEn.textContent = "Speech recognition not supported in this browser.";
+    showError("Try Chrome or Edge on desktop for microphone subtitles.");
+  }
+
+  let liveFinalBuffer = "";
+  let liveInterimText = "";
+
+  function updateRecognizerLang(){
+    if (!recognition) return;
+    recognition.lang = srLangCode(spokenLangSel.value || "en");
+  }
+
+  function startListening(){
+    if (!recognition || keepListening) return;
+    keepListening = true;
+    liveFinalBuffer = "";
+    liveInterimText = "";
+    updateRecognizerLang();
+
+    try { recognition.start(); } catch(e){}
+    setListeningUI(true);
+    lineEn.textContent = "Listening…";
+    lineAlt.textContent = "";
+    lineAlt.style.display = subtitleLangSel.value === "none" ? "none" : "block";
+  }
+
+  function stopListening(){
+    if (!recognition) return;
+    keepListening = false;
+    try { recognition.stop(); } catch(e){}
+    setListeningUI(false);
+  }
+
+  if (recognition){
+    recognition.onresult = (event) => {
+      for (let i = event.resultIndex; i < event.results.length; i++){
+        const res = event.results[i];
+        if (res.isFinal){
+          liveFinalBuffer += res[0].transcript + " ";
+          liveInterimText = "";
+        } else {
+          liveInterimText = res[0].transcript;
+        }
+      }
+
+      const full = (liveFinalBuffer + " " + liveInterimText).trim();
+      if (!full) return;
+      queueTranslate(full, true);
+    };
+
+    recognition.onerror = (e) => {
+      console.error(e);
+      setListeningUI(false);
+      keepListening = false;
+
+      if (e.error === "not-allowed" || e.error === "denied") {
+        showError("Mic permission denied. Allow microphone access and reload.");
+        lineEn.textContent = "Microphone access blocked.";
+      } else if (e.error === "no-speech") {
+        showError("No speech detected. Try speaking closer to the mic.");
+        lineEn.textContent = "No speech detected.";
+      } else {
+        showError("Speech error: " + e.error);
+      }
+    };
+
+    recognition.onend = () => {
+      if (keepListening){
+        try { recognition.start(); } catch(e){}
+      } else {
+        setListeningUI(false);
+      }
+    };
+  }
+
+  /* UI events */
+  btnPlay.addEventListener("click", () => {
+    if (!recognition){
+      showError("Speech recognition not supported in this browser.");
+      return;
+    }
+    if (!keepListening){
+      showError("");
+      startListening();
+    } else {
+      stopListening();
+    }
+  });
+
+  btnMenu.addEventListener("click", () => {
+    settingsModal.classList.add("open");
+  });
+
+  btnCloseModal.addEventListener("click", () => {
+    settingsModal.classList.remove("open");
+  });
+
+  btnSaveModal.addEventListener("click", () => {
+    settingsModal.classList.remove("open");
+    updateRecognizerLang();
+  });
+
+  // Close modal on backdrop click
+  settingsModal.addEventListener("click", (e) => {
+    if (e.target === settingsModal){
+      settingsModal.classList.remove("open");
+    }
+  });
+
+  // If user changes spoken language, update recognizer
+  spokenLangSel.addEventListener("change", () => {
+    updateRecognizerLang();
+  });
+
+  // Initialize
+  updateRecognizerLang();
+</script>
+</body>
+</html>
