@@ -278,7 +278,7 @@ button:not(:disabled):hover {
 }
 
 /* ===========================================
-   SUPPORT STYLES
+   SUPPORT STYLES (rows, hints, status)
    =========================================== */
 .row {
   display: flex;
@@ -954,10 +954,9 @@ body.recording-mode section.card:nth-of-type(2) {
     }
   }
 
-  // *** UPDATED: make modes more different, especially for far-field ***
+  // ORIGINAL-ish constraints that work well near-field
   function getConstraintsForMode(mode) {
     if (mode === "noiseEcho") {
-      // Close talk, noisy environment
       return {
         audio: {
           echoCancellation: true,
@@ -966,22 +965,19 @@ body.recording-mode section.card:nth-of-type(2) {
         }
       };
     } else if (mode === "smallRoom") {
-      // More sensitivity: keep AGC, remove heavy suppression
       return {
         audio: {
           echoCancellation: false,
-          noiseSuppression: false,
+          noiseSuppression: true,
           autoGainControl: true
         }
       };
     } else if (mode === "bigRoom") {
-      // Far / lecture: as raw as possible
       return {
         audio: {
-          echoCancellation: false,
-          noiseSuppression: false,
-          autoGainControl: false,
-          channelCount: 1
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: false
         }
       };
     }
@@ -1170,12 +1166,10 @@ body.recording-mode section.card:nth-of-type(2) {
 
     recognition.onerror = (event) => {
       console.error("Speech recognition error:", event.error);
-      // Don't kill recording; just log. Status stays live while audio is recording.
     };
 
     recognition.onend = () => {
       recognizing = false;
-      // Auto-restart while recording to reduce "hung" transcription
       if (isRecording && SpeechRecognition) {
         try {
           recognition.start();
@@ -1199,7 +1193,6 @@ body.recording-mode section.card:nth-of-type(2) {
         if (!textChunk) continue;
 
         if (res.isFinal) {
-          // Ensure we have a recording start reference
           if (!recordStartTime) {
             recordStartTime = Date.now();
           }
@@ -1207,15 +1200,12 @@ body.recording-mode section.card:nth-of-type(2) {
             (Date.now() - recordStartTime) / 1000
           );
           const ts = formatPlainTimestamp(elapsedSeconds);
-          // Append as a new line with [HH:MM:SS] prefix
           finalTranscript += (finalTranscript ? "\n" : "") + ts + " " + textChunk;
         } else {
-          // Show interim as one line (no timestamp)
           interimTranscript = textChunk;
         }
       }
 
-      // Live view: final lines + current interim line at bottom
       if (finalTranscript) {
         transcriptArea.value =
           finalTranscript +
@@ -1231,7 +1221,7 @@ body.recording-mode section.card:nth-of-type(2) {
   initRecognition();
 
   // ---------------------------
-  // Audio recording setup (with gain)
+  // Audio recording setup (direct, no WebAudio gain)
   // ---------------------------
 
   async function startRecording(modeKey) {
@@ -1245,22 +1235,8 @@ body.recording-mode section.card:nth-of-type(2) {
     const constraints = getConstraintsForMode(selectedAudioMode);
     console.log("Starting recording with mode:", selectedAudioMode, constraints);
 
-    const inputStream = await navigator.mediaDevices.getUserMedia(constraints);
+    const stream = await navigator.mediaDevices.getUserMedia(constraints);
     recordedChunks = [];
-
-    // --- Web Audio gain stage to boost quiet audio ---
-    const AudioContext = window.AudioContext || window.webkitAudioContext;
-    const audioContext = new AudioContext();
-    const source = audioContext.createMediaStreamSource(inputStream);
-    const gainNode = audioContext.createGain();
-
-    // Adjust this value if recordings are too loud/quiet (2–4 is a sane range)
-    gainNode.gain.value = 3.0;
-
-    const dest = audioContext.createMediaStreamDestination();
-    source.connect(gainNode).connect(dest);
-    const stream = dest.stream;
-    // --- end gain stage ---
 
     let options = {};
     if (
@@ -1290,7 +1266,7 @@ body.recording-mode section.card:nth-of-type(2) {
       saveSessionBtn.disabled = false;
     };
 
-    mediaRecorder.start();   // full recording, single blob => seekable & scrubbable
+    mediaRecorder.start();   // full recording, single blob
   }
 
   function stopRecording() {
@@ -1307,7 +1283,6 @@ body.recording-mode section.card:nth-of-type(2) {
   // ---------------------------
 
   async function startFullRecordingFlow(modeKey) {
-    // reset current
     finalTranscript = "";
     interimTranscript = "";
     transcriptArea.value = "";
@@ -1366,12 +1341,10 @@ body.recording-mode section.card:nth-of-type(2) {
   // Button handlers
   // ---------------------------
 
-  // Start = open mode modal
   startBtn.addEventListener("click", () => {
     openModeModal();
   });
 
-  // Mode choices
   modeButtons.forEach((btn) => {
     btn.addEventListener("click", async () => {
       const modeKey = btn.getAttribute("data-mode");
@@ -1380,12 +1353,10 @@ body.recording-mode section.card:nth-of-type(2) {
     });
   });
 
-  // Cancel modal
   modeCancelBtn.addEventListener("click", () => {
     closeModeModal();
   });
 
-  // Click outside content to close
   modeModal.addEventListener("click", (e) => {
     if (e.target === modeModal) {
       closeModeModal();
@@ -1396,7 +1367,6 @@ body.recording-mode section.card:nth-of-type(2) {
     document.body.classList.remove("recording-mode");
     isRecording = false;
 
-    // Capture duration once when stopping
     if (recordStartTime) {
       const diff = Date.now() - recordStartTime;
       lastRecordingDurationSec = Math.max(0, Math.floor(diff / 1000));
@@ -1430,10 +1400,9 @@ body.recording-mode section.card:nth-of-type(2) {
       return;
     }
 
-    // Prefer time-stamped transcript if available; fallback to text area
     const text = finalTranscript || transcriptArea.value || "";
     const nameRaw = sessionNameInput.value.trim();
-    const name = nameRaw || "Session_" + nowForName(); // if no input, use timestamp
+    const name = nameRaw || "Session_" + nowForName();
     const createdAt = new Date().toISOString();
     const mimeType = currentAudioBlob.type || "audio/webm";
     const id = createdAt + "_" + Math.random().toString(36).slice(2);
@@ -1442,10 +1411,8 @@ body.recording-mode section.card:nth-of-type(2) {
     saveSessionBtn.disabled = true;
 
     try {
-      // 1) store audio blob in IndexedDB
       await storeAudioBlob(id, currentAudioBlob);
 
-      // 2) store metadata + transcript in localStorage (small)
       const sessions = loadSessions();
       sessions.push({
         id,
@@ -1495,7 +1462,6 @@ body.recording-mode section.card:nth-of-type(2) {
     }
   });
 
-  // Clear all
   clearAllBtn.addEventListener("click", async () => {
     if (!confirm("Delete ALL saved sessions from this browser?")) return;
     localStorage.removeItem(STORAGE_KEY);
@@ -1507,7 +1473,6 @@ body.recording-mode section.card:nth-of-type(2) {
     renderSessions();
   });
 
-  // Import (includes audio)
   importFileInput.addEventListener("change", (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -1531,11 +1496,10 @@ body.recording-mode section.card:nth-of-type(2) {
               Math.random().toString(36).slice(2);
           }
 
-          // avoid duplicate IDs
           if (merged.some((s) => s.id === item.id)) continue;
 
           const { audioBase64, ...meta } = item;
-          // store meta
+
           merged.push({
             id: meta.id,
             name: meta.name,
@@ -1546,7 +1510,6 @@ body.recording-mode section.card:nth-of-type(2) {
             audioMode: meta.audioMode || "noiseEcho"
           });
 
-          // store audio
           if (audioBase64) {
             const blob = base64ToBlob(
               audioBase64,
@@ -1569,7 +1532,6 @@ body.recording-mode section.card:nth-of-type(2) {
       }
     };
     reader.readAsText(file);
-    // reset input so same file can be selected again if needed
     e.target.value = "";
   });
 </script>
