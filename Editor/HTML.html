@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
+<meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Local GitHub – Code & Commits</title>
 
@@ -283,7 +284,9 @@ button.full {
         <span class="badge">Browser-only repo</span>
     </div>
     <div style="display:flex;align-items:center;gap:8px;">
-        <span class="small-label">Files & commits stay in this browser.</span>
+        <span class="small-label">
+            Use Download / ZIP and upload to Google Drive manually.
+        </span>
         <button id="themeToggle" onclick="toggleTheme()">🌙</button>
     </div>
 </div>
@@ -305,12 +308,23 @@ button.full {
                 <div id="currentFileName">(none)</div>
             </div>
             <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;">
-                <button onclick="renameFile()">✏️ Rename</button>
-                <button class="danger" onclick="deleteFile()">🗑 Delete</button>
-                <button onclick="autoFormat()">✨ Format</button>
-                <button onclick="openInBrowser()">🌐 Open</button>
-                <button onclick="downloadFile()">⬇️ Download</button>
-                <button class="primary" onclick="saveAndCommit()">💾 Commit</button>
+                <!-- VIEW MODE BUTTONS -->
+                <div id="viewButtons" style="display:flex;gap:6px;flex-wrap:wrap;">
+                    <button onclick="renameFile()">✏️ Rename</button>
+                    <button class="danger" onclick="deleteFile()">🗑 Delete</button>
+                    <button onclick="openInBrowser()">🌐 Open</button>
+                    <button onclick="downloadFile()">⬇️ Download</button>
+                    <button onclick="enterEditMode()">✍️ Edit</button>
+                </div>
+                <!-- EDIT MODE BUTTONS -->
+                <div id="editButtons" style="display:none;gap:6px;flex-wrap:wrap;">
+                    <button onclick="undoEdit()">↩️ Undo</button>
+                    <button onclick="redoEdit()">↪️ Redo</button>
+                    <button onclick="searchInEditor()">🔍 Search</button>
+                    <button onclick="autoFormat()">✨ Format</button>
+                    <button onclick="cancelEdit()">✖️ Cancel</button>
+                    <button class="primary" onclick="saveAndCommit()">💾 Commit</button>
+                </div>
             </div>
         </div>
 
@@ -331,6 +345,9 @@ const COMMITS_KEY = "vc_commits";
 
 let currentFileName = null;
 let cmEditor = null;
+let isEditing = false;
+let lastSearchTerm = "";
+let lastSearchPos = 0;
 
 // ----- Storage helpers -----
 function getFilesMap() {
@@ -366,16 +383,42 @@ function toggleTheme() {
     applyTheme();
 }
 
+// ----- Editing mode -----
+function setEditingMode(on) {
+    isEditing = on;
+    if (cmEditor) cmEditor.setOption("readOnly", !on);
+    document.getElementById("viewButtons").style.display = on ? "none" : "flex";
+    document.getElementById("editButtons").style.display = on ? "flex" : "none";
+}
+function enterEditMode() {
+    if (!currentFileName) {
+        alert("Open a file first.");
+        return;
+    }
+    setEditingMode(true);
+}
+function cancelEdit() {
+    if (!currentFileName || !cmEditor) {
+        setEditingMode(false);
+        return;
+    }
+    const files = getFilesMap();
+    const saved = files[currentFileName] ?? "";
+    cmEditor.setValue(saved);
+    setEditingMode(false);
+}
+
 // ----- CodeMirror setup -----
 function setupEditor() {
     const textarea = document.getElementById("editorBox");
     cmEditor = CodeMirror.fromTextArea(textarea, {
         lineNumbers: true,
         mode: "text/plain",
-        theme: "material-darker"
+        theme: "material-darker",
+        readOnly: true
     });
     cmEditor.on("change", function() {
-        autoSaveDraft();
+        if (isEditing) autoSaveDraft();
     });
 }
 
@@ -434,6 +477,7 @@ function createFile() {
     setCommitsMap(commits);
 
     openFile(name);
+    setEditingMode(true); // new file starts in edit mode
     loadFilesList();
 }
 
@@ -494,10 +538,11 @@ function deleteFile() {
     document.getElementById("commitList").innerHTML = "";
     document.getElementById("commitDetail").innerHTML = "";
 
+    setEditingMode(false);
     loadFilesList();
 }
 
-// ----- Open file -----
+// ----- Open file (read-only) -----
 function openFile(name) {
     currentFileName = name;
     document.getElementById("currentFileName").textContent = name;
@@ -509,6 +554,10 @@ function openFile(name) {
         cmEditor.setValue(content);
         setEditorModeByFilename(name);
     }
+
+    setEditingMode(false); // view mode
+    lastSearchTerm = "";
+    lastSearchPos = 0;
 
     loadFilesList();
     loadCommits(name);
@@ -551,6 +600,7 @@ function saveAndCommit() {
     setCommitsMap(commits);
 
     loadCommits(currentFileName);
+    setEditingMode(false); // back to read-only
     alert("Saved & committed!");
 }
 
@@ -623,6 +673,7 @@ function rollbackCommit(fileName, commitId) {
     if (currentFileName === fileName && cmEditor) {
         cmEditor.setValue(commit.content);
     }
+    setEditingMode(false);
     alert("Rolled back to selected commit.");
 }
 
@@ -658,8 +709,8 @@ function openInBrowser() {
 
 // ----- Auto-format -----
 function autoFormat() {
-    if (!currentFileName || !cmEditor) {
-        alert("Open a file first.");
+    if (!isEditing || !currentFileName || !cmEditor) {
+        alert("Enter edit mode first.");
         return;
     }
     const name = currentFileName.toLowerCase();
@@ -674,7 +725,6 @@ function autoFormat() {
         } else if (name.endsWith(".js") || name.endsWith(".json")) {
             formatted = window.js_beautify(content, { indent_size: 2 });
         } else if (name.endsWith(".py")) {
-            // very naive Python formatter: trim lines and apply basic indent on ":" blocks
             formatted = basicPythonFormat(content);
         } else {
             alert("Auto-format not configured for this file type.");
@@ -701,7 +751,6 @@ function basicPythonFormat(code) {
             result.push("");
             return;
         }
-        // dedent if line starts with certain keywords
         if (/^(return|pass|break|continue|elif |else:|except |finally:)/.test(line) && indent > 0) {
             indent -= 1;
         }
@@ -711,6 +760,44 @@ function basicPythonFormat(code) {
         }
     });
     return result.join("\n");
+}
+
+// ----- Undo / Redo / Search -----
+function undoEdit() {
+    if (!isEditing || !cmEditor) return;
+    cmEditor.undo();
+}
+function redoEdit() {
+    if (!isEditing || !cmEditor) return;
+    cmEditor.redo();
+}
+function searchInEditor() {
+    if (!isEditing || !cmEditor) {
+        alert("Enter edit mode first.");
+        return;
+    }
+    const term = prompt("Search for:", lastSearchTerm || "");
+    if (!term) return;
+
+    const content = cmEditor.getValue();
+    const startIndex = lastSearchTerm === term ? lastSearchPos : 0;
+    const index = content.indexOf(term, startIndex);
+
+    if (index === -1) {
+        alert("Not found.");
+        lastSearchTerm = "";
+        lastSearchPos = 0;
+        return;
+    }
+
+    const doc = cmEditor.getDoc();
+    const from = doc.posFromIndex(index);
+    const to = doc.posFromIndex(index + term.length);
+    doc.setSelection(from, to);
+    cmEditor.scrollIntoView({ from, to });
+
+    lastSearchTerm = term;
+    lastSearchPos = index + term.length;
 }
 
 // ----- Export project as ZIP -----
