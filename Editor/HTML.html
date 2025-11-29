@@ -175,27 +175,39 @@ button.full {
     flex-direction: column;
 }
 
+/* HEADER in file view */
 #fileHeader {
-    padding: 8px 10px;
+    position: relative;
+    padding: 8px 10px 6px 10px;
     border-bottom: 1px solid var(--border);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+    text-align: center;
 }
 
-#fileHeaderLeft {
-    display: flex;
-    flex-direction: column;
+#fileHeader .small-label {
+    display: inline-block;
+    margin-bottom: 2px;
 }
+
 #fileHeaderName {
     font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
     font-size: 13px;
+    font-weight: 500;
 }
 
-#fileHeaderButtons {
+#closeFileBtn {
+    position: absolute;
+    right: 10px;
+    top: 8px;
+    padding: 4px 8px;
+}
+
+/* Buttons row (view/edit mode) */
+#fileHeaderButtonsRow {
+    margin-top: 6px;
     display: flex;
     gap: 6px;
     flex-wrap: wrap;
+    justify-content: center;
 }
 
 #fileMain {
@@ -331,13 +343,11 @@ button.full {
     <!-- FILE VIEW: full screen editor + commits -->
     <div id="fileView">
         <div id="fileHeader">
-            <div id="fileHeaderLeft">
-                <span class="small-label">FILE</span>
-                <span id="fileHeaderName">(none)</span>
-            </div>
-            <div id="fileHeaderButtons">
-                <button onclick="closeFile()">⬅️ Close</button>
+            <div class="small-label">FILE</div>
+            <button id="closeFileBtn" onclick="closeFile()">✖</button>
+            <div id="fileHeaderName">(none)</div>
 
+            <div id="fileHeaderButtonsRow">
                 <!-- VIEW MODE BUTTONS -->
                 <div id="viewButtons" style="display:flex;gap:6px;flex-wrap:wrap;">
                     <button onclick="renameFile()">✏️ Rename</button>
@@ -611,7 +621,7 @@ function openFile(name) {
         setEditorModeByFilename(name);
     }
 
-    setEditingMode(false); // view mode
+    setEditingMode(false);
     lastSearchTerm = "";
     lastSearchPos = 0;
 
@@ -760,7 +770,7 @@ function openInBrowser() {
     window.open(url, "_blank");
 }
 
-// ----- Auto-format (JS/HTML/CSS via js-beautify, Python via smart indent) -----
+// ----- Auto-format -----
 function autoFormat() {
     if (!isEditing || !currentFileName || !cmEditor) {
         alert("Enter edit mode first.");
@@ -891,7 +901,7 @@ setupEditor();
 document.documentElement.dataset.theme = localStorage.getItem("vc_theme") || "dark";
 applyTheme();
 loadFilesList();
-showHomeView(); // start on home
+showHomeView();
 </script>
 </body>
 </html>
