@@ -339,7 +339,9 @@ button.full {
     <div id="homeView">
         <div id="homeHeaderButtons">
             <button class="full primary" onclick="createFile()">➕ New File</button>
-            <button class="full" onclick="exportZip()">📦 Export as ZIP</button>
+            <button class="full" onclick="exportZip()">📦 Export ZIP (files)</button>
+            <button class="full" onclick="exportBackup()">🧩 Backup All (files + commits)</button>
+            <button class="full" onclick="startImportBackup()">⬆️ Import Backup</button>
         </div>
         <div class="small-label">FILES</div>
         <div id="fileList"></div>
@@ -367,7 +369,6 @@ button.full {
                     <button onclick="undoEdit()">↩️ Undo</button>
                     <button onclick="redoEdit()">↪️ Redo</button>
                     <button onclick="searchInEditor()">🔍 Search</button>
-                    <button onclick="selectAllInEditor()">📋 All</button>
                     <button onclick="autoFormat()">✨ Format</button>
                     <button onclick="cancelEdit()">✖️ Cancel</button>
                     <button class="primary" onclick="saveAndCommit()">💾 Commit</button>
@@ -387,6 +388,9 @@ button.full {
         </div>
     </div>
 </div>
+
+<!-- hidden file input for importing backup -->
+<input type="file" id="importBackupInput" accept="application/json" style="display:none" onchange="handleImportBackup(event)">
 
 <script>
 const FILES_KEY = "vc_files";
@@ -842,7 +846,7 @@ function smartPythonFormat(code) {
     return result.join("\n");
 }
 
-// ----- Undo / Redo / Search / Select All -----
+// ----- Undo / Redo / Search -----
 function undoEdit() {
     if (!isEditing || !cmEditor) return;
     cmEditor.undo();
@@ -879,12 +883,8 @@ function searchInEditor() {
     lastSearchTerm = term;
     lastSearchPos = index + term.length;
 }
-function selectAllInEditor() {
-    if (!isEditing || !cmEditor) return;
-    cmEditor.execCommand("selectAll");
-}
 
-// ----- Export project as ZIP -----
+// ----- Export project as ZIP (files only) -----
 function exportZip() {
     const files = getFilesMap();
     const names = Object.keys(files);
@@ -900,10 +900,68 @@ function exportZip() {
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
-        a.download = "project.zip";
+        a.download = "project-files.zip";
         a.click();
         URL.revokeObjectURL(url);
     });
+}
+
+// ----- Backup / Restore (files + commits + theme) -----
+function exportBackup() {
+    const data = {
+        version: 1,
+        files: getFilesMap(),
+        commits: getCommitsMap(),
+        theme: document.documentElement.dataset.theme || "dark"
+    };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "local-github-backup.json";
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
+function startImportBackup() {
+    const input = document.getElementById("importBackupInput");
+    if (input) input.click();
+}
+
+function handleImportBackup(event) {
+    const file = event.target.files && event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = e => {
+        try {
+            const data = JSON.parse(e.target.result);
+            if (!data || typeof data !== "object") throw new Error("Invalid JSON");
+            if (!data.files || !data.commits) {
+                alert("Backup file missing files/commits data.");
+                return;
+            }
+            if (!confirm("Importing backup will REPLACE your current files and commits. Continue?")) {
+                return;
+            }
+            setFilesMap(data.files || {});
+            setCommitsMap(data.commits || {});
+            if (data.theme) {
+                document.documentElement.dataset.theme = data.theme;
+                localStorage.setItem("vc_theme", data.theme);
+                applyTheme();
+            }
+            loadFilesList();
+            showHomeView();
+            alert("Backup imported successfully.");
+        } catch (err) {
+            console.error(err);
+            alert("Could not import backup: invalid file.");
+        } finally {
+            event.target.value = "";
+        }
+    };
+    reader.readAsText(file);
 }
 
 // ----- Init -----
