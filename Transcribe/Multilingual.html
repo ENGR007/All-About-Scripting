@@ -422,7 +422,17 @@ if (recognition){
   recognition.onerror = (e) => {
     console.error(e);
     voiceWave.classList.remove("listening");
-    statusText.textContent = "Status: Speech error.";
+  
+    if (e.error === "not-allowed" || e.error === "denied") {
+      statusText.textContent = "Status: Mic permission denied.";
+      errorBox.textContent = "Please allow microphone access in your browser settings, then reload the page.";
+    } else if (e.error === "no-speech") {
+      statusText.textContent = "Status: No speech detected.";
+      errorBox.textContent = "I didn’t hear anything. Try speaking closer to the mic.";
+    } else {
+      statusText.textContent = "Status: Speech error.";
+      errorBox.textContent = "Speech recognition error: " + e.error;
+    }
   };
 
   recognition.onend = () => {
