@@ -298,6 +298,12 @@ function currentSpeakLangCode(){
   return langToTTSCode(tl);
 }
 
+/* NEW: normalize digits to Chinese numerals for display/pinyin */
+function normalizeChineseNumbers(text){
+  const map = { '0':'零','1':'一','2':'二','3':'三','4':'四','5':'五','6':'六','7':'七','8':'八','9':'九' };
+  return text.replace(/[0-9]/g, d => map[d] || d);
+}
+
 /* Voice dropdown */
 function populateVoiceOptions(){
   if (!window.speechSynthesis || !voiceSelect) return;
@@ -408,7 +414,6 @@ if (recognition){
     if (!full) return;
     full = full.replace(/([a-z])([A-Z])/g, "$1 $2");
 
-    // display raw on left first; doTranslate will decorate if needed
     sourceText.value = full;
     scrollToBottomAndFocus(sourceText);
     doTranslate(full, true);   // live call with raw override
@@ -456,7 +461,6 @@ function extRoman(data){
    isLive: true when streaming; false for final/typed
 */
 async function doTranslate(rawOverride = null, isLive = false){
-  // ignore late live updates after stop
   if (isLive && !keepListening) return;
 
   const baseText = (typeof rawOverride === "string") ? rawOverride : sourceText.value;
@@ -499,12 +503,16 @@ async function doTranslate(rawOverride = null, isLive = false){
         meaningLang = (sl === "en" || tl === "en") ? "en" : sl;
       }
 
-      const scriptText  = extText(await gTransRaw(text, sl, scriptLang));
+      const scriptRaw   = extText(await gTransRaw(text, sl, scriptLang));
       const meaningText = extText(await gTransRaw(text, sl, meaningLang));
 
+      // For Chinese, normalize digits before display & pinyin
+      let scriptText = scriptRaw;
       let roman = "";
       const sLL = scriptLang.toLowerCase();
+
       if (sLL.startsWith("zh")){
+        scriptText = normalizeChineseNumbers(scriptRaw);
         if (window.pinyinPro){
           roman = window.pinyinPro.pinyin(scriptText, {toneType:"mark", type:"string"});
         }
@@ -521,25 +529,24 @@ async function doTranslate(rawOverride = null, isLive = false){
       }
 
       if (slEA && !tlEA){
-        /* You/Partner is speaking EA (e.g. Chinese), partner is non-EA.
-           LEFT: script + pinyin
-           RIGHT: meaning only (English).
+        /* EA → non-EA
+           LEFT: script + roman
+           RIGHT: meaning (e.g. English)
         */
         const leftDisplay = scriptText + (roman ? "\n" + roman : "");
         sourceText.value = leftDisplay;
         displayRight = meaningText;
         targetText.value = displayRight;
       } else if (!slEA && tlEA){
-        /* You/Partner is speaking non-EA, partner language is EA.
-           LEFT: raw text
-           RIGHT: script + roman + meaning.
+        /* non-EA → EA
+           LEFT: raw text (English, etc.)
+           RIGHT: script + roman ONLY (NO English meaning)
         */
         displayRight = scriptText;
         if (roman) displayRight += "\n" + roman;
-        displayRight += "\n" + meaningText;
         targetText.value = displayRight;
       } else {
-        /* both EA: just show all on right */
+        /* both EA: script + roman + meaning on right */
         displayRight = scriptText;
         if (roman) displayRight += "\n" + roman;
         displayRight += "\n" + meaningText;
@@ -547,7 +554,7 @@ async function doTranslate(rawOverride = null, isLive = false){
       }
 
     } else {
-      /* neither side is EA: simple translation */
+      /* neither side EA */
       const translated = extText(await gTransRaw(text, sl, tl));
       displayRight = translated;
       targetText.value = displayRight;
@@ -575,7 +582,7 @@ sourceText.addEventListener("input", () => {
   clearTimeout(typingDebounce);
   typingDebounce = setTimeout(() => {
     scrollToBottomAndFocus(sourceText);
-    doTranslate(); // uses current sourceText.value
+    doTranslate();
   }, 350);
 });
 
@@ -590,13 +597,33 @@ function autoRefresh(){
 sourceLangSel.addEventListener("change", autoRefresh);
 targetLangSel.addEventListener("change", autoRefresh);
 
-/* Transcript */
+/* --- Transcript (with pinyin/romaji de-duplication) --- */
 function appendToTranscript(sl, tl, src, out){
+  let cleanOut = out;
+
+  if (isEastAsian(sl) || isEastAsian(tl)) {
+    const srcLines = src.split("\n").map(l => l.trim()).filter(Boolean);
+    const outLines = out.split("\n").map(l => l.trim()).filter(Boolean);
+
+    if (srcLines.length >= 2 && outLines.length >= 2) {
+      const srcRoman = srcLines[srcLines.length - 1];
+      const outRoman = outLines[outLines.length - 1];
+
+      if (srcRoman && outRoman) {
+        const sNorm = srcRoman.replace(/\s+/g, "").toLowerCase();
+        const oNorm = outRoman.replace(/\s+/g, "").toLowerCase();
+        if (sNorm === oNorm) {
+          cleanOut = outLines.slice(0, outLines.length - 1).join("\n");
+        }
+      }
+    }
+  }
+
   const time = new Date().toLocaleTimeString([], {hour:"2-digit", minute:"2-digit", second:"2-digit"});
   transcriptEntries.push(
 `[${time}] (${sl} → ${tl})
 Source     : ${src}
-Translation: ${out}`
+Translation: ${cleanOut}`
   );
   conversationBox.textContent = transcriptEntries.join("\n\n");
   conversationBox.scrollTop = conversationBox.scrollHeight;
@@ -615,7 +642,7 @@ btnSaveTrans.onclick = () => {
   const a    = document.createElement("a");
 
   const d = new Date();
-  const fn = `transcript_${d.getFullYear()}${String(d.getMonth()+1).padStart(2,"0")}${String(d.getDate()).padStart(2,"0")}_${String(d.getHours()).padStart(2,"0")}${String(d.getMinutes()).padStart(2,"0")}${String(d.getSeconds()).padStart(2,"0")}.txt`;
+  const fn = `transcript_${d.getFullYear()}${String(d.getMonth()+1).padStart(2,"0")}${String(d.getDate()).padStart(2,"0")}_${String(d.getHours())}${String(d.getMinutes()).padStart(2,"0")}${String(d.getSeconds()).padStart(2,"0")}.txt`;
 
   a.href = url;
   a.download = fn;
