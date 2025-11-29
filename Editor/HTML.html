@@ -2,191 +2,744 @@
 <html>
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Local GitHub – Mini Version Control</title>
+<title>Local GitHub – Code & Commits</title>
+
+<!-- CodeMirror (syntax highlighting) -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/material-darker.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/javascript/javascript.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/css/css.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/xml/xml.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/htmlmixed/htmlmixed.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/python/python.min.js"></script>
+
+<!-- JSZip for exporting project as ZIP -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+
+<!-- js-beautify for auto-formatting HTML/CSS/JS -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/js-beautify/1.14.11/beautify.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/js-beautify/1.14.11/beautify-css.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/js-beautify/1.14.11/beautify-html.min.js"></script>
+
 <style>
-body { font-family: Arial; margin: 0; }
+:root {
+    --bg: #0d1117;
+    --bg-soft: #161b22;
+    --border: #30363d;
+    --fg: #c9d1d9;
+    --muted: #8b949e;
+    --accent: #238636;
+    --accent-hover: #2ea043;
+    --danger: #f85149;
+}
+
+/* Light theme overrides */
+:root[data-theme="light"] {
+    --bg: #f5f5f5;
+    --bg-soft: #ffffff;
+    --border: #d0d7de;
+    --fg: #24292f;
+    --muted: #57606a;
+    --accent: #238636;
+    --accent-hover: #2ea043;
+    --danger: #d1242f;
+}
+
+* { box-sizing: border-box; }
+
+body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
 #topbar {
-    background: #24292e;
-    color: white;
-    padding: 12px;
+    background: #010409;
+    border-bottom: 1px solid var(--border);
+    padding: 10px 12px;
     display: flex;
     justify-content: space-between;
+    align-items: center;
 }
-#container { display: flex; height: 100vh; }
-#sidebar {
-    width: 220px;
+:root[data-theme="light"] #topbar {
+    background: #ffffff;
+}
+
+#topbar-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+#app-title {
+    font-weight: 600;
+}
+
+.badge {
+    font-size: 11px;
+    padding: 2px 6px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    color: var(--muted);
+}
+
+.small-label {
+    font-size: 11px;
+    color: var(--muted);
+}
+
+button {
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    background: #21262d;
+    color: var(--fg);
+    padding: 6px 10px;
+    font-size: 13px;
+    cursor: pointer;
+}
+button:hover {
+    background: #30363d;
+}
+:root[data-theme="light"] button {
     background: #f6f8fa;
-    border-right: 1px solid #ccc;
-    overflow-y: auto;
-    padding: 10px;
 }
+:root[data-theme="light"] button:hover {
+    background: #e9eef2;
+}
+button.primary {
+    background: var(--accent);
+    border-color: var(--accent-hover);
+}
+button.primary:hover {
+    background: var(--accent-hover);
+}
+button.danger {
+    background: transparent;
+    border-color: var(--danger);
+    color: var(--danger);
+}
+button.full {
+    width: 100%;
+}
+
+#container {
+    display: flex;
+    height: calc(100vh - 48px);
+}
+
+/* Sidebar */
+#sidebar {
+    width: 230px;
+    background: #0d1117;
+    border-right: 1px solid var(--border);
+    padding: 10px;
+    overflow-y: auto;
+}
+:root[data-theme="light"] #sidebar {
+    background: #f6f8fa;
+}
+
+#fileList div {
+    padding: 6px 8px;
+    font-size: 13px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+#fileList div:hover {
+    background: #21262d;
+}
+:root[data-theme="light"] #fileList div:hover {
+    background: #e9eef2;
+}
+#fileList div.active {
+    background: #1f6feb33;
+    border: 1px solid #1f6feb;
+}
+
+/* Editor */
 #editor {
     flex: 1;
     display: flex;
     flex-direction: column;
+    background: var(--bg-soft);
+    border-right: 1px solid var(--border);
 }
-textarea {
+
+#currentFileBar {
+    padding: 6px 10px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 13px;
+}
+
+#currentFileName {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    font-size: 12px;
+}
+
+#editorBox {
     flex: 1;
     width: 100%;
-    border: none;
-    outline: none;
-    padding: 12px;
-    font-family: monospace;
-    font-size: 14px;
+    height: 100%;
 }
-button { margin: 5px 0; width: 100%; }
+
+/* CodeMirror fills editor area */
+.CodeMirror {
+    height: 100%;
+    font-size: 13px;
+}
+
+/* Commits pane */
 #commitsPane {
-    background: white;
-    border-left: 1px solid #ccc;
-    width: 250px;
+    width: 280px;
+    background: #0d1117;
+    border-left: 1px solid var(--border);
+    padding: 10px;
     overflow-y: auto;
 }
-.commit-item {
-    padding: 10px;
-    border-bottom: 1px solid #eee;
+:root[data-theme="light"] #commitsPane {
+    background: #f6f8fa;
 }
-.commit-item:hover { background: #f0f0f0; cursor: pointer; }
+
+.commit-item {
+    padding: 8px;
+    border-radius: 4px;
+    border: 1px solid transparent;
+    margin-bottom: 6px;
+    font-size: 12px;
+}
+.commit-item:hover {
+    border-color: var(--border);
+    background: #161b22;
+    cursor: pointer;
+}
+:root[data-theme="light"] .commit-item:hover {
+    background: #e9eef2;
+}
+.commit-msg {
+    font-weight: 500;
+}
+.commit-meta {
+    color: var(--muted);
+    font-size: 11px;
+}
+
+#commitDetail {
+    margin-top: 10px;
+    border-top: 1px solid var(--border);
+    padding-top: 8px;
+}
+.diff-container {
+    display: flex;
+    gap: 6px;
+}
+.diff-block {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+.diff-block label {
+    font-size: 11px;
+    color: var(--muted);
+    margin-bottom: 4px;
+}
+.diff-block textarea {
+    width: 100%;
+    height: 120px;
+    font-size: 11px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    background: var(--bg-soft);
+    color: var(--fg);
+    resize: vertical;
+}
+
+/* Responsive */
+@media (max-width: 900px) {
+    #container { flex-direction: column; height: auto; }
+    #sidebar, #commitsPane {
+        width: 100%;
+        height: 160px;
+        border-right: none;
+        border-left: none;
+        border-bottom: 1px solid var(--border);
+    }
+    #editor {
+        height: calc(100vh - 48px - 160px - 160px);
+    }
+}
 </style>
 </head>
-
 <body>
 
 <div id="topbar">
-    <div>📁 Local GitHub</div>
-    <button onclick="pickFolder()">Choose Folder</button>
+    <div id="topbar-left">
+        <span id="app-title">📁 Local GitHub</span>
+        <span class="badge">Browser-only repo</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;">
+        <span class="small-label">Files & commits stay in this browser.</span>
+        <button id="themeToggle" onclick="toggleTheme()">🌙</button>
+    </div>
 </div>
 
 <div id="container">
+    <!-- Sidebar: Files -->
     <div id="sidebar">
-        <button onclick="createFile()">➕ New File</button>
-        <h4>Files</h4>
+        <button class="full primary" onclick="createFile()">➕ New File</button>
+        <button class="full" style="margin-top:6px;" onclick="exportZip()">📦 Export as ZIP</button>
+        <div style="margin-top:10px;" class="small-label">FILES</div>
         <div id="fileList"></div>
     </div>
 
+    <!-- Editor -->
     <div id="editor">
-        <h3 id="currentFileName"></h3>
-        <textarea id="editorBox" oninput="autoSaveDraft()"></textarea>
-        <button onclick="saveAndCommit()">💾 Save & Commit</button>
+        <div id="currentFileBar">
+            <div>
+                <div class="small-label">CURRENT FILE</div>
+                <div id="currentFileName">(none)</div>
+            </div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;">
+                <button onclick="renameFile()">✏️ Rename</button>
+                <button class="danger" onclick="deleteFile()">🗑 Delete</button>
+                <button onclick="autoFormat()">✨ Format</button>
+                <button onclick="openInBrowser()">🌐 Open</button>
+                <button onclick="downloadFile()">⬇️ Download</button>
+                <button class="primary" onclick="saveAndCommit()">💾 Commit</button>
+            </div>
+        </div>
+
+        <textarea id="editorBox"></textarea>
     </div>
 
+    <!-- Commits -->
     <div id="commitsPane">
-        <h3>Commits</h3>
-        <div id="commitList"></div>
+        <div class="small-label">COMMITS</div>
+        <div id="commitList" style="margin-top:6px;"></div>
+        <div id="commitDetail"></div>
     </div>
 </div>
 
 <script>
-// --- GLOBAL ---
-let folderHandle = null;
-let currentFileHandle = null;
-let currentFilePath = "";
+const FILES_KEY = "vc_files";
+const COMMITS_KEY = "vc_commits";
 
-// ---------- PICK FOLDER ----------
-async function pickFolder() {
-    folderHandle = await window.showDirectoryPicker();
-    loadFiles();
+let currentFileName = null;
+let cmEditor = null;
+
+// ----- Storage helpers -----
+function getFilesMap() {
+    return JSON.parse(localStorage.getItem(FILES_KEY) || "{}");
+}
+function setFilesMap(obj) {
+    localStorage.setItem(FILES_KEY, JSON.stringify(obj));
+}
+function getCommitsMap() {
+    return JSON.parse(localStorage.getItem(COMMITS_KEY) || "{}");
+}
+function setCommitsMap(obj) {
+    localStorage.setItem(COMMITS_KEY, JSON.stringify(obj));
 }
 
-// ---------- LOAD FILE TREE ----------
-async function loadFiles() {
-    const fileList = document.getElementById("fileList");
-    fileList.innerHTML = "";
-
-    for await (const entry of folderHandle.values()) {
-        if (entry.kind === "file") {
-            let div = document.createElement("div");
-            div.textContent = entry.name;
-            div.style.padding = "6px";
-            div.onclick = () => openFile(entry);
-            fileList.appendChild(div);
-        }
+// ----- Theme toggle -----
+function applyTheme() {
+    const theme = document.documentElement.dataset.theme || "dark";
+    const toggleBtn = document.getElementById("themeToggle");
+    if (theme === "light") {
+        toggleBtn.textContent = "🌙";
+        if (cmEditor) cmEditor.setOption("theme", "default");
+    } else {
+        toggleBtn.textContent = "☀️";
+        if (cmEditor) cmEditor.setOption("theme", "material-darker");
     }
 }
+function toggleTheme() {
+    const current = document.documentElement.dataset.theme;
+    const next = current === "light" ? "dark" : "light";
+    document.documentElement.dataset.theme = next;
+    localStorage.setItem("vc_theme", next);
+    applyTheme();
+}
 
-// ---------- CREATE FILE ----------
-async function createFile() {
-    const name = prompt("Filename (e.g. test.py)");
+// ----- CodeMirror setup -----
+function setupEditor() {
+    const textarea = document.getElementById("editorBox");
+    cmEditor = CodeMirror.fromTextArea(textarea, {
+        lineNumbers: true,
+        mode: "text/plain",
+        theme: "material-darker"
+    });
+    cmEditor.on("change", function() {
+        autoSaveDraft();
+    });
+}
+
+// choose mode based on extension
+function setEditorModeByFilename(name) {
+    if (!cmEditor) return;
+    let mode = "text/plain";
+    if (name.endsWith(".html") || name.endsWith(".htm")) mode = "htmlmixed";
+    else if (name.endsWith(".js")) mode = "javascript";
+    else if (name.endsWith(".css")) mode = "css";
+    else if (name.endsWith(".py")) mode = "python";
+    else if (name.endsWith(".json")) mode = "javascript";
+    cmEditor.setOption("mode", mode);
+}
+
+// ----- Files list -----
+function loadFilesList() {
+    const container = document.getElementById("fileList");
+    container.innerHTML = "";
+    const files = getFilesMap();
+    const names = Object.keys(files).sort();
+
+    if (names.length === 0) {
+        const empty = document.createElement("div");
+        empty.textContent = "No files yet.";
+        empty.style.color = "#6e7681";
+        empty.style.fontSize = "12px";
+        container.appendChild(empty);
+        return;
+    }
+
+    names.forEach(name => {
+        const div = document.createElement("div");
+        div.textContent = name;
+        if (name === currentFileName) div.classList.add("active");
+        div.onclick = () => openFile(name);
+        container.appendChild(div);
+    });
+}
+
+// ----- Create file -----
+function createFile() {
+    const name = prompt("New filename (e.g. index.html, main.py):");
     if (!name) return;
 
-    const newFile = await folderHandle.getFileHandle(name, { create: true });
-    await writeFile(newFile, "");  // blank file
-    loadFiles();
+    const files = getFilesMap();
+    if (files[name] !== undefined) {
+        alert("A file with that name already exists.");
+        return;
+    }
+    files[name] = "";
+    setFilesMap(files);
+
+    const commits = getCommitsMap();
+    commits[name] = [];
+    setCommitsMap(commits);
+
+    openFile(name);
+    loadFilesList();
 }
 
-// ---------- OPEN FILE ----------
-async function openFile(fileHandle) {
-    currentFileHandle = fileHandle;
-    currentFilePath = fileHandle.name;
+// ----- Rename file -----
+function renameFile() {
+    if (!currentFileName) {
+        alert("No file selected.");
+        return;
+    }
+    const newName = prompt("Rename file to:", currentFileName);
+    if (!newName || newName === currentFileName) return;
 
-    const file = await fileHandle.getFile();
-    const text = await file.text();
+    const files = getFilesMap();
+    if (files[newName] !== undefined) {
+        alert("A file with that name already exists.");
+        return;
+    }
 
-    document.getElementById("editorBox").value = text;
-    document.getElementById("currentFileName").textContent = currentFilePath;
+    // move file content
+    files[newName] = files[currentFileName];
+    delete files[currentFileName];
+    setFilesMap(files);
 
-    loadCommits(currentFilePath);
+    // move commits
+    const commits = getCommitsMap();
+    if (commits[currentFileName]) {
+        commits[newName] = commits[currentFileName];
+        delete commits[currentFileName];
+    }
+    setCommitsMap(commits);
+
+    currentFileName = newName;
+    document.getElementById("currentFileName").textContent = currentFileName;
+    setEditorModeByFilename(currentFileName);
+    loadFilesList();
+    loadCommits(currentFileName);
 }
 
-// ---------- SAVE TO DISK ----------
-async function writeFile(fileHandle, content) {
-    const writable = await fileHandle.createWritable();
-    await writable.write(content);
-    await writable.close();
+// ----- Delete file -----
+function deleteFile() {
+    if (!currentFileName) {
+        alert("No file selected.");
+        return;
+    }
+    if (!confirm("Delete file '" + currentFileName + "' and its commits?")) return;
+
+    const files = getFilesMap();
+    delete files[currentFileName];
+    setFilesMap(files);
+
+    const commits = getCommitsMap();
+    delete commits[currentFileName];
+    setCommitsMap(commits);
+
+    currentFileName = null;
+    document.getElementById("currentFileName").textContent = "(none)";
+    if (cmEditor) cmEditor.setValue("");
+    document.getElementById("commitList").innerHTML = "";
+    document.getElementById("commitDetail").innerHTML = "";
+
+    loadFilesList();
 }
 
-// ---------- SAVE + COMMIT ----------
-async function saveAndCommit() {
-    if (!currentFileHandle) return;
+// ----- Open file -----
+function openFile(name) {
+    currentFileName = name;
+    document.getElementById("currentFileName").textContent = name;
 
-    const content = document.getElementById("editorBox").value;
+    const files = getFilesMap();
+    const content = files[name] ?? "";
 
-    await writeFile(currentFileHandle, content);
+    if (cmEditor) {
+        cmEditor.setValue(content);
+        setEditorModeByFilename(name);
+    }
 
-    const msg = prompt("Commit message:");
-    saveCommit(currentFilePath, msg, content);
-
-    loadCommits(currentFilePath);
-    alert("Saved & committed!");
+    loadFilesList();
+    loadCommits(name);
+    document.getElementById("commitDetail").innerHTML = "";
 }
 
-// ---------- COMMIT STORAGE (IndexedDB-ish using localStorage) ----------
-function saveCommit(fileId, message, content) {
-    let commits = JSON.parse(localStorage.getItem("commits") || "{}");
-    if (!commits[fileId]) commits[fileId] = [];
+// ----- Auto-save draft -----
+function autoSaveDraft() {
+    if (!currentFileName || !cmEditor) return;
+    const files = getFilesMap();
+    files[currentFileName] = cmEditor.getValue();
+    setFilesMap(files);
+}
 
-    commits[fileId].push({
+// ----- Save & Commit -----
+function saveAndCommit() {
+    if (!currentFileName || !cmEditor) {
+        alert("No file open.");
+        return;
+    }
+
+    const content = cmEditor.getValue();
+    const msg = prompt("Commit message:", "Update " + currentFileName);
+    if (msg === null) return; // cancelled
+
+    // save content
+    const files = getFilesMap();
+    files[currentFileName] = content;
+    setFilesMap(files);
+
+    // add commit
+    const commits = getCommitsMap();
+    if (!commits[currentFileName]) commits[currentFileName] = [];
+    commits[currentFileName].push({
         id: Date.now(),
-        message: message || "Update",
+        message: msg || "Update",
         content: content,
         date: new Date().toLocaleString()
     });
+    setCommitsMap(commits);
 
-    localStorage.setItem("commits", JSON.stringify(commits));
+    loadCommits(currentFileName);
+    alert("Saved & committed!");
 }
 
-// ---------- LOAD COMMITS ----------
-function loadCommits(fileId) {
-    const commitList = document.getElementById("commitList");
-    commitList.innerHTML = "";
+// ----- Commits -----
+function loadCommits(fileName) {
+    const listDiv = document.getElementById("commitList");
+    listDiv.innerHTML = "";
+    const commitsMap = getCommitsMap();
+    const list = commitsMap[fileName] || [];
 
-    const commits = JSON.parse(localStorage.getItem("commits") || "{}")[fileId] || [];
+    if (list.length === 0) {
+        listDiv.innerHTML = "<div style='color:#6e7681;font-size:12px;'>No commits yet.</div>";
+        return;
+    }
 
-    commits.forEach(c => {
-        const div = document.createElement("div");
-        div.className = "commit-item";
-        div.innerHTML = `<strong>${c.message}</strong><br>${c.date}`;
-        div.onclick = () => showCommitOptions(fileId, c);
-        commitList.appendChild(div);
+    list.slice().reverse().forEach(commit => {
+        const item = document.createElement("div");
+        item.className = "commit-item";
+        item.innerHTML = `
+            <div class="commit-msg">${commit.message}</div>
+            <div class="commit-meta">${commit.date}</div>
+        `;
+        item.onclick = () => showCommitDetail(fileName, commit);
+        listDiv.appendChild(item);
     });
 }
 
-// ---------- COMMIT OPTIONS ----------
-function showCommitOptions(fileId, commit) {
-    if (confirm("Rollback to this version?")) {
-        document.getElementById("editorBox").value = commit.content;
+// Show diff + rollback button
+function showCommitDetail(fileName, commit) {
+    const detailDiv = document.getElementById("commitDetail");
+    const files = getFilesMap();
+    const currentContent = files[fileName] ?? "";
+
+    detailDiv.innerHTML = `
+        <div class="small-label" style="margin-bottom:4px;">
+            Commit: ${commit.message} • ${commit.date}
+        </div>
+        <div class="diff-container">
+            <div class="diff-block">
+                <label>Commit version</label>
+                <textarea readonly>${commit.content}</textarea>
+            </div>
+            <div class="diff-block">
+                <label>Current file</label>
+                <textarea readonly>${currentContent}</textarea>
+            </div>
+        </div>
+        <div style="margin-top:6px;display:flex;gap:6px;justify-content:flex-end;">
+            <button onclick="rollbackCommit('${fileName.replace(/'/g, "\\'")}', ${commit.id})">⏪ Rollback to this</button>
+        </div>
+    `;
+}
+
+// ----- Rollback to commit -----
+function rollbackCommit(fileName, commitId) {
+    const commitsMap = getCommitsMap();
+    const list = commitsMap[fileName] || [];
+    const commit = list.find(c => c.id === commitId);
+    if (!commit) {
+        alert("Commit not found.");
+        return;
+    }
+    if (!confirm("Rollback '" + fileName + "' to this commit?")) return;
+
+    // update file content
+    const files = getFilesMap();
+    files[fileName] = commit.content;
+    setFilesMap(files);
+
+    if (currentFileName === fileName && cmEditor) {
+        cmEditor.setValue(commit.content);
+    }
+    alert("Rolled back to selected commit.");
+}
+
+// ----- Download file -----
+function downloadFile() {
+    if (!currentFileName || !cmEditor) {
+        alert("No file to download.");
+        return;
+    }
+    const content = cmEditor.getValue();
+    const blob = new Blob([content], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = currentFileName;
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
+// ----- Open in browser -----
+function openInBrowser() {
+    if (!currentFileName || !cmEditor) {
+        alert("Open a file first.");
+        return;
+    }
+    const content = cmEditor.getValue();
+    const isHtml = currentFileName.endsWith(".html") || currentFileName.endsWith(".htm");
+    const type = isHtml ? "text/html" : "text/plain";
+    const blob = new Blob([content], { type });
+    const url = URL.createObjectURL(blob);
+    window.open(url, "_blank");
+}
+
+// ----- Auto-format -----
+function autoFormat() {
+    if (!currentFileName || !cmEditor) {
+        alert("Open a file first.");
+        return;
+    }
+    const name = currentFileName.toLowerCase();
+    let content = cmEditor.getValue();
+    let formatted = content;
+
+    try {
+        if (name.endsWith(".html") || name.endsWith(".htm")) {
+            formatted = window.html_beautify(content, { indent_size: 2 });
+        } else if (name.endsWith(".css")) {
+            formatted = window.css_beautify(content, { indent_size: 2 });
+        } else if (name.endsWith(".js") || name.endsWith(".json")) {
+            formatted = window.js_beautify(content, { indent_size: 2 });
+        } else if (name.endsWith(".py")) {
+            // very naive Python formatter: trim lines and apply basic indent on ":" blocks
+            formatted = basicPythonFormat(content);
+        } else {
+            alert("Auto-format not configured for this file type.");
+            return;
+        }
+        cmEditor.setValue(formatted);
+        autoSaveDraft();
+    } catch (e) {
+        console.error(e);
+        alert("Error while formatting code.");
     }
 }
-</script>
 
+// very simple Python formatting (not a real formatter)
+function basicPythonFormat(code) {
+    const lines = code.split("\n");
+    let indent = 0;
+    const INDENT = "    ";
+    const result = [];
+
+    lines.forEach(rawLine => {
+        let line = rawLine.trim();
+        if (line === "") {
+            result.push("");
+            return;
+        }
+        // dedent if line starts with certain keywords
+        if (/^(return|pass|break|continue|elif |else:|except |finally:)/.test(line) && indent > 0) {
+            indent -= 1;
+        }
+        result.push(INDENT.repeat(indent) + line);
+        if (line.endsWith(":") && !line.startsWith("#")) {
+            indent += 1;
+        }
+    });
+    return result.join("\n");
+}
+
+// ----- Export project as ZIP -----
+function exportZip() {
+    const files = getFilesMap();
+    const names = Object.keys(files);
+    if (names.length === 0) {
+        alert("No files to export.");
+        return;
+    }
+    const zip = new JSZip();
+    names.forEach(name => {
+        zip.file(name, files[name]);
+    });
+    zip.generateAsync({ type: "blob" }).then(blob => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "project.zip";
+        a.click();
+        URL.revokeObjectURL(url);
+    });
+}
+
+// ----- Init -----
+setupEditor();
+document.documentElement.dataset.theme = localStorage.getItem("vc_theme") || "dark";
+applyTheme();
+loadFilesList();
+</script>
 </body>
 </html>
